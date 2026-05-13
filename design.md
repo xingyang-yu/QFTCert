@@ -1,12 +1,14 @@
 # QFTCert / DualityCert-0 Design
 
 DualityCert-0 is a deliberately small verifier/certificate prototype for
-SQCD-like Seiberg duality claims in 4d N=1 supersymmetric gauge theory.
+SQCD-like Seiberg-duality-style claims in 4d N=1 supersymmetric gauge theory.
+It is the first prototype inside QFTCert, an auditable AI-assisted reasoning
+infrastructure project for theoretical physics.
 
-The system does not prove dualities. It takes a typed physics claim, generates
-a fixed set of consistency obligations, runs implemented exact checkers, and
-emits a structured certificate describing what passed, what failed, and what
-remains unimplemented.
+The system does not prove dualities. It takes a typed or machine-readable
+physics claim, generates a fixed set of consistency obligations, runs
+implemented exact checkers, and emits a structured certificate describing what
+passed, what failed, and what remains unimplemented.
 
 ## Project Goal
 
@@ -20,6 +22,13 @@ standard electric/magnetic SQCD pair and answer:
 The intended output is not a bare `true` or `false`, but a certificate with
 per-obligation status, convention assumptions, diagnostic tables, warnings,
 and explicit `NOT_IMPLEMENTED` entries.
+
+The intended AI workflow is:
+
+```text
+LLM proposes claim -> QFTCert checks obligations -> certificate/critic report
+-> repaired claim
+```
 
 ## Non-Goals
 
@@ -63,8 +72,16 @@ The status labels are deliberately conservative.
 - `PROVED`: included only as a reserved enum value; this prototype should not
   use it for duality claims.
 
-In this project, `CERTIFIED` always means "the implemented checks passed",
-not "the duality is proven."
+In this project, `CERTIFIED` is a legacy internal enum. Outward-facing output
+uses safer labels:
+
+- `PASSED_IMPLEMENTED_OBLIGATIONS`
+- `FAILED_IMPLEMENTED_OBLIGATIONS`
+- `PARTIAL_WITH_NOT_IMPLEMENTED_OBLIGATIONS`
+- `NO_IMPLEMENTED_OBLIGATIONS`
+
+These labels mean exactly what they say about implemented checks; none of them
+means "the duality is proven."
 
 ## Core Objects
 
@@ -214,23 +231,43 @@ The implemented table includes:
 Only global symmetries are compared. Gauge symmetries are used to count
 fermion multiplicities and gaugino contributions.
 
+## Machine-Readable Claims
+
+The first machine-readable input format is JSON, not YAML, to avoid dependency
+churn. It is intentionally SQCD-builder-level rather than a universal QFT
+schema. A minimal claim contains:
+
+- `name`;
+- `claim_type: seiberg_sqcd`;
+- `parameters.Nc`;
+- `parameters.Nf`;
+- optional `magnetic.rank`;
+- optional `magnetic.include_meson`;
+- optional R-charge or U(1)_B overrides for failure examples;
+- optional `superpotential.terms`.
+
+The loader adapts this input to the existing SQCD builder and check pipeline.
+
 ## Certificate Output
 
-The current certificate records:
+The current certificate records human-readable text and JSON-serializable
+structured output:
 
 - `claim_name`;
-- top-level status;
+- outward-facing top-level status;
+- legacy internal enum status;
+- claim type and parameters when available;
 - passed obligations;
 - failed obligations;
 - not-implemented obligations;
 - warnings;
 - assumptions;
+- conventions;
 - limitations;
 - detailed tables from checkers.
 
-Readable text output emphasizes that `CERTIFIED` means only that implemented
-exact checks passed. The Python object is structured so JSON export can be
-added without changing the conceptual model.
+Readable text output emphasizes that the certificate is not a proof. JSON
+output is intended for downstream AI tools, critic reports, and repair loops.
 
 ## Failure Examples Covered by Tests
 
@@ -241,6 +278,9 @@ The test suite includes intentionally broken claims:
 - missing meson, causing a clear failed superpotential obligation;
 - vector-like SQCD electric matter, verifying local gauge anomaly
   cancellation.
+- JSON certificate stability for downstream AI tools;
+- claim-file loading for a correct and a broken SQCD-like claim;
+- CLI JSON mode for a correct and a broken claim.
 
 ## Limitations
 
@@ -270,7 +310,7 @@ Natural next steps:
 - add a minimal operator-map checker for Q Qtilde <-> M quantum numbers;
 - add baryon operator charge checks in the current baryon normalization;
 - add a gauge-gauge-U(1)_R non-anomaly checker as its own obligation;
-- export certificates as JSON;
+- add richer critic/repair reports derived from JSON certificates;
 - improve edge-case diagnostics for SU(2), Nf = Nc + 1, and low magnetic
   rank;
 - add richer repair hints for common failed SQCD-like claims.

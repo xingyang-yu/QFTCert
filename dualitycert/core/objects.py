@@ -256,6 +256,7 @@ class DualityClaim:
     magnetic_theory: Theory
     symmetry_map: SymmetryMap = field(default_factory=SymmetryMap)
     operator_map: Mapping[str, str] = field(default_factory=dict)
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

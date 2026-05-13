@@ -29,21 +29,25 @@ def generate_obligations(claim: DualityClaim) -> tuple[Obligation, ...]:
             name="electric gauge anomaly cancellation",
             description="The electric SU(N) gauge cubic anomaly must cancel.",
             checker=lambda: gauge_anomaly_cancellation(electric),
+            checker_name="gauge_anomaly_cancellation",
         ),
         Obligation(
             name="magnetic gauge anomaly cancellation",
             description="The magnetic SU(N) gauge cubic anomaly must cancel.",
             checker=lambda: gauge_anomaly_cancellation(magnetic),
+            checker_name="gauge_anomaly_cancellation",
         ),
         Obligation(
             name="electric superpotential consistency",
             description="The electric superpotential must be invariant and have R-charge 2.",
             checker=lambda: superpotential_consistency(electric),
+            checker_name="superpotential_consistency",
         ),
         Obligation(
             name="magnetic superpotential consistency",
             description="The magnetic superpotential must be invariant and have R-charge 2.",
             checker=lambda: superpotential_consistency(magnetic),
+            checker_name="superpotential_consistency",
         ),
         Obligation(
             name="global anomaly matching",
@@ -53,6 +57,7 @@ def generate_obligations(claim: DualityClaim) -> tuple[Obligation, ...]:
                 magnetic,
                 claim.symmetry_map,
             ),
+            checker_name="compare_anomaly_tables",
         ),
         Obligation(
             name="operator map consistency",
@@ -73,7 +78,12 @@ def evaluate_claim(claim: DualityClaim) -> Certificate:
     """Run generated obligations and assemble a certificate."""
 
     results = [obligation.run() for obligation in generate_obligations(claim)]
-    return Certificate.from_results(claim.name, results)
+    return Certificate.from_results(
+        claim.name,
+        results,
+        claim_type=claim.metadata.get("claim_type"),
+        parameters=claim.metadata.get("parameters", {}),
+    )
 
 
 def build_seiberg_sqcd_claim(
@@ -85,6 +95,8 @@ def build_seiberg_sqcd_claim(
     include_magnetic_superpotential: bool = True,
     magnetic_meson_r_charge: Fraction | int | str | None = None,
     magnetic_quark_r_charge: Fraction | int | str | None = None,
+    magnetic_q_b_charge: Fraction | int | str | None = None,
+    magnetic_qtilde_b_charge: Fraction | int | str | None = None,
     claim_name: str | None = None,
 ) -> DualityClaim:
     """Build the standard SQCD-like Seiberg duality example.
@@ -124,6 +136,12 @@ def build_seiberg_sqcd_claim(
         if magnetic_meson_r_charge is None
         else Fraction(magnetic_meson_r_charge)
     )
+    q_b = Fraction(1, Nm) if magnetic_q_b_charge is None else Fraction(magnetic_q_b_charge)
+    qtilde_b = (
+        Fraction(-1, Nm)
+        if magnetic_qtilde_b_charge is None
+        else Fraction(magnetic_qtilde_b_charge)
+    )
 
     electric = Theory(
         name=f"Electric SQCD SU({Nc}) with Nf={Nf}",
@@ -156,7 +174,7 @@ def build_seiberg_sqcd_claim(
             field_type="chiral multiplet",
             gauge_rep=fundamental(),
             global_reps={su_l_label: antifundamental()},
-            u1_charges={baryon_label: Fraction(1, Nm)},
+            u1_charges={baryon_label: q_b},
             r_charge=rq_magnetic,
         ),
         Field(
@@ -164,7 +182,7 @@ def build_seiberg_sqcd_claim(
             field_type="chiral multiplet",
             gauge_rep=antifundamental(),
             global_reps={su_r_label: fundamental()},
-            u1_charges={baryon_label: Fraction(-1, Nm)},
+            u1_charges={baryon_label: qtilde_b},
             r_charge=rq_magnetic,
         ),
     ]
@@ -214,4 +232,15 @@ def build_seiberg_sqcd_claim(
             }
         ),
         operator_map={"Q Qtilde": "M"},
+        metadata={
+            "claim_type": "seiberg_sqcd",
+            "parameters": {
+                "Nc": Nc,
+                "Nf": Nf,
+                "magnetic_rank": Nm,
+                "expected_magnetic_rank": Nf - Nc,
+                "include_meson": include_meson,
+                "include_magnetic_superpotential": include_magnetic_superpotential,
+            },
+        },
     )

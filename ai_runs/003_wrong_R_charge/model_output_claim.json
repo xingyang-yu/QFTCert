@@ -1,0 +1,16 @@
+{
+  "name": "ai_wrong_R_charge",
+  "claim_type": "seiberg_sqcd",
+  "parameters": {
+    "Nc": 3,
+    "Nf": 5
+  },
+  "magnetic": {
+    "rank": 2,
+    "include_meson": true,
+    "meson_R_override": "1"
+  },
+  "superpotential": {
+    "terms": [["M", "q", "qtilde"]]
+  }
+}
