@@ -1,0 +1,15 @@
+{
+  "name": "ai_missing_meson",
+  "claim_type": "seiberg_sqcd",
+  "parameters": {
+    "Nc": 3,
+    "Nf": 5
+  },
+  "magnetic": {
+    "rank": 2,
+    "include_meson": false
+  },
+  "superpotential": {
+    "terms": [["M", "q", "qtilde"]]
+  }
+}

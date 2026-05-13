@@ -10,6 +10,7 @@ from dualitycert.qft.dualities import (
     evaluate_claim,
     generate_obligations,
 )
+from dualitycert.qft.claims import build_claim_from_data, load_claim_file
 from dualitycert.qft.susy import (
     superpotential_R_charge_equals_2,
     superpotential_consistency,
@@ -18,11 +19,13 @@ from dualitycert.qft.susy import (
 
 __all__ = [
     "build_seiberg_sqcd_claim",
+    "build_claim_from_data",
     "compare_anomaly_tables",
     "evaluate_claim",
     "gauge_anomaly_cancellation",
     "generate_obligations",
     "global_tHooft_anomaly_table",
+    "load_claim_file",
     "superpotential_R_charge_equals_2",
     "superpotential_consistency",
     "superpotential_invariance",
