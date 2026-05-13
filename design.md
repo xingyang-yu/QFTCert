@@ -1,79 +1,153 @@
-# dualitycert design notes
+# QFTCert / DualityCert-0 Design
 
-`dualitycert` is a consistency-certification prototype for theoretical
-physics reasoning. It is not a theorem prover, and it does not prove
-physical dualities. A certificate reports that the implemented exact checks
-passed under explicitly stated assumptions and conventions.
+DualityCert-0 is a deliberately small verifier/certificate prototype for
+SQCD-like Seiberg duality claims in 4d N=1 supersymmetric gauge theory.
 
-The first target, DualityCert-0, supports SQCD-like 4d N=1 Seiberg duality
-claims:
+The system does not prove dualities. It takes a typed physics claim, generates
+a fixed set of consistency obligations, runs implemented exact checkers, and
+emits a structured certificate describing what passed, what failed, and what
+remains unimplemented.
 
-- electric theory: SU(Nc) SQCD with Nf flavors Q and Qtilde;
-- magnetic theory: SU(Nf - Nc) SQCD-like theory with q, qtilde, meson M;
-- global symmetry labels: SU(Nf)_L, SU(Nf)_R, U(1)_B, U(1)_R;
-- superpotential on the magnetic side: W = M q qtilde.
+## Project Goal
 
-## Status semantics
+The first milestone is a runnable Python package that can construct the
+standard electric/magnetic SQCD pair and answer:
+
+> Given electric SU(Nc) SQCD with Nf flavors and a proposed magnetic
+> SU(Nf - Nc) dual with q, qtilde, M, and W = M q qtilde, which
+> machine-checkable consistency obligations are satisfied?
+
+The intended output is not a bare `true` or `false`, but a certificate with
+per-obligation status, convention assumptions, diagnostic tables, warnings,
+and explicit `NOT_IMPLEMENTED` entries.
+
+## Non-Goals
+
+DualityCert-0 will not:
+
+- prove Seiberg duality as a theorem;
+- formalize path integrals, RG flows, conformal dynamics, or full IR
+  equivalence;
+- parse arbitrary natural-language physics claims;
+- support arbitrary gauge groups, matter content, generalized symmetries,
+  defects, or line operators;
+- compute exact superconformal indices;
+- train models or benchmark LLM physics reasoning.
+
+The first prototype is a verifier-rich environment, not a model-training
+project.
+
+## Why Certificates, Not Proofs
+
+A theorem prover asks for axioms, definitions, and proof terms. Theoretical
+physics often works differently: it constrains, matches, deforms, checks
+limits, and triangulates. QFTCert therefore treats a physical claim as a
+source of obligations, not as a proposition that the prototype can fully
+prove.
+
+Some obligations are exact and symbolic, such as gauge anomaly cancellation
+or superpotential charge invariance. Others are future checks, such as index
+matching or deformation consistency. The honest unit of output is therefore a
+consistency certificate, not a mathematical proof.
+
+## Status Semantics
 
 The status labels are deliberately conservative.
 
-- `CERTIFIED`: all implemented obligations passed, and at least one
-  nontrivial implemented obligation was checked.
+- `CERTIFIED`: all implemented exact obligations in the selected profile
+  passed, and at least one nontrivial implemented obligation was checked.
 - `FAILED`: at least one implemented obligation failed.
 - `NOT_IMPLEMENTED`: an obligation is known and recorded but has no checker.
-- `SUPPORTED` and `PLAUSIBLE`: reserved for future heuristic or partial
-  evidence layers.
+- `SUPPORTED` and `PLAUSIBLE`: reserved for future partial-evidence or
+  heuristic layers.
 - `PROVED`: included only as a reserved enum value; this prototype should not
   use it for duality claims.
 
 In this project, `CERTIFIED` always means "the implemented checks passed",
 not "the duality is proven."
 
-## Representation conventions
+## Core Objects
 
-This prototype currently supports SU(N) gauge and flavor groups, U(1), and
-U(1)_R labels. The supported representation names are:
+The initial object model is small and explicit.
 
-- `fundamental`
-- `antifundamental`
-- `adjoint`
-- `singlet`
+- `GaugeGroup`: currently SU(N).
+- `GlobalSymmetry`: currently SU(N), U(1), and U(1)_R labels.
+- `Representation`: `fundamental`, `antifundamental`, `adjoint`, `singlet`.
+- `Field`: chiral or vector multiplet data, including gauge representation,
+  global representations, U(1) charges, R-charge, and multiplicity.
+- `SuperpotentialTerm`: a field monomial such as `M q qtilde`.
+- `Theory`: a gauge group, fields, global symmetries, and superpotential
+  terms.
+- `SymmetryMap`: a label map from electric global symmetries to magnetic
+  global symmetries.
+- `DualityClaim`: electric theory, magnetic theory, symmetry map, and an
+  operator-map placeholder.
+- `Obligation`: generated consistency task with an optional checker.
+- `Certificate`: structured result containing passed, failed, and
+  unimplemented obligations, warnings, assumptions, limitations, and detailed
+  tables.
 
-For SU(N), dimensions are normalized as usual:
+## First-Version Physics Scope
+
+Supported electric theory:
+
+```text
+SU(Nc) with Q and Qtilde, Nf flavors.
+```
+
+Supported magnetic theory:
+
+```text
+SU(Nf - Nc) with q, qtilde, meson M, and W = M q qtilde.
+```
+
+Default global symmetry:
+
+```text
+SU(Nf)_L x SU(Nf)_R x U(1)_B x U(1)_R
+```
+
+The current builder supports integer `Nc`, `Nf` with exact rational
+arithmetic. It requires `Nf > Nc` and a supported magnetic gauge rank of at
+least 2.
+
+## Representation Conventions
+
+For SU(N), dimensions are normalized as:
 
 - dim(fundamental) = dim(antifundamental) = N
 - dim(adjoint) = N^2 - 1
 - dim(singlet) = 1
 
-For SU(N) cubic anomalies, the convention is:
+For SU(N)^3 anomalies:
 
 - A(fundamental) = +1
 - A(antifundamental) = -1
 - A(adjoint) = 0
 - A(singlet) = 0
 
-For SU(N)^2 U(1) anomalies, the Dynkin index convention is:
+For SU(N)^2 U(1) anomalies:
 
 - T(fundamental) = T(antifundamental) = 1/2
 - T(adjoint) = N
 - T(singlet) = 0
 
-These normalizations are conventional and internally consistent, but other
-physics literature may choose different overall factors. The certificate
-prints the convention assumptions so comparisons are interpretable.
+These normalizations are conventional and internally consistent. Other
+literature may choose different overall factors, so certificates explicitly
+record the normalization assumptions.
 
-## Chiral multiplet and fermion conventions
+## Fermion and R-Charge Conventions
 
 Anomaly matching is computed using left-handed Weyl fermions. For a chiral
-multiplet with scalar/superfield R-charge `R`, its fermion has R-charge
-`R - 1`. Non-R U(1) charges are taken to be the same for the scalar and the
-fermion.
+multiplet with superfield R-charge `R`, the fermion has R-charge `R - 1`.
+Non-R U(1) charges are taken to be the same for the scalar and fermion.
 
-Vector multiplet gauginos are included in pure U(1)_R and gravitational-U(1)_R
-global anomalies. Their R-charge is +1 and their multiplicity is the dimension
-of the gauge adjoint. Gauge fields are not included in non-R flavor anomalies.
+Vector multiplet gauginos are included in pure U(1)_R and
+gravitational-U(1)_R global anomalies. Their R-charge is +1, with
+multiplicity equal to the dimension of the gauge adjoint. Gauge fields are
+not included in non-R flavor anomalies.
 
-## SQCD charge conventions
+## SQCD Charge Conventions
 
 The bundled SQCD builder uses baryon number normalized so that an electric
 baryon made from Nc quarks has charge +1:
@@ -84,7 +158,7 @@ baryon made from Nc quarks has charge +1:
 - B(qtilde) = -1 / (Nf - Nc)
 - B(M) = 0
 
-R-charge assignments for the conformal-window-like SQCD example are:
+R-charge assignments for the default SQCD example are:
 
 - R(Q) = R(Qtilde) = 1 - Nc / Nf
 - R(q) = R(qtilde) = Nc / Nf
@@ -92,7 +166,28 @@ R-charge assignments for the conformal-window-like SQCD example are:
 
 The magnetic superpotential W = M q qtilde then has R-charge 2.
 
-## Superpotential checks
+Some physics references instead normalize B(Q) = 1 and
+B(q) = Nc / (Nf - Nc). That convention is equivalent up to an overall
+baryon-number rescaling, but this prototype currently uses the normalized
+baryon convention above.
+
+## Implemented Obligations
+
+The first prototype generates and evaluates:
+
+- electric gauge anomaly cancellation;
+- magnetic gauge anomaly cancellation;
+- electric superpotential consistency;
+- magnetic superpotential consistency;
+- global 't Hooft anomaly matching.
+
+It also records these known but unimplemented obligations:
+
+- operator map consistency;
+- index matching;
+- deformation checks.
+
+## Superpotential Checks
 
 Superpotential terms are checked for:
 
@@ -101,30 +196,13 @@ Superpotential terms are checked for:
 - nonabelian global singlet structure, using the same limited tensor-product
   logic;
 - U(1) neutrality for all non-R U(1) charges;
-- total R-charge equal to 2.
+- total superfield R-charge equal to 2.
 
-The tensor-product checker is intentionally narrow. It recognizes pairings
-such as fundamental x antifundamental -> singlet, antifundamental x
-fundamental -> singlet, singlets, and SQCD-like cubic contractions. It is not
-a general invariant-theory engine.
+The tensor-product checker is intentionally narrow. It recognizes singlets
+and basic fundamental-antifundamental pairings needed for SQCD-like cubic
+terms. It is not a general invariant-theory engine.
 
-## Implemented obligations
-
-The first prototype generates and evaluates these obligations:
-
-- electric gauge anomaly cancellation;
-- magnetic gauge anomaly cancellation;
-- electric superpotential consistency;
-- magnetic superpotential consistency;
-- global 't Hooft anomaly matching.
-
-The certificate also records these known but unimplemented obligations:
-
-- operator map consistency;
-- index matching;
-- deformation checks.
-
-## Global anomaly table
+## Global Anomaly Table
 
 The implemented table includes:
 
@@ -133,8 +211,36 @@ The implemented table includes:
 - U(1)^3 and mixed U(1)^2 U(1) anomalies for all U(1) labels;
 - gravitational-U(1) anomalies.
 
-Only global symmetries are compared; gauge symmetries are used only to count
+Only global symmetries are compared. Gauge symmetries are used to count
 fermion multiplicities and gaugino contributions.
+
+## Certificate Output
+
+The current certificate records:
+
+- `claim_name`;
+- top-level status;
+- passed obligations;
+- failed obligations;
+- not-implemented obligations;
+- warnings;
+- assumptions;
+- limitations;
+- detailed tables from checkers.
+
+Readable text output emphasizes that `CERTIFIED` means only that implemented
+exact checks passed. The Python object is structured so JSON export can be
+added without changing the conceptual model.
+
+## Failure Examples Covered by Tests
+
+The test suite includes intentionally broken claims:
+
+- wrong magnetic gauge group, causing global anomaly matching to fail;
+- wrong meson R-charge, causing the superpotential R-charge check to fail;
+- missing meson, causing a clear failed superpotential obligation;
+- vector-like SQCD electric matter, verifying local gauge anomaly
+  cancellation.
 
 ## Limitations
 
@@ -145,11 +251,26 @@ The first prototype is intentionally modest:
 - no Hilbert-series, index, or deformation checks yet;
 - no general Lie algebra package;
 - no automatic discovery of operator maps;
-- no automatic validation that a claimed global symmetry is truly nonanomalous
-  beyond the implemented checks;
+- no implemented operator-map quantum-number checker yet;
+- no automatic validation that a claimed global symmetry is truly
+  nonanomalous beyond the implemented checks;
 - no support for accidental symmetries, decoupled fields, a-maximization, or
   unitarity-bound diagnostics;
-- no support for general superpotential invariant construction.
+- no support for general superpotential invariant construction;
+- no treatment of global forms, discrete quotients, defects, or line
+  operators.
 
 Failures should be read as failures of the modeled consistency obligations
 under these conventions, not as physical no-go theorems.
+
+## Roadmap
+
+Natural next steps:
+
+- add a minimal operator-map checker for Q Qtilde <-> M quantum numbers;
+- add baryon operator charge checks in the current baryon normalization;
+- add a gauge-gauge-U(1)_R non-anomaly checker as its own obligation;
+- export certificates as JSON;
+- improve edge-case diagnostics for SU(2), Nf = Nc + 1, and low magnetic
+  rank;
+- add richer repair hints for common failed SQCD-like claims.
