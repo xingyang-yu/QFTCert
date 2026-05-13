@@ -197,10 +197,11 @@ The first prototype generates and evaluates:
 - electric superpotential consistency;
 - magnetic superpotential consistency;
 - global 't Hooft anomaly matching.
+- minimal operator-map Abelian charge matching for U(1)_B and U(1)_R.
 
 It also records these known but unimplemented obligations:
 
-- operator map consistency;
+- non-Abelian operator-map flavor representation matching;
 - index matching;
 - deformation checks.
 
@@ -281,6 +282,7 @@ The test suite includes intentionally broken claims:
 - JSON certificate stability for downstream AI tools;
 - claim-file loading for a correct and a broken SQCD-like claim;
 - CLI JSON mode for a correct and a broken claim.
+- minimal operator-map U(1)_B and U(1)_R matching.
 
 ## Limitations
 
@@ -291,7 +293,7 @@ The first prototype is intentionally modest:
 - no Hilbert-series, index, or deformation checks yet;
 - no general Lie algebra package;
 - no automatic discovery of operator maps;
-- no implemented operator-map quantum-number checker yet;
+- no implemented non-Abelian operator-map representation checker yet;
 - no automatic validation that a claimed global symmetry is truly
   nonanomalous beyond the implemented checks;
 - no support for accidental symmetries, decoupled fields, a-maximization, or
@@ -307,8 +309,7 @@ under these conventions, not as physical no-go theorems.
 
 Natural next steps:
 
-- add a minimal operator-map checker for Q Qtilde <-> M quantum numbers;
-- add baryon operator charge checks in the current baryon normalization;
+- extend operator-map checks beyond Abelian charges;
 - add a gauge-gauge-U(1)_R non-anomaly checker as its own obligation;
 - add richer critic/repair reports derived from JSON certificates;
 - improve edge-case diagnostics for SU(2), Nf = Nc + 1, and low magnetic

@@ -10,6 +10,7 @@ from dualitycert.qft.dualities import (
     evaluate_claim,
     generate_obligations,
 )
+from dualitycert.qft.operators import minimal_operator_map_abelian_charges
 from dualitycert.qft.claims import build_claim_from_data, load_claim_file
 from dualitycert.qft.susy import (
     superpotential_R_charge_equals_2,
@@ -26,6 +27,7 @@ __all__ = [
     "generate_obligations",
     "global_tHooft_anomaly_table",
     "load_claim_file",
+    "minimal_operator_map_abelian_charges",
     "superpotential_R_charge_equals_2",
     "superpotential_consistency",
     "superpotential_invariance",
