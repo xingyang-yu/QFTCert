@@ -19,5 +19,5 @@
     "global_anomaly_matching",
     "operator_map_placeholder"
   ],
-  "expected_outcome": "Implemented checks pass; operator-map, index, and deformation obligations remain NOT_IMPLEMENTED."
+  "expected_outcome": "Implemented checks pass, including Abelian operator-map charges; non-Abelian operator-map flavor matching, index, and deformation obligations remain NOT_IMPLEMENTED."
 }

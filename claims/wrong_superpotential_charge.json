@@ -15,5 +15,5 @@
   "superpotential": {
     "terms": [["M", "q", "qtilde"]]
   },
-  "expected_outcome": "Implemented superpotential U(1)_B invariance should fail because the magnetic q charge is inconsistent with the stated convention."
+  "expected_outcome": "Implemented superpotential U(1)_B invariance and Abelian baryon operator-map checks should fail because the magnetic q charge is inconsistent with the stated convention."
 }

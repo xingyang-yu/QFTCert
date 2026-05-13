@@ -13,5 +13,5 @@
   "superpotential": {
     "terms": [["M", "q", "qtilde"]]
   },
-  "expected_outcome": "Implemented R(W)=2 and global anomaly matching checks should fail under this R-charge assignment."
+  "expected_outcome": "Implemented R(W)=2, global anomaly matching, and Abelian meson operator-map checks should fail under this R-charge assignment."
 }

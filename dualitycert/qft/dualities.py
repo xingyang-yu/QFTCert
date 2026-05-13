@@ -16,6 +16,7 @@ from dualitycert.core.obligations import Obligation
 from dualitycert.groups.su import antifundamental, fundamental, singlet, su
 from dualitycert.groups.u1 import u1, u1_r
 from dualitycert.qft.anomalies import compare_anomaly_tables, gauge_anomaly_cancellation
+from dualitycert.qft.operators import minimal_operator_map_abelian_charges
 from dualitycert.qft.susy import superpotential_consistency
 
 
@@ -60,8 +61,14 @@ def generate_obligations(claim: DualityClaim) -> tuple[Obligation, ...]:
             checker_name="compare_anomaly_tables",
         ),
         Obligation(
-            name="operator map consistency",
-            description="Check that mapped operators have matching quantum numbers.",
+            name="operator map Abelian charge matching",
+            description="Check U(1)_B and U(1)_R charges for standard SQCD operator maps.",
+            checker=lambda: minimal_operator_map_abelian_charges(claim),
+            checker_name="minimal_operator_map_abelian_charges",
+        ),
+        Obligation(
+            name="operator map non-Abelian flavor matching",
+            description="Check non-Abelian flavor representations of mapped operators.",
         ),
         Obligation(
             name="index matching",

@@ -13,7 +13,8 @@ def test_certificate_rendering_includes_limits_and_not_implemented_checks():
     assert certificate.overall_status == Status.CERTIFIED
     assert "not a proof of duality" in text
     assert "Outward status: PARTIAL_WITH_NOT_IMPLEMENTED_OBLIGATIONS" in text
-    assert "operator map consistency" in text
+    assert "operator map Abelian charge matching" in text
+    assert "operator map non-Abelian flavor matching" in text
     assert "NOT_IMPLEMENTED" in text
 
 

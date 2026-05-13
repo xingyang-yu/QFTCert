@@ -43,6 +43,7 @@ DualityCert-0 currently implements:
 - superpotential gauge/flavor/U(1) invariance for SQCD-like terms;
 - superpotential R-charge equal to 2;
 - global 't Hooft anomaly table matching for supported symmetries.
+- minimal operator-map U(1)_B and U(1)_R charge matching.
 
 ## 5. Failure Cases
 
@@ -73,14 +74,15 @@ claims than free-form text alone.
 ## 7. Limitations
 
 The prototype does not prove dualities or IR equivalence. It does not yet
-implement operator-map matching, index matching, deformation checks, global
-forms, line operators, accidental symmetries, or a general QFT schema.
+implement non-Abelian operator-map representation matching, index matching,
+deformation checks, global forms, line operators, accidental symmetries, or a
+general QFT schema.
 
 ## 8. Roadmap
 
 Near-term next steps:
 
-- minimal Abelian operator-map checks;
+- extend operator-map checks beyond Abelian charges;
 - JSON certificate regeneration in `ai_runs/`;
 - richer repair hints from failed obligations;
 - edge-case warnings for low-rank special cases;

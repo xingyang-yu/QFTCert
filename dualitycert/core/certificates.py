@@ -20,7 +20,7 @@ DEFAULT_ASSUMPTIONS = (
 
 DEFAULT_LIMITATIONS = (
     "This is not a proof of duality.",
-    "Operator maps, index matching, and deformation checks are recorded but not implemented.",
+    "Only Abelian operator-map charge checks are implemented; non-Abelian operator-map matching, index matching, and deformation checks are recorded but not implemented.",
     "The superpotential invariant checker is SQCD-like, not a general invariant-theory engine.",
 )
 

@@ -26,10 +26,11 @@ Currently implemented checks:
 - superpotential invariance under supported symmetries;
 - superpotential R-charge equal to 2;
 - global 't Hooft anomaly table matching.
+- minimal operator-map matching for U(1)_B and U(1)_R charges.
 
 Known obligations recorded as `NOT_IMPLEMENTED`:
 
-- operator map consistency;
+- non-Abelian operator-map flavor representation matching;
 - index matching;
 - deformation checks.
 
@@ -99,6 +100,7 @@ AI-generated QFT claims.
 ## Current Limitations
 
 - JSON claim input is SQCD-builder-level, not a universal QFT schema.
+- Only Abelian U(1)_B and U(1)_R operator-map checks are implemented.
 - Non-Abelian operator-map representation matching is not implemented.
 - Index matching, deformation checks, moduli-space checks, global forms, and
   line operators are not implemented.
