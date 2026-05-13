@@ -1,9 +1,11 @@
-# dualitycert
+# QFTCert
 
-`dualitycert` is a first prototype of a physics-native verifier layer for
-theoretical physics reasoning. It decomposes SQCD-like Seiberg duality claims
-into machine-checkable consistency obligations and returns structured
-certificates.
+Ongoing project on a new scientific reasoning environment.
+
+`dualitycert` is the first prototype package inside QFTCert: a physics-native
+verifier layer for theoretical physics reasoning. It decomposes SQCD-like
+Seiberg duality claims into machine-checkable consistency obligations and
+returns structured certificates.
 
 It is not a theorem prover, and it does not prove physical dualities.
 `CERTIFIED` means only that the implemented exact consistency checks passed
