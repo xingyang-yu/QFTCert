@@ -30,6 +30,10 @@ LLM proposes claim -> QFTCert checks obligations -> certificate/critic report
 -> repaired claim
 ```
 
+The current repository implements this loop without requiring any paid model
+API: QFTCert can generate critic reports and repair prompts from failed
+certificates, and those prompts can be given to a human or any external LLM.
+
 ## Non-Goals
 
 DualityCert-0 will not:
@@ -269,6 +273,19 @@ structured output:
 
 Readable text output emphasizes that the certificate is not a proof. JSON
 output is intended for downstream AI tools, critic reports, and repair loops.
+
+## Critic and Repair Prompt Output
+
+For failed claims, QFTCert can generate:
+
+- a critic report summarizing failed implemented obligations, repair hints,
+  passed checks, and `NOT_IMPLEMENTED` obligations;
+- a repair prompt that asks a human or LLM to make minimal JSON edits while
+  preserving stated conventions.
+
+The repair prompt generator is deliberately deterministic and model-free. It
+is the bridge to an AlphaProof-like loop without committing the project to any
+particular commercial or open-source language model.
 
 ## Failure Examples Covered by Tests
 
