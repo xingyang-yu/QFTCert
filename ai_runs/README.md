@@ -15,5 +15,11 @@ Regenerate a JSON certificate for any `model_output_claim.json` with:
 python3 -m dualitycert.cli check ai_runs/<case>/model_output_claim.json --json
 ```
 
+Generate a model-free repair prompt with:
+
+```bash
+python3 -m dualitycert.cli repair-prompt ai_runs/<case>/model_output_claim.json
+```
+
 The certificate is an implemented-check report under stated assumptions. It is
 not a proof of duality.

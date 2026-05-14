@@ -83,6 +83,23 @@ python3 -m dualitycert.cli check claims/wrong_magnetic_rank.json --json
 The CLI exits nonzero for program errors, not merely because a physics claim
 fails implemented consistency checks.
 
+## Generate Critic Reports and Repair Prompts
+
+QFTCert can turn a failed certificate into a short critic report or a repair
+prompt for a human or LLM, without calling any model API:
+
+```bash
+python3 -m dualitycert.cli critique claims/wrong_magnetic_rank.json
+python3 -m dualitycert.cli repair-prompt claims/missing_meson.json
+```
+
+Both commands support `--out path/to/file.md`. This is the current
+verifier-in-the-loop interface:
+
+```text
+claim.json -> certificate -> critic report / repair prompt -> repaired claim
+```
+
 ## Example Workflow for AI-Assisted QFT Reasoning
 
 ```text

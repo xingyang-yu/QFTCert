@@ -64,12 +64,17 @@ The intended workflow is:
 LLM proposes claim
 -> QFTCert checks implemented obligations
 -> certificate highlights failures and unimplemented checks
+-> QFTCert generates a deterministic repair prompt
 -> agent or human repairs the claim
 -> repaired claim is checked again
 ```
 
 This gives downstream AI systems a more auditable way to interact with QFT
 claims than free-form text alone.
+
+The current implementation does not require a model API. The repair prompt can
+be generated locally and then handed to a human, a chatbox, or a future
+automated agent.
 
 ## 7. Limitations
 
