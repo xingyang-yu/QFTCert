@@ -23,14 +23,30 @@ The current target is SQCD-like Seiberg-duality-style claims:
 Currently implemented checks:
 
 - electric and magnetic SU(N) gauge anomaly cancellation;
+- electric and magnetic SU(gauge)^2 U(1) mixed gauge-global anomaly cancellation;
 - superpotential invariance under supported symmetries;
 - superpotential R-charge equal to 2;
-- global 't Hooft anomaly table matching.
-- minimal operator-map matching for U(1)_B and U(1)_R charges.
+- represented continuous global symmetry factor matching;
+- global 't Hooft anomaly table matching;
+- Tr R, Tr R^3, a, and c comparison from the encoded R-symmetry;
+- minimal operator-map matching for U(1)_B and U(1)_R charges;
+- standard SQCD operator-map matching for SU(Nf)_L and SU(Nf)_R flavor labels;
+- SQCD magnetic F-term consequence that constrains q qtilde in the chiral ring;
+- R >= 2/3 checks for encoded/default SQCD gauge-invariant chiral operators;
+- SQCD one-flavor mass-deformation rank-flow arithmetic.
+- SQCD mesonic flat-direction rank-flow arithmetic.
+
+Metadata-level scaffold checks return `UNKNOWN` when the required data is not
+encoded, instead of failing the claim:
+
+- general chiral ring / F-term relation metadata;
+- moduli-space branch metadata;
+- conformal-manifold metadata;
+- generalized-symmetry / defect metadata;
+- protected quantity hooks for indices, partition functions, and Hilbert series.
 
 Known obligations recorded as `NOT_IMPLEMENTED`:
 
-- non-Abelian operator-map flavor representation matching;
 - index matching;
 - deformation checks.
 
@@ -47,6 +63,9 @@ Outward-facing statuses avoid proof-like language:
 - `PARTIAL_WITH_NOT_IMPLEMENTED_OBLIGATIONS`
 - `NO_IMPLEMENTED_OBLIGATIONS`
 
+Per-obligation statuses may also include `UNKNOWN` for missing optional
+metadata and `NOT_APPLICABLE` for checks outside the current physics profile.
+
 The legacy internal enum still includes `CERTIFIED`, but user-facing output
 should be read as "implemented checks passed", not as a proof.
 
@@ -54,8 +73,8 @@ should be read as "implemented checks passed", not as a proof.
 
 A certificate does not prove a duality, IR equivalence, RG-flow statement, or
 path-integral identity. It also does not check unimplemented obligations
-silently. Missing operator-map, index, or deformation checks remain explicit
-`NOT_IMPLEMENTED` entries.
+silently. Missing index, general deformation, or more general operator-map
+checks remain explicit `NOT_IMPLEMENTED` entries.
 
 ## Quickstart
 
@@ -117,10 +136,14 @@ AI-generated QFT claims.
 ## Current Limitations
 
 - JSON claim input is SQCD-builder-level, not a universal QFT schema.
-- Only Abelian U(1)_B and U(1)_R operator-map checks are implemented.
-- Non-Abelian operator-map representation matching is not implemented.
-- Index matching, deformation checks, moduli-space checks, global forms, and
-  line operators are not implemented.
+- Operator-map checks cover Abelian charges and standard SQCD non-Abelian
+  flavor labels; general tensor-product decomposition is not implemented.
+- General index matching, full deformation checks, full chiral-ring
+  equivalence, full moduli-space equivalence, global forms, line operators,
+  and higher-form anomalies are not implemented. The only implemented
+  chiral-ring consequence is the SQCD magnetic q qtilde F-term constraint.
+- a and c are computed from the encoded R-symmetry; full a-maximization and
+  accidental-symmetry handling are not implemented.
 - The superpotential invariant checker is intentionally SQCD-like and narrow.
 - Baryon-number normalization is explicit; a global rescaling is not by itself
   treated as a physical failure.

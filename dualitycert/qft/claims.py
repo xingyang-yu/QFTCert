@@ -60,8 +60,21 @@ def build_claim_from_data(data: Mapping[str, Any]) -> DualityClaim:
 
     metadata = dict(claim.metadata)
     metadata["source_schema"] = "sqcd_claim_json_v0"
+    metadata.update(dict(data.get("metadata", {})))
     if "expected_outcome" in data:
         metadata["expected_outcome"] = data["expected_outcome"]
+    for optional_key in (
+        "global_symmetry_metadata",
+        "operators",
+        "chiral_ring",
+        "moduli_space",
+        "conformal_manifold",
+        "generalized_symmetry",
+        "protected_quantities",
+        "deformations",
+    ):
+        if optional_key in data:
+            metadata[optional_key] = data[optional_key]
     metadata["parameters"] = {
         **dict(metadata.get("parameters", {})),
         "requested_checks": list(data.get("requested_checks", [])),

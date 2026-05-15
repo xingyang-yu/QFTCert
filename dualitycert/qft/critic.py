@@ -61,6 +61,12 @@ def build_critic_report(claim: DualityClaim, certificate: Certificate) -> str:
             lines.append(f"- {result.name}: {result.message}")
         lines.append("")
 
+    if certificate.unknown_obligations:
+        lines.extend(["## Unknown / Missing-Data Obligations", ""])
+        for result in certificate.unknown_obligations:
+            lines.append(f"- {result.name}: {result.message}")
+        lines.append("")
+
     lines.extend(["## Assumptions", ""])
     lines.extend(f"- {assumption}" for assumption in certificate.assumptions)
     lines.extend(["", "## Limitations", ""])
@@ -113,6 +119,12 @@ def build_repair_prompt(claim: DualityClaim, certificate: Certificate) -> str:
                 f"- {result.name}"
                 for result in certificate.not_implemented_obligations
             ],
+            "",
+            "Unknown or missing-data obligations to keep explicit:",
+            *[
+                f"- {result.name}"
+                for result in certificate.unknown_obligations
+            ],
         ]
     )
     return "\n".join(lines)
@@ -153,7 +165,27 @@ def build_repair_hints(claim: DualityClaim, certificate: Certificate) -> list[st
 
     if "operator map Abelian charge matching" in failed_names:
         hints.append(
-            "For operator-map failures, compare Q Qtilde <-> M, Q^Nc <-> q^Nmag, and Qtilde^Nc <-> qtilde^Nmag using U(1)_B and U(1)_R charges only; non-Abelian flavor matching remains NOT_IMPLEMENTED."
+            "For operator-map failures, compare Q Qtilde <-> M, Q^Nc <-> q^Nmag, and Qtilde^Nc <-> qtilde^Nmag using U(1)_B, U(1)_R, and the supported SQCD flavor-label convention."
+        )
+
+    if "operator map non-Abelian flavor matching" in failed_names:
+        hints.append(
+            "For SQCD flavor-label failures, check that baryons use the epsilon-tensor equivalence Lambda^k F ~= Lambda^(N-k) anti-F and that Nmag equals Nf - Nc."
+        )
+
+    if "SQCD magnetic meson F-term lifting" in failed_names:
+        hints.append(
+            "Check the encoded magnetic F-terms: dW/dM should contain q qtilde so the magnetic composite q qtilde is constrained rather than an extra mesonic chiral-ring generator."
+        )
+
+    if "SQCD one-flavor mass deformation" in failed_names:
+        hints.append(
+            "For one-flavor mass deformation, the encoded magnetic F-terms should allow a linear m M deformation to produce q qtilde + m = 0 and the expected magnetic Higgsing."
+        )
+
+    if "SQCD mesonic flat-direction flow" in failed_names:
+        hints.append(
+            "For mesonic flat-direction flow, check that the encoded magnetic F-terms give q and qtilde masses along a rank-M background and that the rank arithmetic remains consistent."
         )
 
     if "global anomaly matching" in failed_names and not hints:

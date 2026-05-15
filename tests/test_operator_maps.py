@@ -1,6 +1,9 @@
 from dualitycert.core.status import Status
 from dualitycert.qft.dualities import build_seiberg_sqcd_claim
-from dualitycert.qft.operators import minimal_operator_map_abelian_charges
+from dualitycert.qft.operators import (
+    minimal_operator_map_abelian_charges,
+    sqcd_operator_map_nonabelian_flavor_labels,
+)
 
 
 def test_correct_sqcd_operator_map_abelian_charges_pass():
@@ -45,3 +48,30 @@ def test_missing_meson_fails_meson_operator_map_clearly():
 
     assert result.status == Status.FAILED
     assert "unknown field M" in result.message
+
+
+def test_correct_sqcd_operator_map_nonabelian_flavor_labels_pass():
+    claim = build_seiberg_sqcd_claim(Nc=3, Nf=5)
+
+    result = sqcd_operator_map_nonabelian_flavor_labels(claim)
+
+    assert result.status == Status.CERTIFIED
+    assert result.details["meson"]["electric"]["SU(Nf)_L"] == "fundamental"
+    assert result.details["meson"]["electric"]["SU(Nf)_R"] == "antifundamental"
+    assert (
+        result.details["baryon"]["electric"]["SU(Nf)_L"]
+        == result.details["baryon"]["magnetic"]["SU(Nf)_L"]
+    )
+    assert (
+        result.details["antibaryon"]["electric"]["SU(Nf)_R"]
+        == result.details["antibaryon"]["magnetic"]["SU(Nf)_R"]
+    )
+
+
+def test_wrong_magnetic_rank_fails_nonabelian_baryon_flavor_label():
+    claim = build_seiberg_sqcd_claim(Nc=3, Nf=5, magnetic_color_rank=3)
+
+    result = sqcd_operator_map_nonabelian_flavor_labels(claim)
+
+    assert result.status == Status.FAILED
+    assert "baryon has mismatched SU(Nf)_L label" in result.message

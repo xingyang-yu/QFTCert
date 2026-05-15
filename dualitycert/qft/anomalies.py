@@ -55,6 +55,64 @@ def gauge_anomaly_cancellation(theory: Theory) -> CheckResult:
     )
 
 
+def gauge_global_mixed_anomaly_cancellation(theory: Theory) -> CheckResult:
+    """Check SU(gauge)^2 U(1) anomaly cancellation for represented U(1)s.
+
+    A continuous U(1) global symmetry is a valid symmetry of the quantum gauge
+    theory only if it has no mixed anomaly with the dynamical gauge group. For
+    an R-symmetry this includes the adjoint gaugino contribution with R=1.
+    """
+
+    u1_globals = theory.u1_globals()
+    if not u1_globals:
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message="Theory has no represented U(1) global symmetries.",
+        )
+
+    groups = _nonabelian_factors(theory)
+    totals: dict[str, Fraction] = {}
+    field_contributions: dict[str, dict[str, Fraction]] = {}
+    failures: list[str] = []
+
+    for symmetry in u1_globals:
+        total = Fraction(0, 1)
+        per_field: dict[str, Fraction] = {}
+        for field in theory.fields:
+            if not field.is_chiral:
+                continue
+            contribution = (
+                dynkin_index(field.gauge_rep, theory.gauge_group)
+                * field.u1_charge(symmetry.label, fermion=True)
+                * _spectator_dimension(field, groups, exclude_label=GAUGE_LABEL)
+            )
+            per_field[field.name] = contribution
+            total += contribution
+        if symmetry.is_r:
+            per_field["gaugino"] = dynkin_index(
+                Representation("adjoint"),
+                theory.gauge_group,
+            )
+            total += per_field["gaugino"]
+        totals[symmetry.label] = total
+        field_contributions[symmetry.label] = per_field
+        if total != 0:
+            failures.append(f"{theory.gauge_group.display_name}^2 {symmetry.label}={total}")
+
+    if failures:
+        return CheckResult(
+            status=Status.FAILED,
+            message="Mixed gauge-global anomaly cancellation failed: "
+            + "; ".join(failures),
+            details={"totals": totals, "field_contributions": field_contributions},
+        )
+    return CheckResult(
+        status=Status.CERTIFIED,
+        message="All represented SU(gauge)^2 U(1) mixed anomalies cancel.",
+        details={"totals": totals, "field_contributions": field_contributions},
+    )
+
+
 def global_tHooft_anomaly_table(theory: Theory) -> AnomalyTable:
     """Compute a global 't Hooft anomaly table for supported symmetries."""
 
