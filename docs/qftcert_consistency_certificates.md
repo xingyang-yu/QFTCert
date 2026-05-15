@@ -40,10 +40,21 @@ The certificate records:
 DualityCert-0 currently implements:
 
 - SU(N) gauge cubic anomaly cancellation;
+- SU(gauge)^2 U(1) mixed gauge-global anomaly cancellation;
 - superpotential gauge/flavor/U(1) invariance for SQCD-like terms;
 - superpotential R-charge equal to 2;
 - global 't Hooft anomaly table matching for supported symmetries.
 - minimal operator-map U(1)_B and U(1)_R charge matching.
+- standard SQCD operator-map SU(Nf)_L and SU(Nf)_R flavor-label matching;
+- SQCD magnetic F-term consequence constraining q qtilde;
+- Tr R, Tr R^3, a, and c comparison from the encoded R-symmetry;
+- R >= 2/3 checks for encoded/default SQCD gauge-invariant chiral operators;
+- SQCD one-flavor mass-deformation rank-flow arithmetic.
+- SQCD mesonic flat-direction rank-flow arithmetic.
+
+It also includes metadata-level scaffolds for chiral rings, moduli spaces,
+conformal manifolds, generalized symmetries/defects, and protected quantities.
+These return `UNKNOWN` when the claim does not encode comparable data.
 
 ## 5. Failure Cases
 
@@ -79,9 +90,11 @@ automated agent.
 ## 7. Limitations
 
 The prototype does not prove dualities or IR equivalence. It does not yet
-implement non-Abelian operator-map representation matching, index matching,
-deformation checks, global forms, line operators, accidental symmetries, or a
-general QFT schema.
+implement general non-Abelian tensor-product decomposition, index matching,
+full deformation checks, global forms, line operators, accidental symmetries,
+full a-maximization, full chiral-ring equivalence, full moduli-space
+equivalence, or a general QFT schema. The implemented F-term check is a
+narrow SQCD consequence check, not a general chiral-ring engine.
 
 ## 8. Roadmap
 

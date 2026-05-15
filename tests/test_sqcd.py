@@ -14,8 +14,11 @@ def test_correct_sqcd_like_seiberg_example_passes_implemented_checks():
         result.name == "operator map Abelian charge matching"
         for result in certificate.passed_obligations
     )
+    assert any(
+        result.name == "operator map non-Abelian flavor matching"
+        for result in certificate.passed_obligations
+    )
     assert {result.name for result in certificate.not_implemented_obligations} == {
-        "operator map non-Abelian flavor matching",
         "index matching",
         "deformation checks",
     }

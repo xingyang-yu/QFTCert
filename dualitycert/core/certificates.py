@@ -20,7 +20,9 @@ DEFAULT_ASSUMPTIONS = (
 
 DEFAULT_LIMITATIONS = (
     "This is not a proof of duality.",
-    "Only Abelian operator-map charge checks are implemented; non-Abelian operator-map matching, index matching, and deformation checks are recorded but not implemented.",
+    "Operator-map checks cover Abelian charges and standard SQCD flavor labels; general tensor-product decomposition, index matching, and general deformation checks are not implemented.",
+    "Only a narrow SQCD F-term meson-lifting consequence is implemented; general chiral-ring, moduli-space, conformal-manifold, generalized-symmetry, and protected-quantity checks are metadata scaffolds unless explicit comparable data is encoded.",
+    "Central charges are computed from the encoded R-symmetry; full a-maximization and accidental-symmetry handling are not implemented.",
     "The superpotential invariant checker is SQCD-like, not a general invariant-theory engine.",
 )
 
@@ -29,7 +31,7 @@ DEFAULT_CONVENTIONS = {
     "chiral_multiplet_fermion_R_charge": "R_superfield - 1",
     "SU_N_cubic_anomaly": "A(fundamental)=+1, A(antifundamental)=-1",
     "SU_N_squared_U1_dynkin_index": "T(fundamental)=T(antifundamental)=1/2",
-    "baryon_number": "B(Q)=1/Nc and B(q)=1/(Nf-Nc) in the default SQCD builder",
+    "baryon_number": "B(Q)=1/Nc and B(q)=1/Nmag for the proposed magnetic rank; the standard SQCD dual has Nmag=Nf-Nc",
 }
 
 OUTWARD_PASSED = "PASSED_IMPLEMENTED_OBLIGATIONS"
@@ -46,6 +48,8 @@ class Certificate:
     passed_obligations: tuple[ObligationResult, ...] = ()
     failed_obligations: tuple[ObligationResult, ...] = ()
     not_implemented_obligations: tuple[ObligationResult, ...] = ()
+    unknown_obligations: tuple[ObligationResult, ...] = ()
+    not_applicable_obligations: tuple[ObligationResult, ...] = ()
     warnings: tuple[str, ...] = ()
     assumptions: tuple[str, ...] = DEFAULT_ASSUMPTIONS
     limitations: tuple[str, ...] = DEFAULT_LIMITATIONS
@@ -72,6 +76,10 @@ class Certificate:
         not_implemented = tuple(
             result for result in result_tuple if result.status == Status.NOT_IMPLEMENTED
         )
+        unknown = tuple(result for result in result_tuple if result.status == Status.UNKNOWN)
+        not_applicable = tuple(
+            result for result in result_tuple if result.status == Status.NOT_APPLICABLE
+        )
         warnings: list[str] = []
         detailed_tables: dict[str, Any] = {}
         for result in result_tuple:
@@ -83,8 +91,10 @@ class Certificate:
             overall = Status.FAILED
         elif passed:
             overall = Status.CERTIFIED
+        elif unknown:
+            overall = Status.UNKNOWN
         else:
-            overall = Status.NOT_IMPLEMENTED
+            overall = Status.NOT_IMPLEMENTED if not_implemented else Status.NOT_APPLICABLE
 
         return cls(
             claim_name=claim_name,
@@ -93,6 +103,8 @@ class Certificate:
             passed_obligations=passed,
             failed_obligations=failed,
             not_implemented_obligations=not_implemented,
+            unknown_obligations=unknown,
+            not_applicable_obligations=not_applicable,
             warnings=tuple(warnings),
             assumptions=assumptions,
             limitations=limitations,
@@ -119,6 +131,8 @@ class Certificate:
             self.passed_obligations
             + self.failed_obligations
             + self.not_implemented_obligations
+            + self.unknown_obligations
+            + self.not_applicable_obligations
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -148,6 +162,14 @@ class Certificate:
             "not_implemented_obligations": [
                 _obligation_result_to_dict(result)
                 for result in self.not_implemented_obligations
+            ],
+            "unknown_obligations": [
+                _obligation_result_to_dict(result)
+                for result in self.unknown_obligations
+            ],
+            "not_applicable_obligations": [
+                _obligation_result_to_dict(result)
+                for result in self.not_applicable_obligations
             ],
             "warnings": list(self.warnings),
             "failures": [
@@ -186,6 +208,18 @@ class Certificate:
             lines.extend(
                 f"  - {result.name}: {result.message}"
                 for result in self.not_implemented_obligations
+            )
+        if self.unknown_obligations:
+            lines.extend(["", "Unknown / missing-data obligations (UNKNOWN):"])
+            lines.extend(
+                f"  - {result.name}: {result.message}"
+                for result in self.unknown_obligations
+            )
+        if self.not_applicable_obligations:
+            lines.extend(["", "Not applicable obligations (NOT_APPLICABLE):"])
+            lines.extend(
+                f"  - {result.name}: {result.message}"
+                for result in self.not_applicable_obligations
             )
         if self.warnings:
             lines.extend(["", "Warnings:"])

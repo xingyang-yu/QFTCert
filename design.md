@@ -70,6 +70,10 @@ The status labels are deliberately conservative.
 - `CERTIFIED`: all implemented exact obligations in the selected profile
   passed, and at least one nontrivial implemented obligation was checked.
 - `FAILED`: at least one implemented obligation failed.
+- `UNKNOWN`: the obligation has a scaffold/checker, but the claim did not
+  encode enough data to run a substantive comparison.
+- `NOT_APPLICABLE`: the obligation is outside the current claim profile or
+  supported parameter regime.
 - `NOT_IMPLEMENTED`: an obligation is known and recorded but has no checker.
 - `SUPPORTED` and `PLAUSIBLE`: reserved for future partial-evidence or
   heuristic layers.
@@ -105,8 +109,8 @@ The initial object model is small and explicit.
   operator-map placeholder.
 - `Obligation`: generated consistency task with an optional checker.
 - `Certificate`: structured result containing passed, failed, and
-  unimplemented obligations, warnings, assumptions, limitations, and detailed
-  tables.
+  unimplemented obligations, unknown/missing-data obligations, warnings,
+  assumptions, limitations, and detailed tables.
 
 ## First-Version Physics Scope
 
@@ -198,14 +202,32 @@ The first prototype generates and evaluates:
 
 - electric gauge anomaly cancellation;
 - magnetic gauge anomaly cancellation;
+- electric SU(gauge)^2 U(1) mixed gauge-global anomaly cancellation;
+- magnetic SU(gauge)^2 U(1) mixed gauge-global anomaly cancellation;
 - electric superpotential consistency;
 - magnetic superpotential consistency;
+- represented continuous global symmetry factor matching;
 - global 't Hooft anomaly matching.
+- Tr R, Tr R^3, a, and c matching from the encoded R-symmetry;
 - minimal operator-map Abelian charge matching for U(1)_B and U(1)_R.
+- standard SQCD operator-map non-Abelian flavor-label matching;
+- SQCD magnetic F-term meson-lifting consequence;
+- R >= 2/3 for encoded/default SQCD gauge-invariant chiral operators;
+- SQCD one-flavor mass-deformation rank-flow arithmetic.
+- SQCD mesonic flat-direction rank-flow arithmetic.
+
+It also includes metadata-level scaffolds that return `UNKNOWN` when the
+required data is not encoded:
+
+- general chiral ring / F-term relation metadata;
+- moduli-space branch metadata;
+- conformal-manifold metadata;
+- generalized-symmetry / defect metadata;
+- protected-quantity hooks for index, partition-function, and Hilbert-series
+  data.
 
 It also records these known but unimplemented obligations:
 
-- non-Abelian operator-map flavor representation matching;
 - index matching;
 - deformation checks.
 
@@ -224,6 +246,30 @@ The tensor-product checker is intentionally narrow. It recognizes singlets
 and basic fundamental-antifundamental pairings needed for SQCD-like cubic
 terms. It is not a general invariant-theory engine.
 
+## F-Term / Chiral-Ring Consequence Check
+
+QFTCert extracts simple monomial F-term relations from the encoded
+superpotential. For the SQCD magnetic theory it checks the consequence
+
+```text
+dW/dM contains q qtilde.
+```
+
+This is not implemented as a literal "required superpotential string" check.
+It checks the physical consequence that the magnetic composite q qtilde is
+constrained rather than becoming an extra independent mesonic chiral-ring
+generator in the supported SQCD profile.
+
+The same F-term data is used by deformation checks. One-flavor mass
+deformation requires dW/dM to contain q qtilde, so a linear m M term can
+produce q qtilde + m = 0 and trigger the expected magnetic Higgsing.
+Mesonic flat-direction checks require the encoded F-terms to contain the
+mass couplings dW/dq ~ M qtilde and dW/dqtilde ~ M q.
+
+This is still far from full chiral-ring equivalence: QFTCert does not compute
+Groebner bases, quantum constraints, nilpotent relations, or moduli-space
+isomorphisms.
+
 ## Global Anomaly Table
 
 The implemented table includes:
@@ -235,6 +281,73 @@ The implemented table includes:
 
 Only global symmetries are compared. Gauge symmetries are used to count
 fermion multiplicities and gaugino contributions.
+
+## Mixed Gauge-Global Anomalies
+
+For every represented U(1) global symmetry, QFTCert checks
+SU(gauge)^2 U(1) anomaly cancellation on each side of the proposed duality.
+For U(1)_R this includes the adjoint gaugino contribution with R=1. This
+validates that the encoded U(1) is a nonanomalous symmetry of the dynamical
+gauge theory under the stated conventions.
+
+## Encoded R-Symmetry Observables
+
+Given an encoded U(1)_R, QFTCert computes:
+
+```text
+Tr R, Tr R^3,
+a = 3/32 (3 Tr R^3 - Tr R),
+c = 1/32 (9 Tr R^3 - 5 Tr R).
+```
+
+These are compared between the electric and magnetic descriptions. This is a
+validation of the encoded R-symmetry data, not full a-maximization. The
+prototype does not yet detect accidental symmetries or automatically repair
+decoupled free fields.
+
+For encoded gauge-invariant chiral operators, and for the default SQCD meson
+and baryon maps, QFTCert also checks the SCFT unitarity-bound condition
+R >= 2/3 and reports Delta = 3R/2 under the chiral-primary assumption.
+
+## Deformation-Flow Check
+
+The implemented deformation checks are deliberately narrow. For SQCD-like
+claims, QFTCert verifies one-flavor mass-deformation rank arithmetic,
+
+```text
+SU(Nc), Nf -> SU(Nc), Nf-1
+SU(Nf-Nc) -> SU(Nf-Nc-1) = SU((Nf-1)-Nc).
+```
+
+If the resulting magnetic rank is below the current SU(N>=2) implementation,
+the checker records a warning while still checking the rank arithmetic. This
+does not implement general Higgsing, confinement, or integrating-out logic.
+
+QFTCert also checks mesonic flat-direction rank arithmetic. For a branch with
+B=Btilde=0 and rank(M)=k, it records the expected schematic flow
+
+```text
+electric:  SU(Nc), Nf -> SU(Nc-k), Nf-k
+magnetic:  SU(Nf-Nc), Nf -> SU(Nf-Nc), Nf-k
+```
+
+and verifies that the magnetic rank equals `(Nf-k)-(Nc-k)=Nf-Nc`. This is a
+rank and field-content check, not a proof of moduli-space equivalence.
+
+## Operator-Map Flavor Labels
+
+The standard SQCD operator maps are checked for both Abelian charges and
+supported non-Abelian flavor labels:
+
+```text
+Q Qtilde       <-> M
+Q^Nc           <-> q^(Nf-Nc)
+Qtilde^Nc      <-> qtilde^(Nf-Nc)
+```
+
+For baryons, the checker uses the SU(Nf) epsilon-tensor equivalence
+`Lambda^k F ~= Lambda^(N-k) anti-F`. It does not perform general
+Young-tableau tensor decomposition or multiplicity counting.
 
 ## Machine-Readable Claims
 
@@ -265,6 +378,8 @@ structured output:
 - passed obligations;
 - failed obligations;
 - not-implemented obligations;
+- unknown/missing-data obligations;
+- not-applicable obligations;
 - warnings;
 - assumptions;
 - conventions;
@@ -307,17 +422,16 @@ The first prototype is intentionally modest:
 
 - no theorem proving;
 - no path-integral or dynamical proof of duality;
-- no Hilbert-series, index, or deformation checks yet;
+- no full Hilbert-series, index, or deformation-flow engine yet;
 - no general Lie algebra package;
 - no automatic discovery of operator maps;
-- no implemented non-Abelian operator-map representation checker yet;
-- no automatic validation that a claimed global symmetry is truly
-  nonanomalous beyond the implemented checks;
-- no support for accidental symmetries, decoupled fields, a-maximization, or
-  unitarity-bound diagnostics;
+- no general non-Abelian tensor-product decomposition for operator maps yet;
+- no support for full accidental-symmetry detection, decoupled-field repair,
+  or full a-maximization;
 - no support for general superpotential invariant construction;
-- no treatment of global forms, discrete quotients, defects, or line
-  operators.
+- global forms, discrete quotients, defects, line operators, moduli spaces,
+  and general chiral-ring equivalence are metadata scaffolds only unless
+  explicit comparable data is provided.
 
 Failures should be read as failures of the modeled consistency obligations
 under these conventions, not as physical no-go theorems.
@@ -327,8 +441,10 @@ under these conventions, not as physical no-go theorems.
 Natural next steps:
 
 - extend operator-map checks beyond Abelian charges;
-- add a gauge-gauge-U(1)_R non-anomaly checker as its own obligation;
+- lift the single-gauge-group model toward product-SU quiver theories;
 - add richer critic/repair reports derived from JSON certificates;
 - improve edge-case diagnostics for SU(2), Nf = Nc + 1, and low magnetic
   rank;
-- add richer repair hints for common failed SQCD-like claims.
+- add real chiral-ring/F-term relation computation for simple polynomial
+  superpotentials;
+- add external protected-quantity hooks for index/Hilbert-series data.

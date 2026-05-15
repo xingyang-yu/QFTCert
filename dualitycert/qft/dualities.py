@@ -15,70 +15,13 @@ from dualitycert.core.objects import (
 from dualitycert.core.obligations import Obligation
 from dualitycert.groups.su import antifundamental, fundamental, singlet, su
 from dualitycert.groups.u1 import u1, u1_r
-from dualitycert.qft.anomalies import compare_anomaly_tables, gauge_anomaly_cancellation
-from dualitycert.qft.operators import minimal_operator_map_abelian_charges
-from dualitycert.qft.susy import superpotential_consistency
+from dualitycert.qft.checks import build_default_registry
 
 
 def generate_obligations(claim: DualityClaim) -> tuple[Obligation, ...]:
     """Generate the first-prototype obligations for a duality claim."""
 
-    electric = claim.electric_theory
-    magnetic = claim.magnetic_theory
-    return (
-        Obligation(
-            name="electric gauge anomaly cancellation",
-            description="The electric SU(N) gauge cubic anomaly must cancel.",
-            checker=lambda: gauge_anomaly_cancellation(electric),
-            checker_name="gauge_anomaly_cancellation",
-        ),
-        Obligation(
-            name="magnetic gauge anomaly cancellation",
-            description="The magnetic SU(N) gauge cubic anomaly must cancel.",
-            checker=lambda: gauge_anomaly_cancellation(magnetic),
-            checker_name="gauge_anomaly_cancellation",
-        ),
-        Obligation(
-            name="electric superpotential consistency",
-            description="The electric superpotential must be invariant and have R-charge 2.",
-            checker=lambda: superpotential_consistency(electric),
-            checker_name="superpotential_consistency",
-        ),
-        Obligation(
-            name="magnetic superpotential consistency",
-            description="The magnetic superpotential must be invariant and have R-charge 2.",
-            checker=lambda: superpotential_consistency(magnetic),
-            checker_name="superpotential_consistency",
-        ),
-        Obligation(
-            name="global anomaly matching",
-            description="Global 't Hooft anomaly tables must match under the symmetry map.",
-            checker=lambda: compare_anomaly_tables(
-                electric,
-                magnetic,
-                claim.symmetry_map,
-            ),
-            checker_name="compare_anomaly_tables",
-        ),
-        Obligation(
-            name="operator map Abelian charge matching",
-            description="Check U(1)_B and U(1)_R charges for standard SQCD operator maps.",
-            checker=lambda: minimal_operator_map_abelian_charges(claim),
-            checker_name="minimal_operator_map_abelian_charges",
-        ),
-        Obligation(
-            name="operator map non-Abelian flavor matching",
-            description="Check non-Abelian flavor representations of mapped operators.",
-        ),
-        Obligation(
-            name="index matching",
-            description="Check equality of protected indices in a supported expansion.",
-        ),
-        Obligation(
-            name="deformation checks",
-            description="Check consistency under masses, Higgsing, and other deformations.",
-        ),
-    )
+    return build_default_registry().obligations_for(claim)
 
 
 def evaluate_claim(claim: DualityClaim) -> Certificate:
