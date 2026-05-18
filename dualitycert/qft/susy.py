@@ -143,7 +143,8 @@ def _contains_singlet(reps: list[Representation]) -> bool:
     if not nontrivial:
         return True
     if len(nontrivial) == 2:
-        return sorted(nontrivial) == ["antifundamental", "fundamental"]
-    if len(nontrivial) == 2 and nontrivial[0] == nontrivial[1] == "adjoint":
-        return True
+        if sorted(nontrivial) == ["antifundamental", "fundamental"]:
+            return True
+        if nontrivial[0] == nontrivial[1] == "adjoint":
+            return True
     return False
