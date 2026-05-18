@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -49,6 +50,27 @@ def main(argv: list[str] | None = None) -> int:
         help="Optional path to write the repair prompt.",
     )
 
+    llm_parser = subparsers.add_parser(
+        "llm-repair",
+        help="Run the verifier-in-the-loop with Claude as the repair agent (requires ANTHROPIC_API_KEY).",
+    )
+    llm_parser.add_argument("claim_file", help="Path to a JSON claim file.")
+    llm_parser.add_argument(
+        "--model",
+        default=None,
+        help="Anthropic model id (default: claude-sonnet-4-6).",
+    )
+    llm_parser.add_argument(
+        "--max-iterations",
+        type=int,
+        default=4,
+        help="Max LLM repair attempts before giving up.",
+    )
+    llm_parser.add_argument(
+        "--trace",
+        help="Optional path to write the full iteration trace as JSON.",
+    )
+
     args = parser.parse_args(argv)
     if args.command == "check":
         try:
@@ -82,8 +104,74 @@ def main(argv: list[str] | None = None) -> int:
             print(output)
         return 0
 
+    if args.command == "llm-repair":
+        return _run_llm_repair_cli(args)
+
     parser.error(f"Unsupported command: {args.command}")
     return 2
+
+
+def _run_llm_repair_cli(args) -> int:
+    from dualitycert.agent import run_llm_repair_loop
+
+    try:
+        initial_data = json.loads(Path(args.claim_file).read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"dualitycert: failed to load claim file: {exc}", file=sys.stderr)
+        return 2
+
+    kwargs = {"max_iterations": args.max_iterations}
+    if args.model:
+        kwargs["model"] = args.model
+
+    try:
+        result = run_llm_repair_loop(initial_data, **kwargs)
+    except Exception as exc:
+        print(f"dualitycert: LLM repair loop failed: {exc}", file=sys.stderr)
+        return 2
+
+    print(f"Model:              {result.model}")
+    print(f"Iterations:         {result.iteration_count}")
+    print(f"Converged:          {result.converged}")
+    print(f"Final outward:      {result.final_outward_status}")
+    print()
+    for it in result.iterations:
+        verdict = "PASS" if it.outward_status in {"PASSED_IMPLEMENTED_OBLIGATIONS", "PARTIAL_WITH_NOT_IMPLEMENTED_OBLIGATIONS"} else "FAIL"
+        print(f"--- iteration {it.iteration}: {verdict} ({it.outward_status}) ---")
+        if it.failed_obligation_names:
+            print(f"  failed: {', '.join(it.failed_obligation_names)}")
+        if it.parse_error:
+            print(f"  parse_error: {it.parse_error}")
+        if it.llm_raw_response:
+            preview = it.llm_raw_response[:200].replace("\n", " ")
+            print(f"  llm_response[:200]: {preview}")
+        print()
+
+    if args.trace:
+        trace_data = {
+            "model": result.model,
+            "converged": result.converged,
+            "final_outward_status": result.final_outward_status,
+            "iterations": [
+                {
+                    "iteration": it.iteration,
+                    "outward_status": it.outward_status,
+                    "failed_obligation_names": list(it.failed_obligation_names),
+                    "claim_data": it.claim_data,
+                    "prompt_sent": it.prompt_sent,
+                    "llm_raw_response": it.llm_raw_response,
+                    "llm_repaired_data": it.llm_repaired_data,
+                    "parse_error": it.parse_error,
+                }
+                for it in result.iterations
+            ],
+        }
+        Path(args.trace).write_text(
+            json.dumps(trace_data, indent=2) + "\n", encoding="utf-8"
+        )
+        print(f"Wrote full trace to {args.trace}")
+
+    return 0 if result.converged else 1
 
 
 if __name__ == "__main__":
