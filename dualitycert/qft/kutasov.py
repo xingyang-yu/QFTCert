@@ -24,7 +24,7 @@ from dualitycert.core.objects import (
     Theory,
 )
 from dualitycert.core.status import Status
-from dualitycert.groups.su import adjoint, antifundamental, fundamental, singlet, su
+from dualitycert.groups.su import adjoint, antifundamental, fundamental, su
 from dualitycert.groups.u1 import u1, u1_r
 
 
@@ -65,11 +65,14 @@ def build_kutasov_claim(
     r_el = 1 - Fraction(2 * Nc, Nf * (k + 1))
     r_mag = 1 - Fraction(2 * Nm, Nf * (k + 1))
 
+    el_node = su(Nc)
+    mag_node = su(Nm)
+
     electric_fields = (
         Field(
             name="Q",
             field_type="chiral multiplet",
-            gauge_rep=fundamental(),
+            gauge_reps={el_node.label: fundamental()},
             global_reps={su_l_label: fundamental()},
             u1_charges={baryon_label: Fraction(1, Nc)},
             r_charge=r_el,
@@ -77,7 +80,7 @@ def build_kutasov_claim(
         Field(
             name="Qtilde",
             field_type="chiral multiplet",
-            gauge_rep=antifundamental(),
+            gauge_reps={el_node.label: antifundamental()},
             global_reps={su_r_label: antifundamental()},
             u1_charges={baryon_label: Fraction(-1, Nc)},
             r_charge=r_el,
@@ -85,7 +88,7 @@ def build_kutasov_claim(
         Field(
             name="X",
             field_type="chiral multiplet",
-            gauge_rep=adjoint(),
+            gauge_reps={el_node.label: adjoint()},
             global_reps={},
             u1_charges={baryon_label: Fraction(0)},
             r_charge=r_X,
@@ -94,7 +97,7 @@ def build_kutasov_claim(
 
     electric = Theory(
         name=f"Kutasov electric SU({Nc}) Nf={Nf} k={k}",
-        gauge_group=su(Nc),
+        gauge_nodes=(el_node,),
         global_symmetries=globals_,
         fields=electric_fields,
         superpotential_terms=(
@@ -109,7 +112,7 @@ def build_kutasov_claim(
         Field(
             name="q",
             field_type="chiral multiplet",
-            gauge_rep=fundamental(),
+            gauge_reps={mag_node.label: fundamental()},
             global_reps={su_l_label: antifundamental()},
             u1_charges={baryon_label: Fraction(1, Nm)},
             r_charge=r_mag,
@@ -117,7 +120,7 @@ def build_kutasov_claim(
         Field(
             name="qtilde",
             field_type="chiral multiplet",
-            gauge_rep=antifundamental(),
+            gauge_reps={mag_node.label: antifundamental()},
             global_reps={su_r_label: fundamental()},
             u1_charges={baryon_label: Fraction(-1, Nm)},
             r_charge=r_mag,
@@ -125,7 +128,7 @@ def build_kutasov_claim(
         Field(
             name="Y",
             field_type="chiral multiplet",
-            gauge_rep=adjoint(),
+            gauge_reps={mag_node.label: adjoint()},
             global_reps={},
             u1_charges={baryon_label: Fraction(0)},
             r_charge=r_X,
@@ -139,7 +142,7 @@ def build_kutasov_claim(
             Field(
                 name=f"M{j}",
                 field_type="chiral multiplet",
-                gauge_rep=singlet(),
+                gauge_reps={},
                 global_reps={
                     su_l_label: fundamental(),
                     su_r_label: antifundamental(),
@@ -173,7 +176,7 @@ def build_kutasov_claim(
 
     magnetic = Theory(
         name=f"Kutasov magnetic SU({Nm}) Nf={Nf} k={k}",
-        gauge_group=su(Nm),
+        gauge_nodes=(mag_node,),
         global_symmetries=globals_,
         fields=tuple(magnetic_fields),
         superpotential_terms=tuple(mag_terms),

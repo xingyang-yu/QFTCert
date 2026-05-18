@@ -68,7 +68,7 @@ def test_builder_magnetic_fields_nc3_nf5_k2():
 
 def test_builder_magnetic_rank():
     claim = build_kutasov_claim(Nc=3, Nf=5, k=2)
-    assert claim.magnetic_theory.gauge_group.N == 7  # kNf - Nc = 10 - 3
+    assert claim.magnetic_theory.gauge_nodes[0].N == 7  # kNf - Nc = 10 - 3
 
 
 def test_builder_magnetic_superpotential_terms_k2():
@@ -202,7 +202,7 @@ def test_json_loader_kutasov_passing_fixture():
     data = _load_claim_data("kutasov_Nc3_Nf5_k2.json")
     claim = build_claim_from_data(data)
     assert claim.metadata.get("claim_type") == "kutasov"
-    assert claim.magnetic_theory.gauge_group.N == 7
+    assert claim.magnetic_theory.gauge_nodes[0].N == 7
     cert = evaluate_claim(claim)
     assert cert.outward_status in PASSING_STATUSES
 
@@ -210,7 +210,7 @@ def test_json_loader_kutasov_passing_fixture():
 def test_json_loader_kutasov_wrong_rank_fixture():
     data = _load_claim_data("kutasov_wrong_magnetic_rank_k2.json")
     claim = build_claim_from_data(data)
-    assert claim.magnetic_theory.gauge_group.N == 4
+    assert claim.magnetic_theory.gauge_nodes[0].N == 4
     cert = evaluate_claim(claim)
     assert cert.outward_status == OUTWARD_FAILED
 
@@ -259,7 +259,7 @@ def test_kutasov_k1_passes():
     """k=1: SU(Nc) + adj X, W=Tr(X^2). Magnetic rank = Nf-Nc."""
     # Nc=3, Nf=5, k=1: Nm = 1*5 - 3 = 2. Must be >= 2, exactly on boundary.
     claim = build_kutasov_claim(Nc=3, Nf=5, k=1)
-    assert claim.magnetic_theory.gauge_group.N == 2
+    assert claim.magnetic_theory.gauge_nodes[0].N == 2
     mag = claim.magnetic_theory.field_map()
     assert "M0" in mag
     assert "M1" not in mag
@@ -271,7 +271,7 @@ def test_kutasov_k3_passes():
     """k=3: meson tower M0, M1, M2 and W_el = Tr(X^4)."""
     # Nc=2, Nf=5, k=3: Nm = 3*5 - 2 = 13
     claim = build_kutasov_claim(Nc=2, Nf=5, k=3)
-    assert claim.magnetic_theory.gauge_group.N == 13
+    assert claim.magnetic_theory.gauge_nodes[0].N == 13
     mag = claim.magnetic_theory.field_map()
     assert set(mag) >= {"M0", "M1", "M2"}
     cert = evaluate_claim(claim)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 
-from dualitycert.core.objects import CheckResult, Field, Representation, SuperpotentialTerm, Theory
+from dualitycert.core.objects import CheckResult, Field, Representation, SINGLET, SuperpotentialTerm, Theory
 from dualitycert.core.status import Status
 
 
@@ -23,11 +23,15 @@ def superpotential_invariance(theory: Theory) -> CheckResult:
             details[term.display_name] = {"error": expanded_fields}
             continue
 
-        gauge_reps = [field.gauge_rep for field in expanded_fields]
-        gauge_ok = _contains_singlet(gauge_reps)
+        gauge_ok = True
+        for node in theory.gauge_nodes:
+            node_reps = [field.rep_for_node(node.label) for field in expanded_fields]
+            if not _contains_singlet(node_reps):
+                gauge_ok = False
+                failures.append(
+                    f"{term.display_name} is not a gauge singlet under {node.label}"
+                )
         term_details["gauge_singlet"] = gauge_ok
-        if not gauge_ok:
-            failures.append(f"{term.display_name} is not a gauge singlet")
 
         nonabelian_results: dict[str, bool] = {}
         for symmetry in theory.nonabelian_globals():

@@ -13,7 +13,7 @@ from dualitycert.core.objects import (
     Theory,
 )
 from dualitycert.core.obligations import Obligation
-from dualitycert.groups.su import antifundamental, fundamental, singlet, su
+from dualitycert.groups.su import antifundamental, fundamental, su
 from dualitycert.groups.u1 import u1, u1_r
 from dualitycert.qft.checks import build_default_registry
 
@@ -93,15 +93,18 @@ def build_seiberg_sqcd_claim(
         else Fraction(magnetic_qtilde_b_charge)
     )
 
+    el_node = su(Nc)
+    mag_node = su(Nm)
+
     electric = Theory(
         name=f"Electric SQCD SU({Nc}) with Nf={Nf}",
-        gauge_group=su(Nc),
+        gauge_nodes=(el_node,),
         global_symmetries=globals_,
         fields=(
             Field(
                 name="Q",
                 field_type="chiral multiplet",
-                gauge_rep=fundamental(),
+                gauge_reps={el_node.label: fundamental()},
                 global_reps={su_l_label: fundamental()},
                 u1_charges={baryon_label: Fraction(1, Nc)},
                 r_charge=rq_electric,
@@ -109,7 +112,7 @@ def build_seiberg_sqcd_claim(
             Field(
                 name="Qtilde",
                 field_type="chiral multiplet",
-                gauge_rep=antifundamental(),
+                gauge_reps={el_node.label: antifundamental()},
                 global_reps={su_r_label: antifundamental()},
                 u1_charges={baryon_label: Fraction(-1, Nc)},
                 r_charge=rq_electric,
@@ -122,7 +125,7 @@ def build_seiberg_sqcd_claim(
         Field(
             name="q",
             field_type="chiral multiplet",
-            gauge_rep=fundamental(),
+            gauge_reps={mag_node.label: fundamental()},
             global_reps={su_l_label: antifundamental()},
             u1_charges={baryon_label: q_b},
             r_charge=rq_magnetic,
@@ -130,7 +133,7 @@ def build_seiberg_sqcd_claim(
         Field(
             name="qtilde",
             field_type="chiral multiplet",
-            gauge_rep=antifundamental(),
+            gauge_reps={mag_node.label: antifundamental()},
             global_reps={su_r_label: fundamental()},
             u1_charges={baryon_label: qtilde_b},
             r_charge=rq_magnetic,
@@ -141,7 +144,7 @@ def build_seiberg_sqcd_claim(
             Field(
                 name="M",
                 field_type="chiral multiplet",
-                gauge_rep=singlet(),
+                gauge_reps={},
                 global_reps={
                     su_l_label: fundamental(),
                     su_r_label: antifundamental(),
@@ -163,7 +166,7 @@ def build_seiberg_sqcd_claim(
     )
     magnetic = Theory(
         name=f"Magnetic SQCD SU({Nm}) with Nf={Nf}",
-        gauge_group=su(Nm),
+        gauge_nodes=(mag_node,),
         global_symmetries=globals_,
         fields=tuple(magnetic_fields),
         superpotential_terms=magnetic_terms,
