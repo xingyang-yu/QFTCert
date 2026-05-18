@@ -137,7 +137,7 @@ class Field:
 
     name: str
     field_type: str
-    gauge_rep: Representation = SINGLET
+    gauge_reps: Mapping[str, Representation] = field(default_factory=dict)
     global_reps: Mapping[str, Representation] = field(default_factory=dict)
     u1_charges: Mapping[str, NumberLike] = field(default_factory=dict)
     r_charge: NumberLike = Fraction(0, 1)
@@ -146,7 +146,11 @@ class Field:
     def __post_init__(self) -> None:
         if self.multiplicity < 1:
             raise ValueError("Field multiplicity must be positive")
-        object.__setattr__(self, "gauge_rep", _coerce_rep(self.gauge_rep))
+        object.__setattr__(
+            self,
+            "gauge_reps",
+            {label: _coerce_rep(rep) for label, rep in self.gauge_reps.items()},
+        )
         object.__setattr__(
             self,
             "global_reps",
@@ -172,6 +176,9 @@ class Field:
 
     def rep_for_global(self, label: str) -> Representation:
         return self.global_reps.get(label, SINGLET)
+
+    def rep_for_node(self, node_label: str) -> Representation:
+        return self.gauge_reps.get(node_label, SINGLET)
 
 
 @dataclass(frozen=True)
@@ -210,10 +217,10 @@ class SuperpotentialTerm:
 
 @dataclass(frozen=True)
 class Theory:
-    """A 4d N=1 theory with one supported gauge group."""
+    """A 4d N=1 theory with a quiver gauge group (K >= 1 nodes)."""
 
     name: str
-    gauge_group: GaugeGroup
+    gauge_nodes: tuple[GaugeGroup, ...]
     fields: tuple[Field, ...] = ()
     superpotential_terms: tuple[SuperpotentialTerm, ...] = ()
     global_symmetries: tuple[GlobalSymmetry, ...] = ()

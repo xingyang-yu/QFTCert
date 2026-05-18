@@ -23,8 +23,9 @@ def test_gauge_global_mixed_anomalies_cancel_for_correct_sqcd():
 
     assert electric.status == Status.CERTIFIED
     assert magnetic.status == Status.CERTIFIED
-    assert electric.details["totals"]["U(1)_R"] == 0
-    assert magnetic.details["totals"]["U(1)_R"] == 0
+    # electric = SU(3), magnetic = SU(2) for Nc=3, Nf=5
+    assert electric.details["SU(3)"]["totals"]["U(1)_R"] == 0
+    assert magnetic.details["SU(2)"]["totals"]["U(1)_R"] == 0
 
 
 def test_wrong_magnetic_rank_fails_mixed_gauge_r_anomaly():
@@ -33,7 +34,8 @@ def test_wrong_magnetic_rank_fails_mixed_gauge_r_anomaly():
     result = gauge_global_mixed_anomaly_cancellation(claim.magnetic_theory)
 
     assert result.status == Status.FAILED
-    assert result.details["totals"]["U(1)_R"] == 1
+    # wrong rank = SU(3) on magnetic side
+    assert result.details["SU(3)"]["totals"]["U(1)_R"] == 1
 
 
 def test_encoded_r_symmetry_central_charges_match_for_correct_sqcd():

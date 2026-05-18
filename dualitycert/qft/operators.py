@@ -31,7 +31,7 @@ def minimal_operator_map_abelian_charges(claim: DualityClaim) -> CheckResult:
     nc = parameters.get("Nc")
     electric_fields = claim.electric_theory.field_map()
     magnetic_fields = claim.magnetic_theory.field_map()
-    magnetic_rank = claim.magnetic_theory.gauge_group.N
+    magnetic_rank = claim.magnetic_theory.gauge_nodes[0].N
 
     # SQCD default maps (meson M, baryons) only apply to Seiberg SQCD claims.
     # Other claim types (e.g. Kutasov) supply their own operator_map entries.
@@ -171,7 +171,7 @@ def sqcd_operator_map_nonabelian_flavor_labels(claim: DualityClaim) -> CheckResu
 
     electric_fields = claim.electric_theory.field_map()
     magnetic_fields = claim.magnetic_theory.field_map()
-    magnetic_rank = claim.magnetic_theory.gauge_group.N
+    magnetic_rank = claim.magnetic_theory.gauge_nodes[0].N
     flavor_labels = ("SU(Nf)_L", "SU(Nf)_R")
 
     maps = (

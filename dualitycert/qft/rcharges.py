@@ -5,7 +5,7 @@ from __future__ import annotations
 from fractions import Fraction
 from typing import Iterable
 
-from dualitycert.core.objects import CheckResult, DualityClaim, Field, Theory
+from dualitycert.core.objects import CheckResult, DualityClaim, Field, SINGLET, Theory
 from dualitycert.core.status import Status
 from dualitycert.groups.su import dimension
 
@@ -108,15 +108,18 @@ def operator_unitarity_bound_check(claim: DualityClaim) -> CheckResult:
 def r_symmetry_observables(theory: Theory) -> dict[str, Fraction]:
     """Compute Tr R, Tr R^3, a, and c from left-handed Weyl fermions."""
 
-    tr_r = Fraction(theory.gauge_group.dim_adjoint, 1)
-    tr_r3 = Fraction(theory.gauge_group.dim_adjoint, 1)
+    gaugino_dim = sum(node.dim_adjoint for node in theory.gauge_nodes)
+    tr_r = Fraction(gaugino_dim, 1)
+    tr_r3 = Fraction(gaugino_dim, 1)
     nonabelian_globals = theory.nonabelian_globals()
 
     for field in theory.fields:
         if not field.is_chiral:
             continue
         r_fermion = field.r_charge - 1
-        multiplicity = field.multiplicity * dimension(field.gauge_rep, theory.gauge_group)
+        multiplicity = field.multiplicity
+        for node in theory.gauge_nodes:
+            multiplicity *= dimension(field.rep_for_node(node.label), node)
         for symmetry in nonabelian_globals:
             multiplicity *= dimension(field.rep_for_global(symmetry.label), symmetry)
         tr_r += multiplicity * r_fermion
@@ -154,7 +157,7 @@ def _encoded_operators(claim: DualityClaim) -> tuple[tuple[str, Fraction], ...]:
         return ()
     electric_fields = claim.electric_theory.field_map()
     magnetic_fields = claim.magnetic_theory.field_map()
-    magnetic_rank = claim.magnetic_theory.gauge_group.N
+    magnetic_rank = claim.magnetic_theory.gauge_nodes[0].N
     standard_maps = (
         ("meson electric Q Qtilde", (("Q", 1), ("Qtilde", 1)), electric_fields),
         ("meson magnetic M", (("M", 1),), magnetic_fields),

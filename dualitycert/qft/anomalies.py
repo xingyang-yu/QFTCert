@@ -12,6 +12,7 @@ from dualitycert.core.objects import (
     GaugeGroup,
     GlobalSymmetry,
     Representation,
+    SINGLET,
     SymmetryMap,
     Theory,
 )
@@ -22,41 +23,47 @@ from dualitycert.groups.su import cubic_anomaly, dimension, dynkin_index
 AnomalyKey = tuple[str, ...]
 AnomalyTable = dict[AnomalyKey, Fraction]
 
-GAUGE_LABEL = "__gauge__"
-
 
 def gauge_anomaly_cancellation(theory: Theory) -> CheckResult:
-    """Check cancellation of the SU(N)^3 gauge anomaly."""
+    """Check cancellation of the SU(N)^3 gauge anomaly for each gauge node."""
 
-    total = Fraction(0, 1)
-    contributions: dict[str, Fraction] = {}
     groups = _nonabelian_factors(theory)
-    for field in theory.fields:
-        if not field.is_chiral:
-            continue
-        contribution = (
-            cubic_anomaly(field.gauge_rep, theory.gauge_group)
-            * field.multiplicity
-            * _spectator_dimension(field, groups, exclude_label=GAUGE_LABEL)
-        )
-        contributions[field.name] = contribution
-        total += contribution
+    node_results: dict[str, dict] = {}
+    failures: list[str] = []
 
-    status = Status.CERTIFIED if total == 0 else Status.FAILED
-    message = (
-        f"{theory.gauge_group.display_name} cubic gauge anomaly cancels."
-        if total == 0
-        else f"{theory.gauge_group.display_name} cubic gauge anomaly is {total}."
-    )
+    for node in theory.gauge_nodes:
+        total = Fraction(0, 1)
+        contributions: dict[str, Fraction] = {}
+        for field in theory.fields:
+            if not field.is_chiral:
+                continue
+            contribution = (
+                cubic_anomaly(field.rep_for_node(node.label), node)
+                * field.multiplicity
+                * _spectator_dimension(field, groups, exclude_label=node.label)
+            )
+            contributions[field.name] = contribution
+            total += contribution
+        node_results[node.label] = {"total": total, "field_contributions": contributions}
+        if total != 0:
+            failures.append(f"{node.display_name} cubic gauge anomaly is {total}")
+
+    if failures:
+        return CheckResult(
+            status=Status.FAILED,
+            message="Gauge anomaly cancellation failed: " + "; ".join(failures),
+            details=node_results,
+        )
+    node_names = ", ".join(node.display_name for node in theory.gauge_nodes)
     return CheckResult(
-        status=status,
-        message=message,
-        details={"total": total, "field_contributions": contributions},
+        status=Status.CERTIFIED,
+        message=f"Cubic gauge anomaly cancels for all nodes ({node_names}).",
+        details=node_results,
     )
 
 
 def gauge_global_mixed_anomaly_cancellation(theory: Theory) -> CheckResult:
-    """Check SU(gauge)^2 U(1) anomaly cancellation for represented U(1)s.
+    """Check SU(gauge_i)^2 U(1) anomaly cancellation for each gauge node and U(1).
 
     A continuous U(1) global symmetry is a valid symmetry of the quantum gauge
     theory only if it has no mixed anomaly with the dynamical gauge group. For
@@ -71,45 +78,53 @@ def gauge_global_mixed_anomaly_cancellation(theory: Theory) -> CheckResult:
         )
 
     groups = _nonabelian_factors(theory)
-    totals: dict[str, Fraction] = {}
-    field_contributions: dict[str, dict[str, Fraction]] = {}
+    node_results: dict[str, dict] = {}
     failures: list[str] = []
 
-    for symmetry in u1_globals:
-        total = Fraction(0, 1)
-        per_field: dict[str, Fraction] = {}
-        for field in theory.fields:
-            if not field.is_chiral:
-                continue
-            contribution = (
-                dynkin_index(field.gauge_rep, theory.gauge_group)
-                * field.u1_charge(symmetry.label, fermion=True)
-                * _spectator_dimension(field, groups, exclude_label=GAUGE_LABEL)
-            )
-            per_field[field.name] = contribution
-            total += contribution
-        if symmetry.is_r:
-            per_field["gaugino"] = dynkin_index(
-                Representation("adjoint"),
-                theory.gauge_group,
-            )
-            total += per_field["gaugino"]
-        totals[symmetry.label] = total
-        field_contributions[symmetry.label] = per_field
-        if total != 0:
-            failures.append(f"{theory.gauge_group.display_name}^2 {symmetry.label}={total}")
+    for node in theory.gauge_nodes:
+        totals: dict[str, Fraction] = {}
+        field_contributions: dict[str, dict[str, Fraction]] = {}
+
+        for symmetry in u1_globals:
+            total = Fraction(0, 1)
+            per_field: dict[str, Fraction] = {}
+            for field in theory.fields:
+                if not field.is_chiral:
+                    continue
+                contribution = (
+                    dynkin_index(field.rep_for_node(node.label), node)
+                    * field.u1_charge(symmetry.label, fermion=True)
+                    * _spectator_dimension(field, groups, exclude_label=node.label)
+                )
+                per_field[field.name] = contribution
+                total += contribution
+            if symmetry.is_r:
+                per_field["gaugino"] = dynkin_index(
+                    Representation("adjoint"),
+                    node,
+                )
+                total += per_field["gaugino"]
+            totals[symmetry.label] = total
+            field_contributions[symmetry.label] = per_field
+            if total != 0:
+                failures.append(f"{node.display_name}^2 {symmetry.label}={total}")
+
+        node_results[node.label] = {
+            "totals": totals,
+            "field_contributions": field_contributions,
+        }
 
     if failures:
         return CheckResult(
             status=Status.FAILED,
             message="Mixed gauge-global anomaly cancellation failed: "
             + "; ".join(failures),
-            details={"totals": totals, "field_contributions": field_contributions},
+            details=node_results,
         )
     return CheckResult(
         status=Status.CERTIFIED,
         message="All represented SU(gauge)^2 U(1) mixed anomalies cancel.",
-        details={"totals": totals, "field_contributions": field_contributions},
+        details=node_results,
     )
 
 
@@ -145,7 +160,7 @@ def global_tHooft_anomaly_table(theory: Theory) -> AnomalyTable:
             for field in theory.fields
             if field.is_chiral
         )
-        table[key] += _gaugino_u1_cubic_contribution(theory.gauge_group, labels)
+        table[key] += _gaugino_u1_cubic_contribution(theory.gauge_nodes, labels)
 
     for label in u1_labels:
         key = ("gravity_u1", label)
@@ -154,7 +169,7 @@ def global_tHooft_anomaly_table(theory: Theory) -> AnomalyTable:
             for field in theory.fields
             if field.is_chiral
         )
-        table[key] += _gaugino_gravity_u1_contribution(theory.gauge_group, label)
+        table[key] += _gaugino_gravity_u1_contribution(theory.gauge_nodes, label)
 
     return table
 
@@ -218,15 +233,17 @@ def compare_anomaly_tables(
 
 
 def _nonabelian_factors(theory: Theory) -> dict[str, GaugeGroup | GlobalSymmetry]:
-    factors: dict[str, GaugeGroup | GlobalSymmetry] = {GAUGE_LABEL: theory.gauge_group}
+    factors: dict[str, GaugeGroup | GlobalSymmetry] = {}
+    for node in theory.gauge_nodes:
+        factors[node.label] = node
     for symmetry in theory.nonabelian_globals():
         factors[symmetry.label] = symmetry
     return factors
 
 
 def _rep_for_factor(field: Field, label: str) -> Representation:
-    if label == GAUGE_LABEL:
-        return field.gauge_rep
+    if label in field.gauge_reps:
+        return field.gauge_reps[label]
     return field.rep_for_global(label)
 
 
@@ -290,17 +307,17 @@ def _gravity_u1_contribution(
 
 
 def _gaugino_u1_cubic_contribution(
-    gauge_group: GaugeGroup,
+    gauge_nodes: tuple[GaugeGroup, ...],
     labels: tuple[str, str, str],
 ) -> Fraction:
     if all(_is_r_label(label) for label in labels):
-        return Fraction(gauge_group.dim_adjoint, 1)
+        return Fraction(sum(node.dim_adjoint for node in gauge_nodes), 1)
     return Fraction(0, 1)
 
 
-def _gaugino_gravity_u1_contribution(gauge_group: GaugeGroup, label: str) -> Fraction:
+def _gaugino_gravity_u1_contribution(gauge_nodes: tuple[GaugeGroup, ...], label: str) -> Fraction:
     if _is_r_label(label):
-        return Fraction(gauge_group.dim_adjoint, 1)
+        return Fraction(sum(node.dim_adjoint for node in gauge_nodes), 1)
     return Fraction(0, 1)
 
 
