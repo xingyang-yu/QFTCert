@@ -110,17 +110,15 @@ def r_symmetry_observables(theory: Theory) -> dict[str, Fraction]:
 
     tr_r = Fraction(theory.gauge_group.dim_adjoint, 1)
     tr_r3 = Fraction(theory.gauge_group.dim_adjoint, 1)
-    groups = {theory.gauge_group.label: theory.gauge_group}
-    groups.update({sym.label: sym for sym in theory.nonabelian_globals()})
+    nonabelian_globals = theory.nonabelian_globals()
 
     for field in theory.fields:
         if not field.is_chiral:
             continue
         r_fermion = field.r_charge - 1
-        multiplicity = field.multiplicity
-        for label, group in groups.items():
-            rep = field.gauge_rep if label == theory.gauge_group.label else field.rep_for_global(label)
-            multiplicity *= dimension(rep, group)
+        multiplicity = field.multiplicity * dimension(field.gauge_rep, theory.gauge_group)
+        for symmetry in nonabelian_globals:
+            multiplicity *= dimension(field.rep_for_global(symmetry.label), symmetry)
         tr_r += multiplicity * r_fermion
         tr_r3 += multiplicity * r_fermion**3
 
