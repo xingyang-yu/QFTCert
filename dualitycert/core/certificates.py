@@ -31,7 +31,7 @@ DEFAULT_CONVENTIONS = {
     "chiral_multiplet_fermion_R_charge": "R_superfield - 1",
     "SU_N_cubic_anomaly": "A(fundamental)=+1, A(antifundamental)=-1",
     "SU_N_squared_U1_dynkin_index": "T(fundamental)=T(antifundamental)=1/2",
-    "baryon_number": "B(Q)=1/Nc and B(q)=1/Nmag for the proposed magnetic rank; the standard SQCD dual has Nmag=Nf-Nc",
+    "baryon_number": "B(Q)=1/Nc on the electric side; the magnetic baryon normalization is taken from the claim and the verifier does not assume a specific dual-rank formula",
 }
 
 OUTWARD_PASSED = "PASSED_IMPLEMENTED_OBLIGATIONS"
