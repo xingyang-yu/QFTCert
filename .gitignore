@@ -21,3 +21,4 @@ __pycache__/
 # LLM trace outputs (local dev artifacts, not committed)
 traces/*
 !traces/.gitkeep
+runs/
