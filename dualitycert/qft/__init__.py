@@ -13,9 +13,11 @@ from dualitycert.qft.dualities import (
 from dualitycert.qft.operators import minimal_operator_map_abelian_charges
 from dualitycert.qft.claims import build_claim_from_data, load_claim_file
 from dualitycert.qft.critic import (
+    RepairHint,
     build_critic_report,
     build_repair_hints,
     build_repair_prompt,
+    repair_hint_texts,
 )
 from dualitycert.qft.susy import (
     superpotential_R_charge_equals_2,
@@ -24,6 +26,7 @@ from dualitycert.qft.susy import (
 )
 
 __all__ = [
+    "RepairHint",
     "build_seiberg_sqcd_claim",
     "build_claim_from_data",
     "build_critic_report",
@@ -36,6 +39,7 @@ __all__ = [
     "global_tHooft_anomaly_table",
     "load_claim_file",
     "minimal_operator_map_abelian_charges",
+    "repair_hint_texts",
     "superpotential_R_charge_equals_2",
     "superpotential_consistency",
     "superpotential_invariance",
