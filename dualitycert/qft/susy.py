@@ -142,9 +142,13 @@ def _contains_singlet(reps: list[Representation]) -> bool:
     nontrivial = [rep.name for rep in reps if not rep.is_singlet]
     if not nontrivial:
         return True
-    if len(nontrivial) == 2:
-        if sorted(nontrivial) == ["antifundamental", "fundamental"]:
-            return True
-        if nontrivial[0] == nontrivial[1] == "adjoint":
-            return True
+    # Tr(X^n) for n >= 2: pure adjoint trace is gauge invariant
+    if all(r == "adjoint" for r in nontrivial) and len(nontrivial) >= 2:
+        return True
+    # q Y^n qtilde for n >= 0: one fundamental + zero-or-more adjoints + one antifundamental
+    funds = [r for r in nontrivial if r == "fundamental"]
+    antifunds = [r for r in nontrivial if r == "antifundamental"]
+    adjs = [r for r in nontrivial if r == "adjoint"]
+    if len(funds) == 1 and len(antifunds) == 1 and len(adjs) == len(nontrivial) - 2:
+        return True
     return False

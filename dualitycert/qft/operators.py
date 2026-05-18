@@ -33,8 +33,10 @@ def minimal_operator_map_abelian_charges(claim: DualityClaim) -> CheckResult:
     magnetic_fields = claim.magnetic_theory.field_map()
     magnetic_rank = claim.magnetic_theory.gauge_group.N
 
+    # SQCD default maps (meson M, baryons) only apply to Seiberg SQCD claims.
+    # Other claim types (e.g. Kutasov) supply their own operator_map entries.
     default_maps: tuple[_OperatorMap, ...] = ()
-    if nc is not None:
+    if nc is not None and claim.metadata.get("claim_type") == "seiberg_sqcd":
         default_maps = (
             _OperatorMap("meson", (("Q", 1), ("Qtilde", 1)), (("M", 1),)),
             _OperatorMap("baryon", (("Q", int(nc)),), (("q", magnetic_rank),)),

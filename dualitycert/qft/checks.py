@@ -14,6 +14,7 @@ from dualitycert.qft.deformations import (
     sqcd_mesonic_flat_direction_flow_check,
     sqcd_one_flavor_mass_deformation_check,
 )
+from dualitycert.qft.kutasov import kutasov_meson_tower_completeness_check
 from dualitycert.qft.operators import (
     minimal_operator_map_abelian_charges,
     sqcd_operator_map_nonabelian_flavor_labels,
@@ -171,6 +172,7 @@ def build_default_registry() -> CheckRegistry:
                 key="operator_map_nonabelian_flavor",
                 name="operator map non-Abelian flavor matching",
                 description="Check non-Abelian flavor representations of mapped operators.",
+                applicable_claim_types=frozenset({"seiberg_sqcd"}),
                 factory=lambda claim: Obligation(
                     name="operator map non-Abelian flavor matching",
                     description="Check non-Abelian flavor representations of mapped operators.",
@@ -182,6 +184,7 @@ def build_default_registry() -> CheckRegistry:
                 key="sqcd_magnetic_meson_f_term_lifting",
                 name="SQCD magnetic meson F-term lifting",
                 description="Check that encoded F-terms constrain magnetic q qtilde.",
+                applicable_claim_types=frozenset({"seiberg_sqcd"}),
                 factory=lambda claim: Obligation(
                     name="SQCD magnetic meson F-term lifting",
                     description="Check that encoded F-terms constrain magnetic q qtilde.",
@@ -193,6 +196,7 @@ def build_default_registry() -> CheckRegistry:
                 key="sqcd_mass_deformation",
                 name="SQCD one-flavor mass deformation",
                 description="Check the rank flow under one-flavor SQCD mass deformation.",
+                applicable_claim_types=frozenset({"seiberg_sqcd"}),
                 factory=lambda claim: Obligation(
                     name="SQCD one-flavor mass deformation",
                     description="Check the rank flow under one-flavor SQCD mass deformation.",
@@ -204,11 +208,24 @@ def build_default_registry() -> CheckRegistry:
                 key="sqcd_mesonic_flat_direction",
                 name="SQCD mesonic flat-direction flow",
                 description="Check rank flow along supported SQCD mesonic flat directions.",
+                applicable_claim_types=frozenset({"seiberg_sqcd"}),
                 factory=lambda claim: Obligation(
                     name="SQCD mesonic flat-direction flow",
                     description="Check rank flow along supported SQCD mesonic flat directions.",
                     checker=lambda: sqcd_mesonic_flat_direction_flow_check(claim),
                     checker_name="sqcd_mesonic_flat_direction_flow_check",
+                ),
+            ),
+            CheckSpec(
+                key="kutasov_meson_tower_completeness",
+                name="Kutasov meson tower completeness",
+                description="Check that the magnetic theory contains all k meson fields M0..M{k-1}.",
+                applicable_claim_types=frozenset({"kutasov"}),
+                factory=lambda claim: Obligation(
+                    name="Kutasov meson tower completeness",
+                    description="Check that the magnetic theory contains all k meson fields M0..M{k-1}.",
+                    checker=lambda: kutasov_meson_tower_completeness_check(claim),
+                    checker_name="kutasov_meson_tower_completeness_check",
                 ),
             ),
             CheckSpec(

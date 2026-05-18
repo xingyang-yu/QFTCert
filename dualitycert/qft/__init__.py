@@ -10,6 +10,10 @@ from dualitycert.qft.dualities import (
     evaluate_claim,
     generate_obligations,
 )
+from dualitycert.qft.kutasov import (
+    build_kutasov_claim,
+    kutasov_meson_tower_completeness_check,
+)
 from dualitycert.qft.operators import minimal_operator_map_abelian_charges
 from dualitycert.qft.claims import build_claim_from_data, load_claim_file
 from dualitycert.qft.critic import (
@@ -23,6 +27,7 @@ from dualitycert.qft.susy import (
 )
 
 __all__ = [
+    "build_kutasov_claim",
     "build_seiberg_sqcd_claim",
     "build_claim_from_data",
     "build_critic_report",
@@ -32,6 +37,7 @@ __all__ = [
     "gauge_anomaly_cancellation",
     "generate_obligations",
     "global_tHooft_anomaly_table",
+    "kutasov_meson_tower_completeness_check",
     "load_claim_file",
     "minimal_operator_map_abelian_charges",
     "superpotential_R_charge_equals_2",
