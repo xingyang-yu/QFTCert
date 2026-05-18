@@ -3,3 +3,21 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+.env
+*.env
+
+# LaTeX build artifacts
+*.pdf
+*.synctex.gz
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+
+# LLM trace outputs (local dev artifacts, not committed)
+traces/*
+!traces/.gitkeep
