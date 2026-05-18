@@ -14,6 +14,7 @@ from typing import Any, Mapping
 
 from dualitycert.core.objects import DualityClaim, SuperpotentialTerm
 from dualitycert.qft.dualities import build_seiberg_sqcd_claim
+from dualitycert.qft.kutasov import build_kutasov_claim
 
 
 def load_claim_file(path: str | Path) -> DualityClaim:
@@ -29,6 +30,8 @@ def load_claim_file(path: str | Path) -> DualityClaim:
 
 def build_claim_from_data(data: Mapping[str, Any]) -> DualityClaim:
     claim_type = data.get("claim_type")
+    if claim_type == "kutasov":
+        return _build_kutasov_claim_from_data(data)
     if claim_type != "seiberg_sqcd":
         raise ValueError(f"Unsupported claim_type: {claim_type!r}")
 
@@ -125,6 +128,30 @@ def _replace_magnetic_superpotential(
         "superpotential_terms": [term.field_names for term in terms],
     }
     return replace(claim, magnetic_theory=magnetic, metadata=metadata)
+
+
+def _build_kutasov_claim_from_data(data: Mapping[str, Any]) -> DualityClaim:
+    parameters = data.get("parameters", {})
+    magnetic = data.get("magnetic", {})
+
+    claim = build_kutasov_claim(
+        Nc=int(parameters["Nc"]),
+        Nf=int(parameters["Nf"]),
+        k=int(parameters["k"]),
+        magnetic_color_rank=_optional_int(magnetic.get("rank")),
+        claim_name=data.get("name"),
+    )
+
+    metadata = dict(claim.metadata)
+    metadata["source_schema"] = "kutasov_claim_json_v0"
+    metadata.update(dict(data.get("metadata", {})))
+    if "expected_outcome" in data:
+        metadata["expected_outcome"] = data["expected_outcome"]
+    metadata["parameters"] = {
+        **dict(metadata.get("parameters", {})),
+        "requested_checks": list(data.get("requested_checks", [])),
+    }
+    return replace(claim, metadata=metadata)
 
 
 def _optional_int(value: Any) -> int | None:

@@ -20,6 +20,7 @@ class CheckSpec:
     name: str
     description: str
     factory: ObligationFactory
+    applicable_claim_types: frozenset[str] | None = None
 
     def obligation_for(self, claim: DualityClaim) -> Obligation:
         return self.factory(claim)
@@ -55,8 +56,13 @@ class CheckRegistry:
         *,
         requested_keys: Iterable[str] | None = None,
     ) -> tuple[Obligation, ...]:
+        claim_type = claim.metadata.get("claim_type")
         if requested_keys is None:
-            specs = self.specs()
+            specs = tuple(
+                s for s in self.specs()
+                if s.applicable_claim_types is None
+                or claim_type in s.applicable_claim_types
+            )
         else:
             missing = [key for key in requested_keys if key not in self._specs]
             if missing:
