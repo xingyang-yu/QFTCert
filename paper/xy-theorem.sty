@@ -1,0 +1,35 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{xy-theorem}[2025/12/12 Theorem styles]
+
+\makeatletter
+\let\openbox\relax
+\makeatother
+
+\RequirePackage{amsthm}
+
+\newtheoremstyle{xyplain}
+  {6pt}{6pt}
+  {\itshape}
+  {0pt}
+  {\bfseries}
+  {.}
+  {0.6em}
+  {}
+
+\theoremstyle{xyplain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+
+\newtheoremstyle{xyremark}
+  {6pt}{6pt}
+  {\normalfont}
+  {0pt}
+  {\bfseries}
+  {.}
+  {0.6em}
+  {}
+
+\theoremstyle{xyremark}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{definition}[theorem]{Definition}
