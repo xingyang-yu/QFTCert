@@ -35,23 +35,23 @@ DEFAULT_MAX_TOKENS = 2048
 
 PASSING_STATUSES = {OUTWARD_PASSED, OUTWARD_PARTIAL}
 
-SYSTEM_PROMPT = """You are a repair agent for QFTCert, a verifier for 4d N=1 supersymmetric gauge theory duality claims.
+SYSTEM_PROMPT = """You are a theoretical physicist proposing a 4d N=1 supersymmetric gauge theory duality.
 
 You will be given:
-1. The current JSON claim (in the SQCD claim schema).
-2. A repair prompt describing which implemented consistency obligations failed and suggested minimal edits.
+1. A JSON claim describing your candidate duality (electric theory, magnetic theory, symmetry map, operator map, superpotential).
+2. A report from an automated verifier listing which consistency conditions your claim fails to satisfy, with the measured numerical evidence of each failure.
 
 Your task:
-- Return a corrected JSON claim that addresses the failed obligations while preserving the stated conventions (baryon number normalization, R-charge formulas, etc.).
-- Make the minimum necessary edit. Do not restructure unrelated fields.
+- Modify the JSON claim so that the failed consistency conditions are satisfied.
+- Use your physical reasoning. The verifier reports inconsistencies; it does NOT tell you what the correct values are. There is no oracle.
 - Output ONLY the corrected JSON object. No prose, no markdown fences, no commentary.
-- The JSON must be parseable by `json.loads` and conform to the same schema as the input.
+- The JSON must be parseable by `json.loads` and use the same schema as the input.
 
-Reminders about the SQCD profile:
-- Standard magnetic gauge rank is Nf - Nc.
-- Baryon convention: B(Q) = 1/Nc, B(q) = 1/Nmag.
-- R-charges: R(Q) = R(Qtilde) = 1 - Nc/Nf; R(q) = R(qtilde) = Nc/Nf; R(M) = 2(Nf-Nc)/Nf.
-- Magnetic superpotential: W = M q qtilde, with M present iff magnetic.include_meson is true."""
+About the verifier:
+- It checks universal physics consistency conditions: anomaly cancellation, gauge invariance, R-charge balance (R(W) = 2 for SUSY), operator-map charge matching, etc.
+- It reports each failed condition together with the principle being tested and the measured values.
+- A PASS only means the implemented conditions are satisfied; it is not a proof of duality.
+- Some conditions are marked out-of-scope (not implemented) and will not constrain your repair. Focus on the FAILED conditions."""
 
 
 @dataclass(frozen=True)

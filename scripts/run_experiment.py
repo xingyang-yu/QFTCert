@@ -28,7 +28,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from dualitycert.agent import run_llm_repair_loop
 from dualitycert.qft.claims import build_claim_from_data
-from dualitycert.qft.critic import build_repair_hints
 from dualitycert.qft.dualities import evaluate_claim
 
 
@@ -88,12 +87,8 @@ def main(argv: list[str] | None = None) -> int:
     failed_before = [r.name for r in cert_before.failed_obligations]
     failed_after = [r.name for r in result.final_certificate.failed_obligations]
     parse_errors = sum(1 for it in result.iterations if it.parse_error is not None)
-
-    # Hint types that were present before and are now absent after convergence
-    hints_before = build_repair_hints(claim_before, cert_before)
-    resolved_hint_types = (
-        [h.type for h in hints_before] if result.converged else []
-    )
+    # Obligations that failed initially and are no longer failing
+    obligations_resolved = sorted(set(failed_before) - set(failed_after))
 
     metrics = {
         "run_id": args.run_id,
@@ -105,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         "failed_obligations_before": failed_before,
         "failed_obligations_after": failed_after,
         "parse_error_count": parse_errors,
-        "failure_types_resolved": resolved_hint_types,
+        "obligations_resolved": obligations_resolved,
     }
     (out_dir / "metrics.json").write_text(
         json.dumps(metrics, indent=2) + "\n", encoding="utf-8"

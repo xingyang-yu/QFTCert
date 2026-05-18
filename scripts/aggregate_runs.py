@@ -63,16 +63,16 @@ def main(argv: list[str] | None = None) -> int:
 
     print()
 
-    # Failure types resolved
+    # Obligations resolved (across all runs)
     all_resolved: dict[str, int] = {}
     for r in records:
-        for t in r.get("failure_types_resolved", []):
-            all_resolved[t] = all_resolved.get(t, 0) + 1
+        for name in r.get("obligations_resolved", []):
+            all_resolved[name] = all_resolved.get(name, 0) + 1
 
     if all_resolved:
-        print("Failure types resolved (converged runs):")
-        for ftype, count in sorted(all_resolved.items(), key=lambda x: -x[1]):
-            print(f"  {ftype:<48} {count}x")
+        print("Obligations resolved (count across runs):")
+        for name, count in sorted(all_resolved.items(), key=lambda x: -x[1]):
+            print(f"  {name:<60} {count}x")
 
     return 0
 
