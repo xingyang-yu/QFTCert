@@ -1,12 +1,12 @@
-"""Minimal Claude-API repair loop.
+"""Verifier-in-the-loop repair cycle.
 
-The first end-to-end LLM-in-the-loop demo: load a (possibly broken) claim,
-hand the verifier-generated repair prompt to Claude, parse the returned
-JSON, re-verify, iterate until pass or max-iteration cutoff.
+load claim -> evaluate -> (if failed) LLM repair -> re-evaluate, until
+convergence or max-iteration cutoff.  The loop is model-agnostic: it
+depends only on the LLMClient Protocol defined in dualitycert.agent.client.
+Pass an AnthropicAdapter (default) or any other LLMClient-conforming object.
 
-Intentionally small and verbose: every iteration's prompt, raw response,
-and verifier result is recorded so the pipeline is auditable end-to-end.
-The shape here is the contract a future production loop should preserve.
+Every iteration records prompt, raw response, repaired JSON, and verifier
+result so the pipeline is fully auditable.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from dualitycert.agent.client import AnthropicAdapter, LLMClient
 from dualitycert.core.certificates import (
     OUTWARD_FAILED,
     OUTWARD_NONE,
@@ -85,7 +86,7 @@ class LLMRepairResult:
 def run_llm_repair_loop(
     initial_claim_data: dict[str, Any],
     *,
-    client: Any | None = None,
+    client: LLMClient | None = None,
     model: str = DEFAULT_MODEL,
     max_iterations: int = DEFAULT_MAX_ITERATIONS,
     max_tokens: int = DEFAULT_MAX_TOKENS,
@@ -98,7 +99,7 @@ def run_llm_repair_loop(
     """
 
     if client is None:
-        client = _make_default_client()
+        client = AnthropicAdapter()
 
     iterations: list[RepairIteration] = []
     current_data = json.loads(json.dumps(initial_claim_data))
@@ -149,13 +150,12 @@ def run_llm_repair_loop(
         repair_prompt = build_repair_prompt(claim, certificate)
         user_message = _compose_user_message(current_data, repair_prompt)
 
-        response = client.messages.create(
+        raw_text = client.complete(
             model=model,
             max_tokens=max_tokens,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
+            user=user_message,
         )
-        raw_text = _extract_text(response)
 
         repaired_data, parse_error = _parse_repaired_json(raw_text)
 
@@ -186,17 +186,6 @@ def run_llm_repair_loop(
     )
 
 
-def _make_default_client() -> Any:
-    try:
-        from anthropic import Anthropic
-    except ImportError as exc:
-        raise RuntimeError(
-            "anthropic SDK is not installed. Install with: "
-            "pip install -e .[llm]"
-        ) from exc
-    return Anthropic()
-
-
 def _compose_user_message(claim_data: dict[str, Any], repair_prompt: str) -> str:
     return (
         "Current claim JSON:\n"
@@ -207,17 +196,6 @@ def _compose_user_message(claim_data: dict[str, Any], repair_prompt: str) -> str
         + repair_prompt
         + "\n\nReturn the corrected JSON only."
     )
-
-
-def _extract_text(response: Any) -> str:
-    """Extract the assistant's text from an Anthropic Messages response."""
-
-    parts: list[str] = []
-    for block in getattr(response, "content", []) or []:
-        text = getattr(block, "text", None)
-        if text is not None:
-            parts.append(text)
-    return "".join(parts).strip()
 
 
 _JSON_FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
