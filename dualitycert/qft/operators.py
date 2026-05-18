@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fractions import Fraction
-from typing import Iterable
+from typing import Iterable, Mapping
 
 from dualitycert.core.objects import CheckResult, DualityClaim, Field
 from dualitycert.core.status import Status
@@ -14,42 +14,75 @@ R_LABEL = "U(1)_R"
 
 
 def minimal_operator_map_abelian_charges(claim: DualityClaim) -> CheckResult:
-    """Check U(1)_B and U(1)_R charges of standard SQCD operator maps.
+    """Check U(1)_B and U(1)_R charges of operator maps.
 
-    Implemented maps:
+    For SQCD claims, the standard maps are checked by default:
 
     - meson: Q Qtilde <-> M
     - baryon: Q^Nc <-> q^Nmag
     - antibaryon: Qtilde^Nc <-> qtilde^Nmag
 
-    Non-Abelian flavor representation matching is intentionally not checked
-    here; it remains a separate NOT_IMPLEMENTED obligation.
+    Any user-supplied entries in `claim.operator_map` (electric monomial string
+    -> magnetic monomial string) are also parsed and checked. Non-Abelian
+    flavor representation matching is intentionally not checked here.
     """
 
     parameters = claim.metadata.get("parameters", {})
     nc = parameters.get("Nc")
-    if nc is None:
-        return CheckResult(
-            status=Status.NOT_IMPLEMENTED,
-            message="Minimal operator-map checker requires SQCD metadata with Nc.",
-            details={"implemented": ["U(1)_B", "U(1)_R"]},
-        )
-
     electric_fields = claim.electric_theory.field_map()
     magnetic_fields = claim.magnetic_theory.field_map()
     magnetic_rank = claim.magnetic_theory.gauge_group.N
 
-    maps = (
-        _OperatorMap("meson", (("Q", 1), ("Qtilde", 1)), (("M", 1),)),
-        _OperatorMap("baryon", (("Q", int(nc)),), (("q", magnetic_rank),)),
-        _OperatorMap(
-            "antibaryon",
-            (("Qtilde", int(nc)),),
-            (("qtilde", magnetic_rank),),
-        ),
-    )
+    default_maps: tuple[_OperatorMap, ...] = ()
+    if nc is not None:
+        default_maps = (
+            _OperatorMap("meson", (("Q", 1), ("Qtilde", 1)), (("M", 1),)),
+            _OperatorMap("baryon", (("Q", int(nc)),), (("q", magnetic_rank),)),
+            _OperatorMap(
+                "antibaryon",
+                (("Qtilde", int(nc)),),
+                (("qtilde", magnetic_rank),),
+            ),
+        )
 
-    failures: list[str] = []
+    claim_maps, parse_errors = _parse_user_operator_maps(claim.operator_map)
+
+    # Merge: dedupe by (electric_factors, magnetic_factors). When the same map
+    # appears in both default_maps and claim_maps, keep the SQCD-default's
+    # canonical name ("meson"/"baryon"/...) for readable diagnostics. Entries
+    # only in claim_maps keep their auto-generated names. claim.operator_map
+    # is the source of truth for *what* is asserted; SQCD defaults only fill
+    # in standard entries the claim did not assert.
+    canonical: dict[tuple, _OperatorMap] = {}
+    for m in default_maps:
+        canonical[(m.electric_factors, m.magnetic_factors)] = m
+    for m in claim_maps:
+        key = (m.electric_factors, m.magnetic_factors)
+        if key not in canonical:
+            canonical[key] = m
+    maps = tuple(canonical.values())
+
+    # Computed via set difference so the count is correct even when the claim
+    # has multiple syntactic spellings that parse to the same canonical key
+    # (e.g., "Q Qtilde" and "Q^1 Qtilde").
+    claim_keys = {(m.electric_factors, m.magnetic_factors) for m in claim_maps}
+    default_keys = {(m.electric_factors, m.magnetic_factors) for m in default_maps}
+    inferred_defaults_used = len(default_keys - claim_keys)
+
+    if not maps:
+        return CheckResult(
+            status=Status.NOT_IMPLEMENTED,
+            message=(
+                "Minimal operator-map checker has no maps to check: SQCD "
+                "metadata with Nc is missing and no claim operator_map is set."
+            ),
+            details={
+                "implemented": ["U(1)_B", "U(1)_R"],
+                "claim_operator_map_parse_errors": parse_errors,
+            },
+        )
+
+    failures: list[str] = list(parse_errors)
     details: dict[str, dict] = {}
     for operator_map in maps:
         electric_charges = _operator_charges(
@@ -80,6 +113,11 @@ def minimal_operator_map_abelian_charges(claim: DualityClaim) -> CheckResult:
                 )
 
     details["implemented_quantum_numbers"] = [BARYON_LABEL, R_LABEL]
+    details["claim_operator_map_count"] = len(claim_maps)
+    details["inferred_sqcd_default_count"] = inferred_defaults_used
+    details["unique_maps_checked"] = len(maps)
+    if parse_errors:
+        details["claim_operator_map_parse_errors"] = parse_errors
     details["not_implemented"] = [
         "non-Abelian flavor representation matching",
         "chiral-ring relations",
@@ -301,3 +339,61 @@ def _format_factors(factors: Iterable[tuple[str, int]]) -> str:
     for field_name, power in factors:
         pieces.append(field_name if power == 1 else f"{field_name}^{power}")
     return " ".join(pieces)
+
+
+def _parse_monomial_string(text: str) -> tuple[tuple[str, int], ...] | str:
+    """Parse "Q Qtilde" or "Q^3 qtilde^2" into factor tuples; return error string on failure."""
+
+    tokens = text.split()
+    if not tokens:
+        return f"empty operator monomial {text!r}"
+    factors: list[tuple[str, int]] = []
+    for token in tokens:
+        if "^" in token:
+            name, _, power_str = token.partition("^")
+            name = name.strip()
+            power_str = power_str.strip()
+            if not name or not power_str:
+                return f"malformed operator token {token!r}"
+            try:
+                power = int(power_str)
+            except ValueError:
+                return f"non-integer power in token {token!r}"
+            if power < 1:
+                return f"non-positive power in token {token!r}"
+            factors.append((name, power))
+        else:
+            factors.append((token, 1))
+    return tuple(factors)
+
+
+def _parse_user_operator_maps(
+    raw_map: object,
+) -> tuple[tuple["_OperatorMap", ...], list[str]]:
+    """Parse claim.operator_map entries into _OperatorMap objects.
+
+    Accepts a mapping from electric monomial string to magnetic monomial string.
+    Returns the parsed maps plus any parse-error messages.
+    """
+
+    if not raw_map or not isinstance(raw_map, Mapping):
+        return (), []
+    parsed: list[_OperatorMap] = []
+    errors: list[str] = []
+    for index, (electric_text, magnetic_text) in enumerate(raw_map.items()):
+        electric = _parse_monomial_string(str(electric_text))
+        magnetic = _parse_monomial_string(str(magnetic_text))
+        if isinstance(electric, str):
+            errors.append(f"claim_map[{electric_text!r}]: electric {electric}")
+            continue
+        if isinstance(magnetic, str):
+            errors.append(f"claim_map[{electric_text!r}]: magnetic {magnetic}")
+            continue
+        parsed.append(
+            _OperatorMap(
+                name=f"claim_map[{index}]: {electric_text} <-> {magnetic_text}",
+                electric_factors=electric,
+                magnetic_factors=magnetic,
+            )
+        )
+    return tuple(parsed), errors

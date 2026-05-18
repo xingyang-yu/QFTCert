@@ -169,6 +169,15 @@ def build_seiberg_sqcd_claim(
         superpotential_terms=magnetic_terms,
     )
 
+    # A-route: claim self-describes its asserted operator map.
+    # The mesonic entry is dropped when there is no magnetic M field, so the
+    # claim only asserts operators that actually exist on both sides.
+    operator_map_dict: dict[str, str] = {}
+    if include_meson:
+        operator_map_dict["Q Qtilde"] = "M"
+    operator_map_dict[f"Q^{Nc}"] = f"q^{Nm}"
+    operator_map_dict[f"Qtilde^{Nc}"] = f"qtilde^{Nm}"
+
     return DualityClaim(
         name=claim_name or f"Seiberg SQCD Nc={Nc}, Nf={Nf}",
         electric_theory=electric,
@@ -181,7 +190,7 @@ def build_seiberg_sqcd_claim(
                 r_label: r_label,
             }
         ),
-        operator_map={"Q Qtilde": "M"},
+        operator_map=operator_map_dict,
         metadata={
             "claim_type": "seiberg_sqcd",
             "parameters": {

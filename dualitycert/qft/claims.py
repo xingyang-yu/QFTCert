@@ -58,6 +58,24 @@ def build_claim_from_data(data: Mapping[str, Any]) -> DualityClaim:
             superpotential_terms_from_lists(superpotential.get("terms", [])),
         )
 
+    if "operator_map" in data:
+        operator_map = data["operator_map"]
+        if not isinstance(operator_map, Mapping):
+            raise ValueError(
+                "operator_map must be a JSON object mapping electric monomial "
+                "strings to magnetic monomial strings."
+            )
+        # An explicit empty {} is honored as "the claim does not explicitly
+        # assert any operator maps" and overrides any builder-provided default.
+        # This is *not* a request to skip operator-map checking: the
+        # SQCD-profile checker may still infer standard defaults from
+        # claim_type. A missing operator_map key preserves any
+        # builder-provided default.
+        claim = replace(
+            claim,
+            operator_map={str(k): str(v) for k, v in operator_map.items()},
+        )
+
     metadata = dict(claim.metadata)
     metadata["source_schema"] = "sqcd_claim_json_v0"
     metadata.update(dict(data.get("metadata", {})))
