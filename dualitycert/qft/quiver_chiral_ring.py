@@ -149,7 +149,11 @@ class RelationMatrix:
     rows: tuple[tuple[Fraction, ...], ...]
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "column_basis", tuple(self.column_basis))
+        object.__setattr__(
+            self,
+            "column_basis",
+            tuple(tuple(column) for column in self.column_basis),
+        )
         object.__setattr__(self, "rows", tuple(tuple(row) for row in self.rows))
         width = len(self.column_basis)
         for index, row in enumerate(self.rows):

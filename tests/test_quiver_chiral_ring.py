@@ -1023,6 +1023,19 @@ def test_relation_matrix_coerces_lists_to_tuples():
     ))
 
 
+def test_relation_matrix_coerces_nested_lists_in_column_basis():
+    """The inner cyclic-word tuples must also be coerced — otherwise
+    column_basis=[["a"]] keeps an inner list and hash(m) still raises."""
+    m = RelationMatrix(
+        block=(1, None),
+        column_basis=[["a"], ["b"]],  # both layers are lists
+        rows=[[Fraction(1), Fraction(0)]],
+    )
+    assert all(isinstance(col, tuple) for col in m.column_basis)
+    # Must not raise — would TypeError if any inner list slipped through.
+    hash(m)
+
+
 # ===========================================================================
 # Step 3 regression: mass term (n=0 generator dispatch)
 # ===========================================================================
