@@ -11,7 +11,7 @@ auditable certificates.
 The certificate is not a proof. It is a record of implemented checks under
 explicit assumptions and conventions.
 
-## 2. Why SQCD / Seiberg Duality
+## 2. Why SQCD / Seiberg Duality First
 
 4d N=1 SQCD-like Seiberg duality is a controlled first target: the standard
 claim is familiar, the expected consistency checks are well understood, and
@@ -20,6 +20,9 @@ failure cases are easy to construct without pretending to solve general QFT.
 The point is not to rediscover the standard magnetic theory. The point is to
 build a minimal environment where explicit electric and proposed magnetic
 claims can be checked, criticized, and repaired.
+
+Current duality profiles: `seiberg_sqcd` and `kutasov` (Kutasov-Schwimmer:
+SU(Nc) + adjoint X + Nf flavors, W = Tr(X^{k+1})).
 
 ## 3. Typed Claims, Obligations, Certificates
 
@@ -39,22 +42,33 @@ The certificate records:
 
 DualityCert-0 currently implements:
 
-- SU(N) gauge cubic anomaly cancellation;
-- SU(gauge)^2 U(1) mixed gauge-global anomaly cancellation;
-- superpotential gauge/flavor/U(1) invariance for SQCD-like terms;
-- superpotential R-charge equal to 2;
-- global 't Hooft anomaly table matching for supported symmetries.
-- minimal operator-map U(1)_B and U(1)_R charge matching.
-- standard SQCD operator-map SU(Nf)_L and SU(Nf)_R flavor-label matching;
-- SQCD magnetic F-term consequence constraining q qtilde;
-- Tr R, Tr R^3, a, and c comparison from the encoded R-symmetry;
-- R >= 2/3 checks for encoded/default SQCD gauge-invariant chiral operators;
-- SQCD one-flavor mass-deformation rank-flow arithmetic.
-- SQCD mesonic flat-direction rank-flow arithmetic.
+**All claims:**
 
-It also includes metadata-level scaffolds for chiral rings, moduli spaces,
-conformal manifolds, generalized symmetries/defects, and protected quantities.
-These return `UNKNOWN` when the claim does not encode comparable data.
+- theory kind classification (pure_quiver / flavored_single_gauge /
+  flavored_quiver); flavored_quiver → OUT_OF_SCOPE, no physics checks run.
+
+**flavored_single_gauge claims (SQCD and Kutasov):**
+
+- SU(N) gauge cubic anomaly cancellation (K-agnostic, loops over gauge nodes);
+- SU(gauge)^2 U(1) mixed gauge-global anomaly cancellation;
+- superpotential gauge invariance and R-charge = 2;
+- global 't Hooft anomaly table matching;
+- Tr R, Tr R^3, a, c from encoded R-symmetry;
+- operator-map U(1)_B and U(1)_R charge matching;
+- R >= 2/3 for encoded gauge-invariant chiral operators.
+
+**seiberg_sqcd only:**
+
+- SU(Nf)_L, SU(Nf)_R flavor-label matching for operators;
+- SQCD magnetic F-term consequence constraining q qtilde;
+- one-flavor mass-deformation and mesonic flat-direction rank-flow arithmetic.
+
+**kutasov only:**
+
+- Kutasov meson tower completeness (M0..M_{k-1} present in magnetic theory).
+
+**Metadata scaffolds** (return `UNKNOWN` when data absent): chiral rings,
+moduli spaces, conformal manifolds, generalized symmetries, protected quantities.
 
 ## 5. Failure Cases
 
@@ -89,19 +103,28 @@ automated agent.
 
 ## 7. Limitations
 
-The prototype does not prove dualities or IR equivalence. It does not yet
-implement general non-Abelian tensor-product decomposition, index matching,
+The prototype does not prove dualities or IR equivalence.
+
+**Theory kind scope**: only `flavored_single_gauge` (K=1 with SU(Nf) flavor)
+claims are checked. `flavored_quiver` (K>1 with flavor) → OUT_OF_SCOPE.
+`pure_quiver` has data model support but no implemented physics checks yet.
+
+**Data model vs. verifier gap**: `Theory.gauge_nodes` supports K >= 1 nodes,
+and anomaly/superpotential checkers are K-agnostic. But no obligation yet
+verifies K>1 duality physics — the multi-node data model is a scaffold
+for Phase 2, not a claim of current capability.
+
+Not yet implemented: general tensor-product decomposition, index matching,
 full deformation checks, global forms, line operators, accidental symmetries,
-full a-maximization, full chiral-ring equivalence, full moduli-space
-equivalence, or a general QFT schema. The implemented F-term check is a
-narrow SQCD consequence check, not a general chiral-ring engine.
+full a-maximization, full chiral-ring equivalence, general QFT schema.
 
 ## 8. Roadmap
 
-Near-term next steps:
+**Phase 2a**: pure_quiver chiral ring check (closed-walk enumeration +
+F-term Koszul step 1). Enables verifying toric duality for quiver theories.
 
-- extend operator-map checks beyond Abelian charges;
-- JSON certificate regeneration in `ai_runs/`;
-- richer repair hints from failed obligations;
-- edge-case warnings for low-rank special cases;
-- broader but still explicit claim schemas.
+**Phase 2b**: dP_0 (C^3/Z_3 orbifold) builder + fixture + tests. First
+concrete pure_quiver duality check.
+
+**Other**: structured failure schema for certificates; experiment harness
+with reproducible seed/temperature/token logging.

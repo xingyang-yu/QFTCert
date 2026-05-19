@@ -191,14 +191,24 @@ class Certificate:
         return json.dumps(self.to_dict(), indent=indent, sort_keys=True)
 
     def render_text(self) -> str:
+        from dualitycert.core.theory_kind import FLAVORED_QUIVER
         lines = [
             f"Certificate for: {self.claim_name}",
             f"Outward status: {self.outward_status}",
             f"Internal status enum: {self.overall_status.value}",
             "",
-            "Meaning: this is a consistency certificate under stated assumptions.",
-            "It is not a proof of duality or IR equivalence.",
         ]
+        if self.theory_kind == FLAVORED_QUIVER:
+            lines += [
+                "OUT OF SCOPE: the claim's theory kind (flavored_quiver) is outside the",
+                "current verifier scope. No physics obligations were run.",
+                "This is NOT a physics failure — the verifier cannot assess this claim type.",
+            ]
+        else:
+            lines += [
+                "Meaning: this is a consistency certificate under stated assumptions.",
+                "It is not a proof of duality or IR equivalence.",
+            ]
         if self.passed_obligations:
             lines.extend(["", "Passed obligations:"])
             lines.extend(
