@@ -1,6 +1,6 @@
 {
   "name": "ai_repaired_R_charge",
-  "claim_type": "seiberg_sqcd",
+  "duality_profile": "seiberg_sqcd",
   "parameters": {
     "Nc": 3,
     "Nf": 5

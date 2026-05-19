@@ -1,9 +1,11 @@
 # QFTCert / DualityCert-0 Design
 
-DualityCert-0 is a deliberately small verifier/certificate prototype for
-SQCD-like Seiberg-duality-style claims in 4d N=1 supersymmetric gauge theory.
-It is the first prototype inside QFTCert, an auditable AI-assisted reasoning
-infrastructure project for theoretical physics.
+**Package:** `dualitycert`  **Project:** QFTCert  **Current system:** DualityCert-0
+
+DualityCert-0 is a deliberately small verifier/certificate prototype for 4d
+N=1 supersymmetric gauge theory duality claims. It is the first prototype
+inside QFTCert, an auditable AI-assisted reasoning infrastructure project for
+theoretical physics.
 
 The system does not prove dualities. It takes a typed or machine-readable
 physics claim, generates a fixed set of consistency obligations, runs
@@ -12,12 +14,14 @@ passed, what failed, and what remains unimplemented.
 
 ## Project Goal
 
-The first milestone is a runnable Python package that can construct the
-standard electric/magnetic SQCD pair and answer:
+The current milestone is a runnable Python package that can construct duality
+claims for several duality profiles and answer:
 
-> Given electric SU(Nc) SQCD with Nf flavors and a proposed magnetic
-> SU(Nf - Nc) dual with q, qtilde, M, and W = M q qtilde, which
+> Given a proposed pair of dual theories with explicit field content,
+> R-charges, superpotential, and symmetry assignments, which
 > machine-checkable consistency obligations are satisfied?
+
+Supported duality profiles today: `seiberg_sqcd` and `kutasov`.
 
 The intended output is not a bare `true` or `false`, but a certificate with
 per-obligation status, convention assumptions, diagnostic tables, warnings,
@@ -87,54 +91,71 @@ uses safer labels:
 - `FAILED_IMPLEMENTED_OBLIGATIONS`
 - `PARTIAL_WITH_NOT_IMPLEMENTED_OBLIGATIONS`
 - `NO_IMPLEMENTED_OBLIGATIONS`
+- `OUT_OF_SCOPE`: the claim's theory kind is outside the current verifier scope;
+  no physics obligations were run. This is NOT a physics failure.
 
 These labels mean exactly what they say about implemented checks; none of them
 means "the duality is proven."
 
 ## Core Objects
 
-The initial object model is small and explicit.
-
-- `GaugeGroup`: currently SU(N).
+- `GaugeGroup`: currently SU(N). Each node has a label (e.g. `"SU(3)"`).
 - `GlobalSymmetry`: currently SU(N), U(1), and U(1)_R labels.
 - `Representation`: `fundamental`, `antifundamental`, `adjoint`, `singlet`.
-- `Field`: chiral or vector multiplet data, including gauge representation,
-  global representations, U(1) charges, R-charge, and multiplicity.
+- `Field`: chiral multiplet data. `gauge_reps: Mapping[str, Representation]`
+  maps gauge node labels to representations (empty = singlet under all nodes).
+  Also carries `global_reps`, `u1_charges`, `r_charge`, `multiplicity`.
 - `SuperpotentialTerm`: a field monomial such as `M q qtilde`.
-- `Theory`: a gauge group, fields, global symmetries, and superpotential
-  terms.
-- `SymmetryMap`: a label map from electric global symmetries to magnetic
-  global symmetries.
-- `DualityClaim`: electric theory, magnetic theory, symmetry map, and an
-  operator-map placeholder.
+- `Theory`: `gauge_nodes: tuple[GaugeGroup, ...]` (K >= 1), fields, global
+  symmetries, superpotential terms. K=1 is the SQCD/Kutasov special case.
+- `SymmetryMap`: a label map from electric global symmetries to magnetic.
+- `DualityClaim`: electric theory, magnetic theory, symmetry map, operator
+  map, and `metadata` dict (contains `duality_profile`, `theory_kind`,
+  `parameters`, etc.).
 - `Obligation`: generated consistency task with an optional checker.
-- `Certificate`: structured result containing passed, failed, and
-  unimplemented obligations, unknown/missing-data obligations, warnings,
+- `Certificate`: structured result containing `duality_profile`, `theory_kind`,
+  passed/failed/unimplemented/unknown/not-applicable obligations, warnings,
   assumptions, limitations, and detailed tables.
 
-## First-Version Physics Scope
+## Theory Kind Classification
 
-Supported electric theory:
+Before running physics obligations, the verifier classifies each claim into
+one of three mutually exclusive **theory kinds**:
 
-```text
-SU(Nc) with Q and Qtilde, Nf flavors.
-```
+- **`pure_quiver`**: K >= 1 gauge nodes, no non-Abelian flavor fundamentals
+  in global_reps (D-brane probe theories, toric duality targets).
+- **`flavored_single_gauge`**: K = 1, has SU(Nf) flavor fundamentals
+  (Seiberg SQCD, Kutasov-Schwimmer).
+- **`flavored_quiver`**: K > 1 with non-Abelian flavor — currently
+  **OUT_OF_SCOPE**. No physics checks run; the certificate records
+  `outward_status = OUT_OF_SCOPE`.
 
-Supported magnetic theory:
+Classification is inferred from field content. An explicit
+`metadata["theory_kind"]` entry overrides the inference; a mismatch is
+flagged as FAILED by the `theory_kind_classification` check.
 
-```text
-SU(Nf - Nc) with q, qtilde, meson M, and W = M q qtilde.
-```
+Currently implemented duality profiles, by kind:
+- `flavored_single_gauge`: `seiberg_sqcd`, `kutasov`
+- `pure_quiver`: none yet (Phase 2 target: toric dP_0)
 
-Default global symmetry:
+## Supported Duality Profiles
 
-```text
-SU(Nf)_L x SU(Nf)_R x U(1)_B x U(1)_R
-```
+### seiberg_sqcd
 
-The current builder supports integer `Nc`, `Nf` with exact rational
-arithmetic. It requires `Nf > Nc` and a supported magnetic gauge rank of at
-least 2.
+Electric: SU(Nc) with Q, Qtilde in Nf flavors, W_el = 0.  
+Magnetic: SU(Nf-Nc) with q, qtilde, singlet M, W_mag = M q qtilde.  
+Global symmetry: SU(Nf)_L × SU(Nf)_R × U(1)_B × U(1)_R.
+
+Exact rational arithmetic; requires Nf > Nc and magnetic rank >= 2.
+
+### kutasov
+
+Electric: SU(Nc) with Q, Qtilde in Nf flavors + adjoint X, W_el = Tr(X^{k+1}).  
+Magnetic: SU(kNf-Nc) with q, qtilde + adjoint Y + meson tower M_j (j=0..k-1),
+W_mag = Tr(Y^{k+1}) + Σ_j M_j q Y^{k-1-j} qtilde.  
+R-charge: R(X) = R(Y) = 2/(k+1), R_el = 1 - 2Nc/(Nf(k+1)).
+
+k=1 reduces to Seiberg duality with one adjoint; k >= 2 adds a meson tower.
 
 ## Representation Conventions
 
@@ -198,35 +219,42 @@ baryon convention above.
 
 ## Implemented Obligations
 
-The first prototype generates and evaluates:
+All claims (any theory kind):
 
-- electric gauge anomaly cancellation;
-- magnetic gauge anomaly cancellation;
-- electric SU(gauge)^2 U(1) mixed gauge-global anomaly cancellation;
-- magnetic SU(gauge)^2 U(1) mixed gauge-global anomaly cancellation;
-- electric superpotential consistency;
-- magnetic superpotential consistency;
-- represented continuous global symmetry factor matching;
-- global 't Hooft anomaly matching.
-- Tr R, Tr R^3, a, and c matching from the encoded R-symmetry;
-- minimal operator-map Abelian charge matching for U(1)_B and U(1)_R.
-- standard SQCD operator-map non-Abelian flavor-label matching;
+- **theory kind classification**: classifies the claim and confirms verifier
+  scope; flags `OUT_OF_SCOPE` for `flavored_quiver`.
+
+`flavored_single_gauge` claims (both profiles):
+
+- electric / magnetic gauge anomaly cancellation (K-agnostic, loops over nodes);
+- electric / magnetic SU(gauge)^2 U(1) mixed gauge-global anomaly cancellation;
+- electric / magnetic superpotential consistency (gauge invariance + R-charge 2);
+- global symmetry factor matching;
+- global 't Hooft anomaly matching;
+- Tr R, Tr R^3, a, c matching from encoded R-symmetry;
+- operator-map Abelian charge matching (U(1)_B, U(1)_R);
+- R >= 2/3 for encoded gauge-invariant chiral operators.
+
+`seiberg_sqcd` only:
+
+- SQCD operator-map non-Abelian flavor-label matching;
 - SQCD magnetic F-term meson-lifting consequence;
-- R >= 2/3 for encoded/default SQCD gauge-invariant chiral operators;
-- SQCD one-flavor mass-deformation rank-flow arithmetic.
+- SQCD one-flavor mass-deformation rank-flow arithmetic;
 - SQCD mesonic flat-direction rank-flow arithmetic.
 
-It also includes metadata-level scaffolds that return `UNKNOWN` when the
-required data is not encoded:
+`kutasov` only:
 
-- general chiral ring / F-term relation metadata;
+- Kutasov meson tower completeness (checks M0..M_{k-1} are all present).
+
+Metadata-level scaffolds (return `UNKNOWN` when data is absent):
+
+- chiral ring / F-term relation metadata;
 - moduli-space branch metadata;
 - conformal-manifold metadata;
 - generalized-symmetry / defect metadata;
-- protected-quantity hooks for index, partition-function, and Hilbert-series
-  data.
+- protected-quantity hooks (index, partition function, Hilbert series).
 
-It also records these known but unimplemented obligations:
+Known but unimplemented obligations (recorded as `NOT_IMPLEMENTED`):
 
 - index matching;
 - deformation checks.
@@ -351,40 +379,39 @@ Young-tableau tensor decomposition or multiplicity counting.
 
 ## Machine-Readable Claims
 
-The first machine-readable input format is JSON, not YAML, to avoid dependency
-churn. It is intentionally SQCD-builder-level rather than a universal QFT
-schema. A minimal claim contains:
+The machine-readable input format is JSON. A minimal claim contains:
 
 - `name`;
-- `claim_type: seiberg_sqcd`;
-- `parameters.Nc`;
-- `parameters.Nf`;
+- `duality_profile`: `"seiberg_sqcd"` or `"kutasov"`;
+- `parameters.Nc`, `parameters.Nf` (and `parameters.k` for Kutasov);
 - optional `magnetic.rank`;
 - optional `magnetic.include_meson`;
 - optional R-charge or U(1)_B overrides for failure examples;
-- optional `superpotential.terms`.
+- optional `superpotential.terms` (seiberg_sqcd only).
 
-The loader adapts this input to the existing SQCD builder and check pipeline.
+The loader dispatches on `duality_profile` to the appropriate builder. The
+`theory_kind` is inferred from field content at claim-load time; it can also
+be stated explicitly in the JSON `metadata` object.
+
+**Schema note**: the field was renamed from `claim_type` to `duality_profile`
+in Phase 1.6. Historical traces in `traces/` may still use the old name.
 
 ## Certificate Output
 
-The current certificate records human-readable text and JSON-serializable
-structured output:
+The certificate records human-readable text and JSON-serializable structured
+output:
 
-- `claim_name`;
-- outward-facing top-level status;
-- legacy internal enum status;
-- claim type and parameters when available;
-- passed obligations;
-- failed obligations;
-- not-implemented obligations;
-- unknown/missing-data obligations;
-- not-applicable obligations;
-- warnings;
-- assumptions;
-- conventions;
-- limitations;
-- detailed tables from checkers.
+- `claim_name`, `claim_id` (slug);
+- `outward_status` (one of the five OUTWARD_* strings including OUT_OF_SCOPE);
+- `internal_status` (legacy internal enum);
+- `duality_profile` and `theory_kind`;
+- `parameters`;
+- passed / failed / not-implemented / unknown / not-applicable obligations;
+- `warnings`, `assumptions`, `conventions`, `limitations`;
+- `detailed_tables` from individual checkers.
+
+For `OUT_OF_SCOPE` claims, the certificate explicitly states that no physics
+checks ran and this is not a physics failure.
 
 Readable text output emphasizes that the certificate is not a proof. JSON
 output is intended for downstream AI tools, critic reports, and repair loops.
@@ -418,33 +445,53 @@ The test suite includes intentionally broken claims:
 
 ## Limitations
 
-The first prototype is intentionally modest:
+**Verifier scope**: Only `flavored_single_gauge` (K=1 with SU(Nf) flavor)
+claims can be physically checked. `flavored_quiver` (K>1 with flavor) returns
+OUT_OF_SCOPE. `pure_quiver` (no flavor) has data model support but no
+implemented physics checks yet (Phase 2 target).
 
-- no theorem proving;
-- no path-integral or dynamical proof of duality;
-- no full Hilbert-series, index, or deformation-flow engine yet;
+**Data model vs. verifier capability gap**: `Theory.gauge_nodes` supports
+K >= 1 nodes and `Field.gauge_reps` supports per-node representations. The
+anomaly/superpotential checkers loop over all nodes and are K-agnostic. But
+no obligation verifies non-Abelian flavor matching, chiral ring equivalence,
+or operator matching for K > 1 theories.
+
+**Other limitations**:
+
+- no theorem proving or dynamical proof of duality;
+- no full Hilbert-series, index, or deformation-flow engine;
 - no general Lie algebra package;
 - no automatic discovery of operator maps;
-- no general non-Abelian tensor-product decomposition for operator maps yet;
-- no support for full accidental-symmetry detection, decoupled-field repair,
-  or full a-maximization;
-- no support for general superpotential invariant construction;
-- global forms, discrete quotients, defects, line operators, moduli spaces,
-  and general chiral-ring equivalence are metadata scaffolds only unless
-  explicit comparable data is provided.
+- no general non-Abelian tensor-product decomposition;
+- no full accidental-symmetry detection, decoupled-field repair, or
+  a-maximization;
+- SU(2), Nf = Nc + 1, and low-rank boundary cases may have special physics
+  (s-confinement, enhanced symmetries) not explicitly modeled;
+- profiles `seiberg_sqcd` and `kutasov` are hand-coded builders, not generic
+  solvers.
 
-Failures should be read as failures of the modeled consistency obligations
-under these conventions, not as physical no-go theorems.
+Failures are failures of modeled consistency obligations under stated
+conventions, not physical no-go theorems.
 
 ## Roadmap
 
-Natural next steps:
+**Phase 2a (next)**: pure_quiver chiral ring check.
 
-- extend operator-map checks beyond Abelian charges;
-- lift the single-gauge-group model toward product-SU quiver theories;
-- add richer critic/repair reports derived from JSON certificates;
-- improve edge-case diagnostics for SU(2), Nf = Nc + 1, and low magnetic
-  rank;
-- add real chiral-ring/F-term relation computation for simple polynomial
-  superpotentials;
-- add external protected-quantity hooks for index/Hilbert-series data.
+- closed-walk enumeration of gauge-invariant single-trace operators up to
+  a given R-charge cutoff;
+- F-term Koszul step 1: subtract image of ∂W/∂Φ from the free algebra;
+- check that the operator count and dimension matches between dual phases.
+
+**Phase 2b**: dP_0 (C^3/Z_3 orbifold) builder + fixture + tests.
+
+- 3-node cyclic SU(N)^3 quiver with 9 bifundamentals X_{ij};
+- W = ε_{abc} X_{12}^a X_{23}^b X_{31}^c;
+- verify toric Phase I ↔ Phase II duality via the pure_quiver chiral ring check.
+
+**Other near-term**:
+
+- structured failure schema for certificates (principle / observed /
+  expected / affected_objects / severity) for better downstream agent use;
+- OUT_OF_SCOPE section in `render_text()` (done in Phase 1.6);
+- improve edge-case diagnostics for SU(2), Nf = Nc + 1, low magnetic rank;
+- experiment harness: seed/temperature/cost/token logging, run manifest.
