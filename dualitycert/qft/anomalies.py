@@ -39,7 +39,6 @@ def gauge_anomaly_cancellation(theory: Theory) -> CheckResult:
                 continue
             contribution = (
                 cubic_anomaly(field.rep_for_node(node.label), node)
-                * field.multiplicity
                 * _spectator_dimension(field, groups, exclude_label=node.label)
             )
             contributions[field.name] = contribution
