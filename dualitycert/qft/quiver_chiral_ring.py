@@ -756,10 +756,25 @@ def bounded_chiral_ring_consistency_check(
             r_graded=r_graded_effective,
         )
     except (ValueError, RuntimeError) as exc:
+        # We reach here only after every pre-condition passed, so they all
+        # carry "pass" / "pass (length-only fallback)" semantics consistent
+        # with the success path. The always-present schema contract
+        # (design doc §7) requires `preconditions` on every verdict path.
         return CheckResult(
             status=Status.UNKNOWN,
             message=f"Quotient-dimension computation failed: {exc}",
-            details=base_details,
+            details={
+                **base_details,
+                "preconditions": {
+                    "P1": "pass",
+                    "P3": "pass" if not p3_failures else "fail (length-only fallback)",
+                    "P4": "pass" if not p4_failures else "fail (length-only fallback)",
+                    "P5_electric": "pass",
+                    "P5_magnetic": "pass",
+                    "P6": "pass",
+                },
+                "compute_error": str(exc),
+            },
         )
 
     # --- Per-block comparison ---------------------------------------------

@@ -1615,13 +1615,14 @@ def test_bounded_chiral_ring_details_carry_mandatory_r_graded_key_on_every_path(
 
 def test_bounded_chiral_ring_details_schema_split_between_always_and_comparison_paths():
     """Design doc §7 splits details into always-present keys (cutoff_L,
-    r_graded, mod_cyclic_rotation, orientation_preserved,
-    context_multiplied_ideal, preconditions, limitations) and
-    comparison-path-only keys (tested_blocks, failed_blocks,
-    sample_operators, arrow_machine_labels_electric/magnetic,
-    r_graded_blocked_by). Empty-list defaults are explicitly NOT used
-    so consumers can distinguish "comparison ran with zero failed
-    blocks" (CERTIFIED) from "comparison never ran" (NOT_APPLICABLE)."""
+    r_graded, require_r_graded, r_graded_blocked_by, mod_cyclic_rotation,
+    orientation_preserved, context_multiplied_ideal, preconditions,
+    limitations) and comparison-path-only keys (tested_blocks,
+    failed_blocks, sample_operators, arrow_machine_labels_electric /
+    arrow_machine_labels_magnetic). Empty-list defaults on the
+    comparison-only keys are explicitly NOT used so consumers can
+    distinguish "comparison ran with zero failed blocks" (CERTIFIED)
+    from "comparison never ran" (NOT_APPLICABLE)."""
 
     always_present_keys = {
         "cutoff_L",
@@ -1687,6 +1688,47 @@ def test_bounded_chiral_ring_details_schema_split_between_always_and_comparison_
     assert res_p4.status == Status.NOT_APPLICABLE
     assert always_present_keys.issubset(res_p4.details)
     assert not (comparison_only_keys & set(res_p4.details))
+
+
+def test_bounded_chiral_ring_unknown_on_compute_error_still_carries_preconditions(monkeypatch):
+    """If quotient_dimensions raises (R-homogeneity guard, numeric pathology,
+    or any unexpected ValueError/RuntimeError after all pre-conditions
+    passed), the resulting UNKNOWN verdict must still carry the
+    always-present schema — including `preconditions` — per design doc §7.
+    The comparison-path keys (tested_blocks etc.) remain absent because the
+    block-wise comparison never ran."""
+    from dualitycert.qft import quiver_chiral_ring as qcr
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("simulated rank-computation failure")
+
+    monkeypatch.setattr(qcr, "quotient_dimensions", boom)
+
+    res = qcr.bounded_chiral_ring_consistency_check(
+        _wrap_claim(_toy_theory(), _toy_theory(),
+                    max_length=3, require_r_graded=True, profile="compute_boom"),
+        _certified_prior_anomalies(),
+    )
+    assert res.status == Status.UNKNOWN
+    assert "simulated rank-computation failure" in res.message
+
+    # Always-present keys must be there.
+    for key in ("cutoff_L", "r_graded", "require_r_graded", "r_graded_blocked_by",
+                "mod_cyclic_rotation", "orientation_preserved",
+                "context_multiplied_ideal", "preconditions", "limitations"):
+        assert key in res.details, f"missing always-present key {key!r}"
+
+    # Every pre-condition reached "pass" before quotient_dimensions blew up.
+    pre = res.details["preconditions"]
+    assert pre["P1"] == "pass"
+    assert pre["P5_electric"] == "pass"
+    assert pre["P5_magnetic"] == "pass"
+    assert pre["P6"] == "pass"
+
+    # Comparison-only keys must NOT be present (the block-wise loop never ran).
+    for key in ("tested_blocks", "failed_blocks", "sample_operators",
+                "arrow_machine_labels_electric", "arrow_machine_labels_magnetic"):
+        assert key not in res.details, f"comparison-only key {key!r} leaked into UNKNOWN path"
 
 
 def test_bounded_chiral_ring_strict_p4_length_only_unaffected_by_missing_upstream():
