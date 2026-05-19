@@ -20,6 +20,9 @@ from dualitycert.qft.operators import (
     minimal_operator_map_abelian_charges,
     sqcd_operator_map_nonabelian_flavor_labels,
 )
+from dualitycert.qft.quiver_chiral_ring import (
+    bounded_chiral_ring_consistency_check,
+)
 from dualitycert.qft.rcharges import (
     central_charge_matching,
     operator_unitarity_bound_check,
@@ -245,6 +248,24 @@ def build_default_registry() -> CheckRegistry:
                     description="Check that the magnetic theory contains all k meson fields M0..M{k-1}.",
                     checker=lambda: kutasov_meson_tower_completeness_check(claim),
                     checker_name="kutasov_meson_tower_completeness_check",
+                ),
+            ),
+            CheckSpec(
+                key="bounded_chiral_ring_consistency",
+                name="bounded chiral-ring consistency",
+                description=(
+                    "Compare two pure_quiver theories block-wise on bounded "
+                    "cyclic-word quotient dimensions (Phase 2a, design doc sections 6/7)."
+                ),
+                applicable_kinds=frozenset({"pure_quiver"}),
+                factory=lambda claim, prior: Obligation(
+                    name="bounded chiral-ring consistency",
+                    description=(
+                        "Compare two pure_quiver theories block-wise on bounded "
+                        "cyclic-word quotient dimensions (Phase 2a, design doc sections 6/7)."
+                    ),
+                    checker=lambda: bounded_chiral_ring_consistency_check(claim, prior),
+                    checker_name="bounded_chiral_ring_consistency_check",
                 ),
             ),
             CheckSpec(

@@ -1,14 +1,16 @@
-"""Tests for quiver_chiral_ring steps 1-3.
+"""Tests for quiver_chiral_ring steps 1-4.
 
 Step 1: Arrow/CyclicWord + extract + enumerate.
 Step 2: cyclic_derivative of the superpotential.
 Step 3: validate_w_terms, RelationMatrix, build_relation_matrix,
-        quotient_dimensions. Verdict logic still in step 4.
+        quotient_dimensions.
+Step 4: bounded_chiral_ring_consistency_check (verdict + registry).
 
 These tests pin the toy-quiver hand-checks from §11.1, the multi-arrow
 expansion convention from §3.2, the cyclic-derivative definition from §2,
-the two-sided context multiplication of §5.2, and W-term well-formedness
-(P5 from §4) at the build_relation_matrix entry point.
+the two-sided context multiplication of §5.2, W-term well-formedness (P5
+from §4) at the build_relation_matrix entry point, and the §7 verdict
+semantics including the §11.3 failure fixtures.
 """
 
 from __future__ import annotations
@@ -19,12 +21,16 @@ import pytest
 
 from dualitycert.core.objects import Field, SuperpotentialTerm, Theory
 from dualitycert.groups.su import adjoint, antifundamental, fundamental, su
+from dualitycert.core.objects import DualityClaim
+from dualitycert.core.obligations import ObligationResult
+from dualitycert.core.status import Status
 from dualitycert.qft.quiver_chiral_ring import (
     Arrow,
     CyclicWord,
     PureQuiverShapeError,
     RelationMatrix,
     WTermShapeError,
+    bounded_chiral_ring_consistency_check,
     build_relation_matrix,
     cyclic_derivative,
     enumerate_cyclic_words,
@@ -1143,3 +1149,323 @@ def test_build_relation_matrix_length_only_accepts_p3_violating_w():
     # Should not raise.
     matrices = build_relation_matrix(arrows, W, max_length=3, r_graded=False)
     assert all(k[1] is None for k in matrices)
+
+
+# ===========================================================================
+# Step 4: bounded_chiral_ring_consistency_check (verdict)
+# ===========================================================================
+
+def _wrap_claim(electric, magnetic, *, max_length=4, require_r_graded=True,
+                profile="toy"):
+    return DualityClaim(
+        name="test claim",
+        electric_theory=electric,
+        magnetic_theory=magnetic,
+        metadata={
+            "duality_profile": profile,
+            "theory_kind": "pure_quiver",
+            "bounded_chiral_ring": {
+                "max_length": max_length,
+                "require_r_graded": require_r_graded,
+            },
+        },
+    )
+
+
+def _certified_prior_anomalies() -> dict:
+    """Mimic the prior_results dict from evaluate_claim with all four
+    upstream anomaly obligations CERTIFIED."""
+    return {
+        key: ObligationResult(
+            name=key, description="upstream", status=Status.CERTIFIED, message="ok",
+        )
+        for key in (
+            "electric_gauge_anomaly",
+            "magnetic_gauge_anomaly",
+            "electric_gauge_global_mixed_anomaly",
+            "magnetic_gauge_global_mixed_anomaly",
+        )
+    }
+
+
+# --- §11.2 self-equivalence ------------------------------------------------
+
+def test_bounded_chiral_ring_dp0_self_equivalence_r_graded_certified():
+    """dP_0 SU(3)^3 cyclic quiver is ABJ-free (memory: 3-node SU(3)^3 fixture
+    introduced in step 0 is the R-graded fixture). Self-equivalence under
+    r_graded=True with CERTIFIED upstream anomalies must produce CERTIFIED.
+    Only length-3 closed walks exist on dP_0 within L=4."""
+    from dualitycert.groups.u1 import u1_r
+    from dualitycert.qft.pure_quiver_builder import (
+        arrow_names, build_pure_quiver, dp0_superpotential,
+    )
+
+    r = Fraction(2, 3)
+    n01 = arrow_names(0, 1, 3)
+    n12 = arrow_names(1, 2, 3)
+    n20 = arrow_names(2, 0, 3)
+    dp0 = build_pure_quiver(
+        ranks=(3, 3, 3),
+        arrows={(0, 1): [r]*3, (1, 2): [r]*3, (2, 0): [r]*3},
+        superpotential=dp0_superpotential(n01, n12, n20),
+        u1_globals=(u1_r(),),
+    )
+    claim = _wrap_claim(dp0, dp0, max_length=4, require_r_graded=True, profile="dp0_self")
+    res = bounded_chiral_ring_consistency_check(claim, _certified_prior_anomalies())
+    assert res.status == Status.CERTIFIED
+    assert "PASSED_BOUNDED_CHIRAL_RING_CONSISTENCY" in res.message
+    assert res.details["r_graded_effective"] is True
+    assert len(res.details["failed_blocks"]) == 0
+    assert len(res.details["tested_blocks"]) >= 1
+    # Must always carry the dim-only PASS limitations forward.
+    assert "two-sided F-ideal generated only up to length L" in res.details["limitations"]
+
+
+def test_bounded_chiral_ring_toy_self_equivalence_length_only_certified():
+    """The toy fixture is NOT ABJ-free (memory note). Use require_r_graded=False
+    so the comparison runs in length-only mode and self-equivalence still
+    certifies."""
+    claim = _wrap_claim(_toy_theory(), _toy_theory(),
+                        max_length=4, require_r_graded=False, profile="toy_self")
+    res = bounded_chiral_ring_consistency_check(claim, {})
+    assert res.status == Status.CERTIFIED
+    assert res.details["r_graded_effective"] is False
+    assert len(res.details["failed_blocks"]) == 0
+    # Length-only warning must be present.
+    assert any("length-only" in w for w in res.warnings)
+
+
+# --- §11.3 failure fixture 2: drop Phi from magnetic ------------------------
+
+def test_bounded_chiral_ring_drops_phi_magnetic_fails():
+    """Magnetic side without Phi has no length-1 cyclic word, so the (1, 2/3)
+    block disagrees with electric. FAILED with the smallest failing block
+    surfaced in the message."""
+    n1 = su(3, label=NODE1_LABEL)
+    n2 = su(3, label=NODE2_LABEL)
+    magnetic_no_phi = Theory(
+        name="magnetic without Phi",
+        gauge_nodes=(n1, n2),
+        fields=(
+            Field(name="X", field_type="chiral multiplet",
+                  gauge_reps={NODE1_LABEL: antifundamental(), NODE2_LABEL: fundamental()},
+                  r_charge=Fraction(2, 3)),
+            Field(name="Y", field_type="chiral multiplet",
+                  gauge_reps={NODE2_LABEL: antifundamental(), NODE1_LABEL: fundamental()},
+                  r_charge=Fraction(2, 3)),
+        ),
+        superpotential_terms=(),  # no superpotential, since Phi is gone
+    )
+    claim = _wrap_claim(_toy_theory(), magnetic_no_phi,
+                        max_length=4, require_r_graded=False, profile="drop_phi")
+    res = bounded_chiral_ring_consistency_check(claim, {})
+    assert res.status == Status.FAILED
+    assert "FAILED_AT_BLOCK" in res.message
+    # Length-1 must be among failed blocks (electric has Phi, magnetic has nothing).
+    failed_lengths = {b["length"] for b in res.details["failed_blocks"]}
+    assert 1 in failed_lengths
+    # Sample operators must be populated for failed blocks.
+    assert res.details["sample_operators"]
+
+
+# --- §11.3 failure fixture 1: wrong R-charge on magnetic side --------------
+
+def test_bounded_chiral_ring_wrong_r_charge_magnetic_p3_fails():
+    """Magnetic side has R(Y) = 1/2 instead of 2/3 ⇒ W term R-charge = 11/6,
+    not 2 ⇒ P3 fails ⇒ NOT_APPLICABLE under require_r_graded=True."""
+    n1 = su(3, label=NODE1_LABEL)
+    n2 = su(3, label=NODE2_LABEL)
+    bad_magnetic = Theory(
+        name="bad R(Y)",
+        gauge_nodes=(n1, n2),
+        fields=(
+            Field(name="X", field_type="chiral multiplet",
+                  gauge_reps={NODE1_LABEL: antifundamental(), NODE2_LABEL: fundamental()},
+                  r_charge=Fraction(2, 3)),
+            Field(name="Y", field_type="chiral multiplet",
+                  gauge_reps={NODE2_LABEL: antifundamental(), NODE1_LABEL: fundamental()},
+                  r_charge=Fraction(1, 2)),   # wrong
+            Field(name="Phi", field_type="chiral multiplet",
+                  gauge_reps={NODE1_LABEL: adjoint()}, r_charge=Fraction(2, 3)),
+        ),
+        superpotential_terms=(
+            SuperpotentialTerm(factors=(("Phi", 1), ("X", 1), ("Y", 1))),
+        ),
+    )
+    claim = _wrap_claim(_toy_theory(), bad_magnetic,
+                        max_length=3, require_r_graded=True, profile="bad_r_charge")
+    res = bounded_chiral_ring_consistency_check(claim, _certified_prior_anomalies())
+    assert res.status == Status.NOT_APPLICABLE
+    assert "P3" in res.details["r_graded_blocked_by"]
+    assert any("Y" in failure for failure in res.details["p3_failures"])
+
+
+def test_bounded_chiral_ring_wrong_r_charge_under_length_only_still_runs():
+    """Same fixture, but require_r_graded=False: P3 violation no longer
+    blocks, the comparison runs in length-only mode. (Result may be CERTIFIED
+    or FAILED depending on coincidence — just verify it doesn't NOT_APPLICABLE.)"""
+    n1 = su(3, label=NODE1_LABEL)
+    n2 = su(3, label=NODE2_LABEL)
+    bad_magnetic = Theory(
+        name="bad R(Y)",
+        gauge_nodes=(n1, n2),
+        fields=(
+            Field(name="X", field_type="chiral multiplet",
+                  gauge_reps={NODE1_LABEL: antifundamental(), NODE2_LABEL: fundamental()},
+                  r_charge=Fraction(2, 3)),
+            Field(name="Y", field_type="chiral multiplet",
+                  gauge_reps={NODE2_LABEL: antifundamental(), NODE1_LABEL: fundamental()},
+                  r_charge=Fraction(1, 2)),
+            Field(name="Phi", field_type="chiral multiplet",
+                  gauge_reps={NODE1_LABEL: adjoint()}, r_charge=Fraction(2, 3)),
+        ),
+        superpotential_terms=(
+            SuperpotentialTerm(factors=(("Phi", 1), ("X", 1), ("Y", 1))),
+        ),
+    )
+    claim = _wrap_claim(_toy_theory(), bad_magnetic,
+                        max_length=3, require_r_graded=False, profile="bad_r_relaxed")
+    res = bounded_chiral_ring_consistency_check(claim, {})
+    assert res.status in {Status.CERTIFIED, Status.FAILED}
+    assert res.details["r_graded_effective"] is False
+
+
+# --- P4: upstream anomaly gating -------------------------------------------
+
+def test_bounded_chiral_ring_p4_failure_blocks_r_graded_mode():
+    """A FAILED upstream anomaly obligation forces NOT_APPLICABLE in
+    require_r_graded=True mode, with P4 listed as the blocker and the
+    upstream check name preserved in p4_failures."""
+    prior = {
+        "electric_gauge_anomaly": ObligationResult(
+            name="electric gauge anomaly cancellation",
+            description="electric cubic", status=Status.FAILED,
+            message="cubic anomaly nonzero",
+        ),
+    }
+    claim = _wrap_claim(_toy_theory(), _toy_theory(),
+                        max_length=3, require_r_graded=True, profile="p4_block")
+    res = bounded_chiral_ring_consistency_check(claim, prior)
+    assert res.status == Status.NOT_APPLICABLE
+    assert "P4" in res.details["r_graded_blocked_by"]
+    assert any("electric_gauge_anomaly" in f for f in res.details["p4_failures"])
+
+
+def test_bounded_chiral_ring_p4_failure_length_only_runs():
+    """Same P4 failure, but require_r_graded=False: the check still runs
+    (length-only fallback), produces a CERTIFIED self-equivalence."""
+    prior = {
+        "electric_gauge_anomaly": ObligationResult(
+            name="electric gauge anomaly cancellation",
+            description="electric cubic", status=Status.FAILED,
+            message="cubic anomaly nonzero",
+        ),
+    }
+    claim = _wrap_claim(_toy_theory(), _toy_theory(),
+                        max_length=3, require_r_graded=False, profile="p4_relaxed")
+    res = bounded_chiral_ring_consistency_check(claim, prior)
+    assert res.status == Status.CERTIFIED
+    assert res.details["r_graded_effective"] is False
+
+
+# --- P1, P5, P6 pre-conditions ---------------------------------------------
+
+def test_bounded_chiral_ring_not_pure_quiver_returns_not_applicable():
+    """A claim where one side is not pure_quiver (here flavored_single_gauge via
+    SU(Nf) global symmetry on Q) must NOT_APPLICABLE if the check is invoked
+    directly (the registry would normally not even dispatch it)."""
+    from dualitycert.qft.dualities import build_seiberg_sqcd_claim
+    sqcd_claim = build_seiberg_sqcd_claim(Nc=3, Nf=5)
+    res = bounded_chiral_ring_consistency_check(sqcd_claim, _certified_prior_anomalies())
+    assert res.status == Status.NOT_APPLICABLE
+    assert res.details["preconditions"]["P1"] == "fail"
+
+
+def test_bounded_chiral_ring_p5_unknown_label_returns_not_applicable():
+    """If a W term references a nonexistent field, P5 fails and the check
+    returns NOT_APPLICABLE with the offending term named in the rejection."""
+    n1 = su(3, label=NODE1_LABEL)
+    bad = Theory(
+        name="bad W",
+        gauge_nodes=(n1,),
+        fields=(
+            Field(name="Phi", field_type="chiral multiplet",
+                  gauge_reps={NODE1_LABEL: adjoint()}, r_charge=Fraction(2, 3)),
+        ),
+        superpotential_terms=(SuperpotentialTerm(factors=(("MISSING", 1),)),),
+    )
+    claim = _wrap_claim(bad, bad, max_length=3, require_r_graded=False, profile="p5_bad")
+    res = bounded_chiral_ring_consistency_check(claim, {})
+    assert res.status == Status.NOT_APPLICABLE
+    assert any(k.startswith("P5") for k in res.details["preconditions"])
+    assert "MISSING" in res.details["rejection_reason"]
+
+
+def test_bounded_chiral_ring_p6_max_length_too_large():
+    """max_length > 8 is rejected as UNKNOWN per design doc §3.1 / P6."""
+    claim = DualityClaim(
+        name="huge L",
+        electric_theory=_toy_theory(),
+        magnetic_theory=_toy_theory(),
+        metadata={
+            "duality_profile": "huge",
+            "theory_kind": "pure_quiver",
+            "bounded_chiral_ring": {"max_length": 10, "require_r_graded": False},
+        },
+    )
+    res = bounded_chiral_ring_consistency_check(claim, {})
+    assert res.status == Status.UNKNOWN
+    assert res.details["preconditions"]["P6"] == "fail"
+
+
+def test_bounded_chiral_ring_default_metadata_when_block_absent():
+    """No metadata['bounded_chiral_ring'] block ⇒ defaults are max_length=6,
+    require_r_graded=True (design doc §3.1)."""
+    claim = DualityClaim(
+        name="defaults",
+        electric_theory=_toy_theory(),
+        magnetic_theory=_toy_theory(),
+        metadata={"duality_profile": "defaults", "theory_kind": "pure_quiver"},
+    )
+    res = bounded_chiral_ring_consistency_check(claim, _certified_prior_anomalies())
+    assert res.details["cutoff_L"] == 6
+    assert res.details["require_r_graded"] is True
+
+
+# --- Registry integration via evaluate_claim --------------------------------
+
+def test_bounded_chiral_ring_runs_through_evaluate_claim_for_pure_quiver():
+    """End-to-end through evaluate_claim: dP_0 self-equivalence should
+    receive the new check, and prior_results from anomaly obligations must
+    flow into it (option A plumbing). The check should appear in the
+    certificate and be CERTIFIED for dP_0."""
+    from dualitycert.groups.u1 import u1_r
+    from dualitycert.qft.dualities import evaluate_claim
+    from dualitycert.qft.pure_quiver_builder import (
+        arrow_names, build_pure_quiver, dp0_superpotential,
+    )
+
+    r = Fraction(2, 3)
+    n01 = arrow_names(0, 1, 3)
+    n12 = arrow_names(1, 2, 3)
+    n20 = arrow_names(2, 0, 3)
+    dp0 = build_pure_quiver(
+        ranks=(3, 3, 3),
+        arrows={(0, 1): [r]*3, (1, 2): [r]*3, (2, 0): [r]*3},
+        superpotential=dp0_superpotential(n01, n12, n20),
+        u1_globals=(u1_r(),),
+    )
+    claim = _wrap_claim(dp0, dp0, max_length=4, require_r_graded=True, profile="dp0")
+    cert = evaluate_claim(claim)
+    matches = [r for r in cert.obligation_results if r.name == "bounded chiral-ring consistency"]
+    assert len(matches) == 1
+    assert matches[0].status == Status.CERTIFIED
+
+
+def test_bounded_chiral_ring_skipped_for_non_pure_quiver_via_registry():
+    """The check has applicable_kinds={'pure_quiver'}, so a flavored claim
+    must not produce a result for this check at all."""
+    from dualitycert.qft.dualities import build_seiberg_sqcd_claim, evaluate_claim
+    cert = evaluate_claim(build_seiberg_sqcd_claim(Nc=3, Nf=5))
+    matches = [r for r in cert.obligation_results if r.name == "bounded chiral-ring consistency"]
+    assert matches == []

@@ -12,7 +12,7 @@ from dualitycert.core.objects import (
     SymmetryMap,
     Theory,
 )
-from dualitycert.core.obligations import Obligation
+from dualitycert.core.obligations import Obligation, ObligationResult
 from dualitycert.groups.su import antifundamental, fundamental, su
 from dualitycert.groups.u1 import u1, u1_r
 from dualitycert.core.theory_kind import infer_claim_theory_kind
@@ -20,18 +20,36 @@ from dualitycert.qft.checks import build_default_registry
 
 
 def generate_obligations(claim: DualityClaim) -> tuple[Obligation, ...]:
-    """Generate the first-prototype obligations for a duality claim."""
+    """Generate the first-prototype obligations for a duality claim.
+
+    Convenience wrapper — does NOT propagate upstream results between
+    obligations. `evaluate_claim` does that propagation when running them.
+    """
 
     return build_default_registry().obligations_for(claim)
 
 
 def evaluate_claim(claim: DualityClaim) -> Certificate:
-    """Run generated obligations and assemble a certificate."""
+    """Run obligations and assemble a certificate.
 
-    results = [obligation.run() for obligation in generate_obligations(claim)]
+    Each obligation is constructed from its `CheckSpec.factory` and run
+    in registry order. The accumulating `prior_results` dict is passed
+    to every spec via `obligation_for`, so a 2-arg factory can read the
+    `ObligationResult` of any earlier check by key (option A from Phase
+    2a design doc §14 step 4).
+    """
+
+    registry = build_default_registry()
+    prior_results: dict[str, ObligationResult] = {}
+    results: list[ObligationResult] = []
+    for spec in registry.applicable_specs(claim):
+        obligation = spec.obligation_for(claim, prior_results)
+        result = obligation.run()
+        results.append(result)
+        prior_results[spec.key] = result
     return Certificate.from_results(
         claim.name,
-        results,
+        tuple(results),
         duality_profile=claim.metadata.get("duality_profile"),
         theory_kind=infer_claim_theory_kind(claim),
         parameters=claim.metadata.get("parameters", {}),

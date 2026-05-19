@@ -1,10 +1,11 @@
 """Bounded cyclic path-algebra primitives for pure_quiver theories.
 
-Phase 2a steps 1-3: arrow extraction, cyclic-word enumeration, cyclic
+Phase 2a steps 1-4: arrow extraction, cyclic-word enumeration, cyclic
 derivatives of the superpotential, two-sided context multiplication into
-F-relation matrices, and per-block quotient dimensions. Verdict logic
-(comparing two theories) still lives in step 4
-(see docs/phase2a_pure_quiver_chiral_ring.md §14).
+F-relation matrices, per-block quotient dimensions, and the
+bounded_chiral_ring_consistency verdict that compares two pure-quiver
+theories block-wise
+(see docs/phase2a_pure_quiver_chiral_ring.md §7 / §14).
 
 Conventions (locked in design doc §2):
   - Path multiplication is left-to-right: AB means first A, then B; valid
@@ -26,7 +27,16 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Iterable, Iterator, Mapping, Optional
 
-from dualitycert.core.objects import Field, SuperpotentialTerm, Theory
+from dualitycert.core.objects import (
+    CheckResult,
+    DualityClaim,
+    Field,
+    SuperpotentialTerm,
+    Theory,
+)
+from dualitycert.core.obligations import ObligationResult
+from dualitycert.core.status import Status
+from dualitycert.core.theory_kind import PURE_QUIVER, infer_theory_kind
 
 
 class PureQuiverShapeError(ValueError):
@@ -523,6 +533,365 @@ def quotient_dimensions(
     return {key: matrix.quotient_dimension for key, matrix in matrices.items()}
 
 
+# Default cutoffs from design doc §3.1.
+_BOUNDED_CHIRAL_RING_DEFAULT_MAX_LENGTH = 6
+_BOUNDED_CHIRAL_RING_MAX_SUPPORTED = 8  # P6 hard cap
+_BOUNDED_CHIRAL_RING_MIN_SUPPORTED = 1
+
+# Registry keys for upstream anomaly obligations that gate P4 (see Phase 2a
+# design doc §4 / phase2a_implementation.md). These keys come from
+# `dualitycert/qft/checks.py`.
+_UPSTREAM_ANOMALY_KEYS: tuple[str, ...] = (
+    "electric_gauge_anomaly",
+    "magnetic_gauge_anomaly",
+    "electric_gauge_global_mixed_anomaly",
+    "magnetic_gauge_global_mixed_anomaly",
+)
+
+_BOUNDED_CHIRAL_RING_LIMITATIONS: tuple[str, ...] = (
+    "two-sided F-ideal generated only up to length L",
+    "single-trace sector only",
+    "cyclic rotation only — no orientation-reversal identification",
+    "no quantum / instanton corrections",
+    "no a-maximization, R-charges taken as claim input",
+    "Casimir / tracelessness identities not imposed (out of scope per design doc §12)",
+)
+
+
+def bounded_chiral_ring_consistency_check(
+    claim: DualityClaim,
+    prior_results: Mapping[str, ObligationResult] | None = None,
+) -> CheckResult:
+    """Compare two pure_quiver theories block-wise on bounded cyclic-word
+    quotient dimensions (design doc §6 / §7).
+
+    Verdict:
+      - CERTIFIED: every (length, r) block has equal electric and magnetic
+        quotient dimension up to the cutoff.
+      - FAILED: at least one block disagrees; details include the failing
+        block(s), sample operators from each side, and dimension counts.
+      - UNKNOWN: P6 violated (max_length outside [1, 8]) or a numeric
+        pathology surfaced from build_relation_matrix.
+      - NOT_APPLICABLE: P1 (pure_quiver on both sides) / P5 (W terms are
+        closed monomial walks on known labels) violated, or in r_graded
+        mode P3 (every W term has R=2) / P4 (upstream anomaly checks
+        passed) failed.
+
+    Reads `claim.metadata["bounded_chiral_ring"]`:
+      - `max_length` (default 6, capped at 8 per design doc §3.1 / P6);
+      - `require_r_graded` (default True). When False, P3/P4 failures are
+        recorded as warnings and the comparison runs in length-only mode.
+
+    Reads `prior_results` for the four upstream anomaly obligation keys
+    (option A from design doc §14 step 4); a None argument is treated as
+    an empty mapping so the function can be called directly.
+    """
+
+    if prior_results is None:
+        prior_results = {}
+
+    raw_metadata = claim.metadata.get("bounded_chiral_ring", {})
+    max_length = int(raw_metadata.get("max_length", _BOUNDED_CHIRAL_RING_DEFAULT_MAX_LENGTH))
+    require_r_graded = bool(raw_metadata.get("require_r_graded", True))
+
+    base_details: dict = {
+        "cutoff_L": max_length,
+        "require_r_graded": require_r_graded,
+        "mod_cyclic_rotation": True,
+        "orientation_preserved": True,
+        "context_multiplied_ideal": True,
+        "limitations": list(_BOUNDED_CHIRAL_RING_LIMITATIONS),
+    }
+
+    # --- P1: both sides must be pure_quiver --------------------------------
+    e_kind = infer_theory_kind(claim.electric_theory)
+    m_kind = infer_theory_kind(claim.magnetic_theory)
+    if e_kind != PURE_QUIVER or m_kind != PURE_QUIVER:
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=(
+                "Bounded chiral-ring consistency only applies when both sides "
+                f"are pure_quiver; got electric={e_kind}, magnetic={m_kind}."
+            ),
+            details={**base_details, "preconditions": {"P1": "fail"}},
+        )
+
+    # --- P6: cutoff range ---------------------------------------------------
+    if (
+        max_length < _BOUNDED_CHIRAL_RING_MIN_SUPPORTED
+        or max_length > _BOUNDED_CHIRAL_RING_MAX_SUPPORTED
+    ):
+        return CheckResult(
+            status=Status.UNKNOWN,
+            message=(
+                f"max_length={max_length} is outside the supported range "
+                f"[{_BOUNDED_CHIRAL_RING_MIN_SUPPORTED}, "
+                f"{_BOUNDED_CHIRAL_RING_MAX_SUPPORTED}] (design doc §3.1 / P6)."
+            ),
+            details={**base_details, "preconditions": {"P6": "fail"}},
+        )
+
+    # --- P5: extract arrows and validate W on each side ---------------------
+    try:
+        electric_arrows = extract_arrows(claim.electric_theory)
+        validate_w_terms(electric_arrows, claim.electric_theory.superpotential_terms)
+    except (PureQuiverShapeError, WTermShapeError) as exc:
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=f"Electric side rejected by P5: {exc}",
+            details={
+                **base_details,
+                "preconditions": {"P5_electric": "fail"},
+                "rejection_reason": str(exc),
+            },
+        )
+    try:
+        magnetic_arrows = extract_arrows(claim.magnetic_theory)
+        validate_w_terms(magnetic_arrows, claim.magnetic_theory.superpotential_terms)
+    except (PureQuiverShapeError, WTermShapeError) as exc:
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=f"Magnetic side rejected by P5: {exc}",
+            details={
+                **base_details,
+                "preconditions": {"P5_magnetic": "fail"},
+                "rejection_reason": str(exc),
+            },
+        )
+
+    # --- P3: every W term has total R-charge equal to 2 ---------------------
+    p3_failures = _check_p3_w_term_r_charges(claim.electric_theory, "electric")
+    p3_failures += _check_p3_w_term_r_charges(claim.magnetic_theory, "magnetic")
+
+    # --- P4: upstream anomaly obligations passed on both sides --------------
+    p4_failures: list[str] = []
+    for key in _UPSTREAM_ANOMALY_KEYS:
+        result = prior_results.get(key)
+        if result is None:
+            # Obligation didn't run for this claim (e.g., no U(1)_R global
+            # symmetry, so the mixed anomaly check was skipped). Not a P4
+            # failure — only CERTIFIED checks that actually FAILED block P4.
+            continue
+        if result.status == Status.FAILED:
+            p4_failures.append(f"{key} returned FAILED: {result.message}")
+
+    r_graded_blocked_by: list[str] = []
+    if p3_failures:
+        r_graded_blocked_by.append("P3")
+    if p4_failures:
+        r_graded_blocked_by.append("P4")
+
+    if require_r_graded and r_graded_blocked_by:
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=(
+                "r_graded mode requires P3 (every W term has R=2) and P4 "
+                "(upstream gauge anomalies pass) on both sides. Blocked by: "
+                f"{', '.join(r_graded_blocked_by)}. Set "
+                "metadata['bounded_chiral_ring']['require_r_graded']=false "
+                "to fall back to length-only comparison, or fix the upstream "
+                "obligation."
+            ),
+            details={
+                **base_details,
+                "preconditions": {
+                    "P1": "pass",
+                    "P3": "pass" if not p3_failures else "fail",
+                    "P4": "pass" if not p4_failures else "fail",
+                    "P5_electric": "pass",
+                    "P5_magnetic": "pass",
+                    "P6": "pass",
+                },
+                "r_graded_blocked_by": r_graded_blocked_by,
+                "p3_failures": p3_failures,
+                "p4_failures": p4_failures,
+            },
+        )
+
+    # --- Compute quotient dimensions on each side --------------------------
+    r_graded_effective = require_r_graded and not r_graded_blocked_by
+    try:
+        electric_dims = quotient_dimensions(
+            electric_arrows,
+            claim.electric_theory.superpotential_terms,
+            max_length=max_length,
+            r_graded=r_graded_effective,
+        )
+        magnetic_dims = quotient_dimensions(
+            magnetic_arrows,
+            claim.magnetic_theory.superpotential_terms,
+            max_length=max_length,
+            r_graded=r_graded_effective,
+        )
+    except (ValueError, RuntimeError) as exc:
+        return CheckResult(
+            status=Status.UNKNOWN,
+            message=f"Quotient-dimension computation failed: {exc}",
+            details=base_details,
+        )
+
+    # --- Per-block comparison ---------------------------------------------
+    all_blocks = set(electric_dims) | set(magnetic_dims)
+    tested_blocks: list[dict] = []
+    failed_blocks: list[dict] = []
+
+    for block in sorted(all_blocks, key=_block_sort_key):
+        e_dim = electric_dims.get(block, 0)
+        m_dim = magnetic_dims.get(block, 0)
+        record = {
+            "length": block[0],
+            "r_charge": str(block[1]) if block[1] is not None else None,
+            "electric_dim": e_dim,
+            "magnetic_dim": m_dim,
+        }
+        tested_blocks.append(record)
+        if e_dim != m_dim:
+            failed_blocks.append(record)
+
+    sample_operators = (
+        _collect_sample_operators(
+            electric_arrows,
+            magnetic_arrows,
+            failed_blocks,
+            max_length=max_length,
+            r_graded=r_graded_effective,
+        )
+        if failed_blocks
+        else {}
+    )
+
+    details = {
+        **base_details,
+        "r_graded_effective": r_graded_effective,
+        "r_graded_blocked_by": r_graded_blocked_by,
+        "tested_blocks": tested_blocks,
+        "failed_blocks": failed_blocks,
+        "sample_operators": sample_operators,
+        "arrow_machine_labels_electric": sorted(a.label for a in electric_arrows),
+        "arrow_machine_labels_magnetic": sorted(a.label for a in magnetic_arrows),
+        "preconditions": {
+            "P1": "pass",
+            "P3": "pass" if not p3_failures else "fail (length-only fallback)",
+            "P4": "pass" if not p4_failures else "fail (length-only fallback)",
+            "P5_electric": "pass",
+            "P5_magnetic": "pass",
+            "P6": "pass",
+        },
+    }
+
+    warnings: list[str] = [
+        "PASS only means block-wise dimension agreement up to cutoff L — "
+        "this does NOT imply chiral-ring equivalence.",
+    ]
+    if not r_graded_effective:
+        warnings.append(
+            "Comparison ran in length-only mode (r_graded=False) — accidental "
+            "block-size coincidences across R-charges are invisible."
+        )
+
+    if failed_blocks:
+        first = failed_blocks[0]
+        return CheckResult(
+            status=Status.FAILED,
+            message=(
+                f"FAILED_AT_BLOCK length={first['length']} "
+                f"r_charge={first['r_charge']}: electric dim "
+                f"{first['electric_dim']} != magnetic dim {first['magnetic_dim']} "
+                f"({len(failed_blocks)} of {len(tested_blocks)} blocks differ)."
+            ),
+            details=details,
+            warnings=tuple(warnings),
+        )
+    return CheckResult(
+        status=Status.CERTIFIED,
+        message=(
+            f"PASSED_BOUNDED_CHIRAL_RING_CONSISTENCY at L={max_length} "
+            f"({len(tested_blocks)} blocks)."
+        ),
+        details=details,
+        warnings=tuple(warnings),
+    )
+
+
+def _check_p3_w_term_r_charges(theory: Theory, side: str) -> list[str]:
+    """Return a list of human-readable strings describing every W term on
+    `theory` whose total field R-charge is not 2 (P3 violation, design
+    doc §4). Empty list ⇒ P3 passes on this side."""
+
+    field_map = theory.field_map()
+    failures: list[str] = []
+    for term in theory.superpotential_terms:
+        total = Fraction(0)
+        missing_field: str | None = None
+        for name in term.field_names:
+            if name not in field_map:
+                missing_field = name
+                break
+            total += field_map[name].r_charge
+        if missing_field is not None:
+            # validate_w_terms should have already caught this; defensive.
+            failures.append(
+                f"{side} term {term.display_name!r} references unknown field {missing_field!r}"
+            )
+            continue
+        if total != Fraction(2):
+            failures.append(
+                f"{side} term {term.display_name!r} has total R-charge {total}, expected 2"
+            )
+    return failures
+
+
+def _block_sort_key(block: Block) -> tuple:
+    """Sort blocks by length, then by R-charge (None last)."""
+    length, r_charge = block
+    if r_charge is None:
+        return (length, 1, Fraction(0))
+    return (length, 0, r_charge)
+
+
+def _collect_sample_operators(
+    electric_arrows: tuple[Arrow, ...],
+    magnetic_arrows: tuple[Arrow, ...],
+    failed_blocks: list[dict],
+    *,
+    max_length: int,
+    r_graded: bool,
+    samples_per_side: int = 2,
+) -> dict[str, dict[str, list]]:
+    """For each failed block, list up to `samples_per_side` canonical cyclic
+    words from each side at that block. Used to populate the certificate's
+    diagnostic on mismatch — not part of the verdict logic."""
+
+    def words_for_side(arrows: tuple[Arrow, ...]) -> dict[Block, list[CyclicWord]]:
+        words = enumerate_cyclic_words(arrows, max_length)
+        bucketed: dict[Block, list[CyclicWord]] = {}
+        for length, block in words.items():
+            for word in block:
+                key: Block = (length, word.r_charge) if r_graded else (length, None)
+                bucketed.setdefault(key, []).append(word)
+        return bucketed
+
+    electric_words = words_for_side(electric_arrows)
+    magnetic_words = words_for_side(magnetic_arrows)
+
+    result: dict[str, dict[str, list]] = {}
+    for record in failed_blocks:
+        length = record["length"]
+        r_charge_str = record["r_charge"]
+        r_charge = Fraction(r_charge_str) if r_charge_str is not None else None
+        block: Block = (length, r_charge)
+        block_label = f"length={length},r={r_charge_str}"
+        result[block_label] = {
+            "electric": [
+                list(w.arrows) for w in electric_words.get(block, [])[:samples_per_side]
+            ],
+            "magnetic": [
+                list(w.arrows) for w in magnetic_words.get(block, [])[:samples_per_side]
+            ],
+        }
+    return result
+
+
 def _infer_endpoints(
     field_obj: Field,
     non_singlet: Mapping[str, "object"],
@@ -716,6 +1085,7 @@ __all__ = [
     "PureQuiverShapeError",
     "RelationMatrix",
     "WTermShapeError",
+    "bounded_chiral_ring_consistency_check",
     "build_relation_matrix",
     "cyclic_derivative",
     "enumerate_cyclic_words",
