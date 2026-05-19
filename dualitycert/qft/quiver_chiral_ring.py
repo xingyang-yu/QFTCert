@@ -660,20 +660,40 @@ def bounded_chiral_ring_consistency_check(
         )
 
     # --- P3: every W term has total R-charge equal to 2 ---------------------
-    p3_failures = _check_p3_w_term_r_charges(claim.electric_theory, "electric")
-    p3_failures += _check_p3_w_term_r_charges(claim.magnetic_theory, "magnetic")
+    # Sum over Arrow.r_charge (keyed by machine label) so the check works on
+    # multi-arrow expansions where Field.name != Arrow.label (a Field with
+    # multiplicity m > 1 expands to labels f"{Field.name}[{i}]" per §3.2,
+    # and the W term must reference those machine labels). Using
+    # theory.field_map() would falsely report "unknown field 'X[0]'" on any
+    # multi-arrow fixture.
+    p3_failures = _check_p3_w_term_r_charges(
+        claim.electric_theory, electric_arrows, "electric"
+    )
+    p3_failures += _check_p3_w_term_r_charges(
+        claim.magnetic_theory, magnetic_arrows, "magnetic"
+    )
 
     # --- P4: upstream anomaly obligations passed on both sides --------------
+    # Strict interpretation (design doc §4 / §8): r_graded mode requires a
+    # physically meaningful U(1)_R, which means the upstream anomaly checks
+    # must have returned CERTIFIED on both sides. Missing entries (the check
+    # was filtered out of the registry or prior_results was supplied empty by
+    # a direct caller) and NOT_APPLICABLE entries (e.g. no U(1)_R global
+    # symmetry was encoded, so the mixed anomaly could not even compute)
+    # both block r_graded mode — they leave the R-grading on Field.r_charge
+    # values without an anomaly-free guarantee. Callers that want to proceed
+    # anyway must set require_r_graded=false to opt into length-only fallback.
     p4_failures: list[str] = []
     for key in _UPSTREAM_ANOMALY_KEYS:
         result = prior_results.get(key)
         if result is None:
-            # Obligation didn't run for this claim (e.g., no U(1)_R global
-            # symmetry, so the mixed anomaly check was skipped). Not a P4
-            # failure — only CERTIFIED checks that actually FAILED block P4.
+            p4_failures.append(
+                f"{key} did not run (missing from prior_results — upstream "
+                "obligation must produce CERTIFIED for r_graded mode)"
+            )
             continue
-        if result.status == Status.FAILED:
-            p4_failures.append(f"{key} returned FAILED: {result.message}")
+        if result.status != Status.CERTIFIED:
+            p4_failures.append(f"{key} returned {result.status.value}: {result.message}")
 
     r_graded_blocked_by: list[str] = []
     if p3_failures:
@@ -813,25 +833,36 @@ def bounded_chiral_ring_consistency_check(
     )
 
 
-def _check_p3_w_term_r_charges(theory: Theory, side: str) -> list[str]:
+def _check_p3_w_term_r_charges(
+    theory: Theory,
+    arrows: tuple[Arrow, ...],
+    side: str,
+) -> list[str]:
     """Return a list of human-readable strings describing every W term on
-    `theory` whose total field R-charge is not 2 (P3 violation, design
-    doc §4). Empty list ⇒ P3 passes on this side."""
+    `theory` whose total **machine-label-keyed** R-charge is not 2 (P3
+    violation, design doc §4). Empty list ⇒ P3 passes on this side.
 
-    field_map = theory.field_map()
+    Uses `Arrow.label` rather than `Field.name` so multi-arrow expansion
+    (§3.2) is handled correctly: a Field "X" with multiplicity 2 is
+    visible here as arrows labelled "X[0]", "X[1]", matching what the W
+    term must reference.
+    """
+
+    arrows_by_label = {arrow.label: arrow for arrow in arrows}
     failures: list[str] = []
     for term in theory.superpotential_terms:
         total = Fraction(0)
-        missing_field: str | None = None
+        missing_label: str | None = None
         for name in term.field_names:
-            if name not in field_map:
-                missing_field = name
+            if name not in arrows_by_label:
+                missing_label = name
                 break
-            total += field_map[name].r_charge
-        if missing_field is not None:
+            total += arrows_by_label[name].r_charge
+        if missing_label is not None:
             # validate_w_terms should have already caught this; defensive.
             failures.append(
-                f"{side} term {term.display_name!r} references unknown field {missing_field!r}"
+                f"{side} term {term.display_name!r} references unknown arrow "
+                f"label {missing_label!r}"
             )
             continue
         if total != Fraction(2):

@@ -1469,3 +1469,108 @@ def test_bounded_chiral_ring_skipped_for_non_pure_quiver_via_registry():
     cert = evaluate_claim(build_seiberg_sqcd_claim(Nc=3, Nf=5))
     matches = [r for r in cert.obligation_results if r.name == "bounded chiral-ring consistency"]
     assert matches == []
+
+
+# --- Codex review fixups ----------------------------------------------------
+
+def test_bounded_chiral_ring_p3_handles_multi_arrow_machine_labels():
+    """A Field with multiplicity > 1 expands into machine labels
+    f"{name}[{i}]" (§3.2). The W term must reference those labels. The P3
+    check must look them up via Arrow.label (extract_arrows), NOT via
+    Field.name (theory.field_map()), otherwise it falsely reports
+    'unknown field X[0]' and returns NOT_APPLICABLE under r_graded=True
+    even though P3 in fact passes."""
+    n1 = su(3, label=NODE1_LABEL)
+    n2 = su(3, label=NODE2_LABEL)
+    fields = (
+        Field(
+            name="X",
+            field_type="chiral multiplet",
+            gauge_reps={NODE1_LABEL: antifundamental(), NODE2_LABEL: fundamental()},
+            r_charge=Fraction(2, 3),
+            multiplicity=2,  # generates labels X[0], X[1]
+        ),
+        Field(
+            name="Y",
+            field_type="chiral multiplet",
+            gauge_reps={NODE2_LABEL: antifundamental(), NODE1_LABEL: fundamental()},
+            r_charge=Fraction(2, 3),
+        ),
+        Field(
+            name="Phi",
+            field_type="chiral multiplet",
+            gauge_reps={NODE1_LABEL: adjoint()},
+            r_charge=Fraction(2, 3),
+        ),
+    )
+    theory = Theory(
+        name="multi-X toy",
+        gauge_nodes=(n1, n2),
+        fields=fields,
+        # Each W term has R = 2/3 + 2/3 + 2/3 = 2 ⇒ P3 passes once we look up
+        # X[0] / X[1] correctly.
+        superpotential_terms=(
+            SuperpotentialTerm(factors=(("Phi", 1), ("X[0]", 1), ("Y", 1))),
+            SuperpotentialTerm(factors=(("Phi", 1), ("X[1]", 1), ("Y", 1))),
+        ),
+    )
+    claim = _wrap_claim(theory, theory, max_length=3, require_r_graded=True,
+                        profile="multi_arrow")
+    res = bounded_chiral_ring_consistency_check(claim, _certified_prior_anomalies())
+    assert res.status == Status.CERTIFIED
+    assert res.details["preconditions"]["P3"] == "pass"
+
+
+def test_bounded_chiral_ring_strict_p4_blocks_when_upstream_missing():
+    """Under r_graded=True, missing entries in prior_results count as P4
+    failure — the R-graded comparison cannot stand without a CERTIFIED
+    upstream U(1)_R anomaly result. (Previously the check incorrectly
+    treated missing entries as P4 pass; codex caught this on the
+    evaluate_claim path where the toy has no U(1)_R global.)"""
+    claim = _wrap_claim(_toy_theory(), _toy_theory(),
+                        max_length=3, require_r_graded=True,
+                        profile="missing_upstream")
+    res = bounded_chiral_ring_consistency_check(claim, {})  # nothing upstream
+    assert res.status == Status.NOT_APPLICABLE
+    assert "P4" in res.details["r_graded_blocked_by"]
+    assert any("did not run" in failure for failure in res.details["p4_failures"])
+
+
+def test_bounded_chiral_ring_strict_p4_blocks_when_upstream_not_applicable():
+    """NOT_APPLICABLE upstream (e.g. mixed anomaly check returned
+    NOT_APPLICABLE because the claim has no U(1)_R global symmetry
+    encoded) also blocks r_graded mode under strict P4: there is no
+    physical anomaly-free guarantee to support the R-bucketed comparison."""
+    prior = {
+        key: ObligationResult(
+            name=key, description="upstream",
+            status=Status.NOT_APPLICABLE, message="no U(1)_R global symmetry",
+        )
+        for key in (
+            "electric_gauge_anomaly",
+            "magnetic_gauge_anomaly",
+            "electric_gauge_global_mixed_anomaly",
+            "magnetic_gauge_global_mixed_anomaly",
+        )
+    }
+    claim = _wrap_claim(_toy_theory(), _toy_theory(),
+                        max_length=3, require_r_graded=True,
+                        profile="upstream_not_applicable")
+    res = bounded_chiral_ring_consistency_check(claim, prior)
+    assert res.status == Status.NOT_APPLICABLE
+    assert "P4" in res.details["r_graded_blocked_by"]
+    assert any("NOT_APPLICABLE" in failure for failure in res.details["p4_failures"])
+
+
+def test_bounded_chiral_ring_strict_p4_length_only_unaffected_by_missing_upstream():
+    """Strict P4 only matters in r_graded mode. With require_r_graded=False
+    the same missing-upstream claim falls through to length-only
+    comparison (CERTIFIED on self-equivalence)."""
+    claim = _wrap_claim(_toy_theory(), _toy_theory(),
+                        max_length=3, require_r_graded=False,
+                        profile="missing_upstream_length_only")
+    res = bounded_chiral_ring_consistency_check(claim, {})
+    assert res.status == Status.CERTIFIED
+    assert res.details["r_graded_effective"] is False
+    # P4 still recorded as blocker for diagnostics, just non-fatal here.
+    assert "P4" in res.details["r_graded_blocked_by"]
