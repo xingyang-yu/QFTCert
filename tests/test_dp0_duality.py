@@ -37,7 +37,7 @@ from fractions import Fraction
 
 import pytest
 
-from dualitycert.core.objects import DualityClaim
+from dualitycert.core.objects import DualityClaim, Theory
 from dualitycert.core.status import Status
 from dualitycert.groups.u1 import u1_r
 from dualitycert.qft.dualities import evaluate_claim
@@ -207,3 +207,107 @@ def test_dp0_duality_certified_at_L6():
     b6 = blocks[(6, "4")]
     assert b6["electric_dim"] == 28
     assert b6["magnetic_dim"] == 28
+
+
+# ---------------------------------------------------------------------------
+# Adversarial: drop one W term from magnetic → bounded chiral-ring catches it
+# ---------------------------------------------------------------------------
+
+def _magnetic_with_term_dropped(target_factor_labels: tuple[str, ...]) -> Theory:
+    """Build the magnetic theory with one specific W monomial deleted.
+
+    `target_factor_labels` identifies the monomial by its (machine-label)
+    factor tuple in the order build_dp0_magnetic_effective emits them
+    (q, q̃, M). Returns a Theory identical in gauge nodes, fields, and
+    global symmetries — only the superpotential is shortened by one term.
+    """
+    full = build_dp0_magnetic_effective(N=3)
+    factor_names_to_drop = target_factor_labels
+
+    kept_terms = tuple(
+        term for term in full.superpotential_terms
+        if tuple(name for name, _ in term.factors) != factor_names_to_drop
+    )
+    if len(kept_terms) != len(full.superpotential_terms) - 1:
+        raise AssertionError(
+            f"Expected to drop exactly 1 term matching {factor_names_to_drop!r}; "
+            f"matched {len(full.superpotential_terms) - len(kept_terms)} terms"
+        )
+    return Theory(
+        name="dP_0 magnetic with one W term dropped",
+        gauge_nodes=full.gauge_nodes,
+        fields=full.fields,
+        superpotential_terms=kept_terms,
+        global_symmetries=full.global_symmetries,
+    )
+
+
+def test_dp0_duality_with_magnetic_W_diagonal_dropped_fails_at_length_3():
+    """Adversarial Type-4 regression: drop the M^{(0,0)} q̃[0] q[0] term
+    from the magnetic superpotential. R-charges and gauge content
+    unchanged → all upstream anomaly + superpotential checks still
+    CERTIFY (they cannot see this perturbation). But the F-term ideal
+    on the magnetic side weakens: ∂_{X02[0]}, ∂_{X10[0]}, ∂_{X21[0]}
+    each lose one path, so the bounded chiral-ring quotient at length
+    3 grows from the Seiberg-duality-required Sym^3(C^3) = 10 to a
+    larger 14.
+
+    This is precisely the failure mode the bounded chiral-ring check
+    was designed to catch and that anomaly / superpotential-R checks
+    miss — exactly the LLM-defeating signal of the verifier (a model
+    might pattern-match "dP_0 + Seiberg dual = consistent" but can't
+    detect that *this particular W* has been broken without doing the
+    F-ideal arithmetic).
+    """
+    broken_magnetic = _magnetic_with_term_dropped(("X10[0]", "X02[0]", "X21[0]"))
+    claim = DualityClaim(
+        name="dP_0 duality (magnetic W[0] dropped)",
+        electric_theory=_electric_dp0(),
+        magnetic_theory=broken_magnetic,
+        metadata={
+            "duality_profile": "dp0_duality_W_dropped",
+            "theory_kind": "pure_quiver",
+            "bounded_chiral_ring": {"max_length": 3, "require_r_graded": True},
+        },
+    )
+    cert = evaluate_claim(claim)
+    by_name = _results_by_name(cert)
+
+    # Upstream checks remain CERTIFIED — they cannot detect this
+    # superpotential perturbation:
+    for key in (
+        "electric gauge anomaly cancellation",
+        "magnetic gauge anomaly cancellation",
+        "electric gauge-global mixed anomaly cancellation",
+        "magnetic gauge-global mixed anomaly cancellation",
+        "electric superpotential consistency",
+        "magnetic superpotential consistency",
+    ):
+        assert by_name[key].status == Status.CERTIFIED, (
+            f"{key} unexpectedly status {by_name[key].status.value} "
+            "— this regression assumes the perturbation is invisible to "
+            "anomaly / R-charge / W-consistency checks"
+        )
+
+    # Bounded chiral-ring catches it:
+    bounded = by_name["bounded chiral-ring consistency"]
+    assert bounded.status == Status.FAILED
+    assert "FAILED_AT_BLOCK" in bounded.message
+    assert "length=3" in bounded.message
+    assert "r_charge=2" in bounded.message
+
+    details = bounded.details
+    assert len(details["failed_blocks"]) == 1
+    (failed,) = details["failed_blocks"]
+    assert failed["length"] == 3
+    assert failed["r_charge"] == "2"
+    assert failed["electric_dim"] == 10
+    assert failed["magnetic_dim"] == 14
+
+    # Sample operators populated on failed block — diagnostic value
+    # for downstream consumers (LLM repair-loop, human inspection).
+    samples = details["sample_operators"]
+    block_key = "length=3,r=2"
+    assert block_key in samples
+    assert len(samples[block_key]["electric"]) > 0
+    assert len(samples[block_key]["magnetic"]) > 0
