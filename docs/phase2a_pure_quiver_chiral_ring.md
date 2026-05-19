@@ -298,16 +298,39 @@ result, not a separate top-level status.
 
 ### Certificate `details` for this check
 
-Mandatory keys:
+`details` is split into two parts: keys that exist on **every** verdict
+path (success or early failure), and keys that only get populated when
+the run actually reaches the block-wise comparison.
+
+Always present (every verdict path emits these):
 
 ```python
 {
     "cutoff_L": int,
     "mod_cyclic_rotation": True,
     "orientation_preserved": True,        # cyclic only, not reversal
-    "r_graded": bool,
-    "r_graded_blocked_by": list[str],     # subset of {"P2","P3","P4"}, empty if r_graded
+    "r_graded": bool,                     # whether the comparison ran R-graded
+    "require_r_graded": bool,             # what the caller asked for
+    "r_graded_blocked_by": list[str],     # subset of {"P2","P3","P4"}, [] if not applicable
     "context_multiplied_ideal": True,
+    "preconditions": {"P1": "pass"|"fail"|..., ...},
+    "limitations": [
+        "two-sided F-ideal generated only up to length L",
+        "single-trace sector only",
+        "cyclic rotation only — no orientation-reversal identification",
+        "no quantum / instanton corrections",
+        "no a-maximization, R-charges taken as claim input",
+        "Casimir / tracelessness identities not imposed (out of scope per §12)",
+    ],
+}
+```
+
+Comparison-path keys (present iff the run executed the per-block
+comparison, i.e. CERTIFIED or FAILED — absent on early-failure paths
+NOT_APPLICABLE / UNKNOWN, since semantically the comparison did not run):
+
+```python
+{
     "tested_blocks": [{"length": int, "r_charge": "Fraction(...)"|None,
                        "electric_dim": int, "magnetic_dim": int}, ...],
     "failed_blocks": [...],   # subset of tested_blocks with mismatch
@@ -316,16 +339,17 @@ Mandatory keys:
     },
     "arrow_machine_labels_electric": [...],  # canonical labels per side
     "arrow_machine_labels_magnetic": [...],
-    "preconditions": {"P1": "pass", ..., "P6": "pass"},
-    "limitations": [
-        "two-sided F-ideal generated only up to length L",
-        "single-trace sector only",
-        "cyclic rotation only — no orientation-reversal identification",
-        "no quantum / instanton corrections",
-        "no a-maximization, R-charges taken as claim input",
-    ],
 }
 ```
+
+NOT_APPLICABLE / UNKNOWN paths emit only the always-present keys plus
+the rejection-specific keys (`rejection_reason`, `p3_failures`,
+`p4_failures`, etc.) needed to explain which pre-condition fired.
+Distinguishing "comparison ran with zero failed blocks" (CERTIFIED,
+`tested_blocks: [...]`, `failed_blocks: []`) from "comparison never
+ran" (NOT_APPLICABLE, neither key present) is a deliberate design
+choice — empty-list defaults on the comparison-path keys would conflate
+the two.
 
 ## 8. R-graded vs length-only fallback
 

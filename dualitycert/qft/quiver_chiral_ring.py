@@ -605,6 +605,10 @@ def bounded_chiral_ring_consistency_check(
         # downgraded" from "user asked for length-only".
         "r_graded": False,
         "require_r_graded": require_r_graded,
+        # `r_graded_blocked_by` defaults to [] so it is always present on
+        # every path; the strict-P4 NOT_APPLICABLE and the success paths
+        # overwrite it with the actual blocker list when applicable.
+        "r_graded_blocked_by": [],
         "mod_cyclic_rotation": True,
         "orientation_preserved": True,
         "context_multiplied_ideal": True,
