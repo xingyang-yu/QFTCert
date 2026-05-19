@@ -23,6 +23,9 @@ llm = ["anthropic>=0.40"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "slow: tests that take more than ~10 seconds (run with `pytest -m \"not slow\"` to skip)",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
