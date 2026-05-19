@@ -287,8 +287,11 @@ Outcomes:
 - **`UNKNOWN`**: pre-condition P6 violated (cutoff too large), or
   internal numeric pathology (e.g. rank computation timed out — should
   not happen at `L ≤ 8` but is recorded defensively).
-- **`NOT_APPLICABLE`**: any of P1, P2, P3, P5 violated, or claim is not
-  `pure_quiver`. Recorded with explanation.
+- **`NOT_APPLICABLE`**: any of P1, P2, P3, P4, P5 violated, or claim is
+  not `pure_quiver`. (Recall that under `require_r_graded = true`, P3
+  and P4 also fire `NOT_APPLICABLE`; under `require_r_graded = false`,
+  P3 and P4 are downgraded to warnings and length-only fallback runs.)
+  Recorded with explanation.
 
 `FAILED_AT_BLOCK(l, r)` is a structured detail inside the `FAILED`
 result, not a separate top-level status.
@@ -311,7 +314,8 @@ Mandatory keys:
     "sample_operators": {     # at most 2 per side per failed block
         "(l, r)": {"electric": [...], "magnetic": [...]}
     },
-    "arrow_machine_labels": [...],        # the canonical labels actually used
+    "arrow_machine_labels_electric": [...],  # canonical labels per side
+    "arrow_machine_labels_magnetic": [...],
     "preconditions": {"P1": "pass", ..., "P6": "pass"},
     "limitations": [
         "two-sided F-ideal generated only up to length L",
