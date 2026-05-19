@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dualitycert.core.obligations import Obligation
 from dualitycert.core.registry import CheckRegistry, CheckSpec
+from dualitycert.core.theory_kind import theory_kind_classification_check
 from dualitycert.qft.anomalies import (
     compare_anomaly_tables,
     gauge_anomaly_cancellation,
@@ -39,6 +40,24 @@ def build_default_registry() -> CheckRegistry:
 
     return CheckRegistry(
         (
+            CheckSpec(
+                key="theory_kind_classification",
+                name="theory kind classification",
+                description=(
+                    "Classify the claim as pure_quiver, flavored_single_gauge, or flavored_quiver "
+                    "and confirm verifier scope."
+                ),
+                always_run=True,
+                factory=lambda claim: Obligation(
+                    name="theory kind classification",
+                    description=(
+                        "Classify the claim as pure_quiver, flavored_single_gauge, or "
+                        "flavored_quiver and confirm verifier scope."
+                    ),
+                    checker=lambda: theory_kind_classification_check(claim),
+                    checker_name="theory_kind_classification_check",
+                ),
+            ),
             CheckSpec(
                 key="electric_gauge_anomaly",
                 name="electric gauge anomaly cancellation",
@@ -172,7 +191,7 @@ def build_default_registry() -> CheckRegistry:
                 key="operator_map_nonabelian_flavor",
                 name="operator map non-Abelian flavor matching",
                 description="Check non-Abelian flavor representations of mapped operators.",
-                applicable_claim_types=frozenset({"seiberg_sqcd"}),
+                applicable_duality_profiles=frozenset({"seiberg_sqcd"}),
                 factory=lambda claim: Obligation(
                     name="operator map non-Abelian flavor matching",
                     description="Check non-Abelian flavor representations of mapped operators.",
@@ -184,7 +203,7 @@ def build_default_registry() -> CheckRegistry:
                 key="sqcd_magnetic_meson_f_term_lifting",
                 name="SQCD magnetic meson F-term lifting",
                 description="Check that encoded F-terms constrain magnetic q qtilde.",
-                applicable_claim_types=frozenset({"seiberg_sqcd"}),
+                applicable_duality_profiles=frozenset({"seiberg_sqcd"}),
                 factory=lambda claim: Obligation(
                     name="SQCD magnetic meson F-term lifting",
                     description="Check that encoded F-terms constrain magnetic q qtilde.",
@@ -196,7 +215,7 @@ def build_default_registry() -> CheckRegistry:
                 key="sqcd_mass_deformation",
                 name="SQCD one-flavor mass deformation",
                 description="Check the rank flow under one-flavor SQCD mass deformation.",
-                applicable_claim_types=frozenset({"seiberg_sqcd"}),
+                applicable_duality_profiles=frozenset({"seiberg_sqcd"}),
                 factory=lambda claim: Obligation(
                     name="SQCD one-flavor mass deformation",
                     description="Check the rank flow under one-flavor SQCD mass deformation.",
@@ -208,7 +227,7 @@ def build_default_registry() -> CheckRegistry:
                 key="sqcd_mesonic_flat_direction",
                 name="SQCD mesonic flat-direction flow",
                 description="Check rank flow along supported SQCD mesonic flat directions.",
-                applicable_claim_types=frozenset({"seiberg_sqcd"}),
+                applicable_duality_profiles=frozenset({"seiberg_sqcd"}),
                 factory=lambda claim: Obligation(
                     name="SQCD mesonic flat-direction flow",
                     description="Check rank flow along supported SQCD mesonic flat directions.",
@@ -220,7 +239,7 @@ def build_default_registry() -> CheckRegistry:
                 key="kutasov_meson_tower_completeness",
                 name="Kutasov meson tower completeness",
                 description="Check that the magnetic theory contains all k meson fields M0..M{k-1}.",
-                applicable_claim_types=frozenset({"kutasov"}),
+                applicable_duality_profiles=frozenset({"kutasov"}),
                 factory=lambda claim: Obligation(
                     name="Kutasov meson tower completeness",
                     description="Check that the magnetic theory contains all k meson fields M0..M{k-1}.",

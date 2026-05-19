@@ -27,7 +27,8 @@ def test_certificate_to_dict_has_stable_ai_tool_keys():
     assert {
         "claim_id",
         "claim_name",
-        "claim_type",
+        "duality_profile",
+        "theory_kind",
         "parameters",
         "outward_status",
         "internal_status",
@@ -42,7 +43,8 @@ def test_certificate_to_dict_has_stable_ai_tool_keys():
         "failures",
         "detailed_tables",
     }.issubset(data)
-    assert data["claim_type"] == "seiberg_sqcd"
+    assert data["duality_profile"] == "seiberg_sqcd"
+    assert data["theory_kind"] == "flavored_single_gauge"
     assert data["outward_status"] == "PARTIAL_WITH_NOT_IMPLEMENTED_OBLIGATIONS"
     assert any(
         item["status"] == "NOT_IMPLEMENTED"

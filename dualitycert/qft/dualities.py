@@ -15,6 +15,7 @@ from dualitycert.core.objects import (
 from dualitycert.core.obligations import Obligation
 from dualitycert.groups.su import antifundamental, fundamental, su
 from dualitycert.groups.u1 import u1, u1_r
+from dualitycert.core.theory_kind import infer_claim_theory_kind
 from dualitycert.qft.checks import build_default_registry
 
 
@@ -31,7 +32,8 @@ def evaluate_claim(claim: DualityClaim) -> Certificate:
     return Certificate.from_results(
         claim.name,
         results,
-        claim_type=claim.metadata.get("claim_type"),
+        duality_profile=claim.metadata.get("duality_profile"),
+        theory_kind=infer_claim_theory_kind(claim),
         parameters=claim.metadata.get("parameters", {}),
     )
 
@@ -195,7 +197,7 @@ def build_seiberg_sqcd_claim(
         ),
         operator_map=operator_map_dict,
         metadata={
-            "claim_type": "seiberg_sqcd",
+            "duality_profile": "seiberg_sqcd",
             "parameters": {
                 "Nc": Nc,
                 "Nf": Nf,

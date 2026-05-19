@@ -29,11 +29,11 @@ def load_claim_file(path: str | Path) -> DualityClaim:
 
 
 def build_claim_from_data(data: Mapping[str, Any]) -> DualityClaim:
-    claim_type = data.get("claim_type")
-    if claim_type == "kutasov":
+    duality_profile = data.get("duality_profile")
+    if duality_profile == "kutasov":
         return _build_kutasov_claim_from_data(data)
-    if claim_type != "seiberg_sqcd":
-        raise ValueError(f"Unsupported claim_type: {claim_type!r}")
+    if duality_profile != "seiberg_sqcd":
+        raise ValueError(f"Unsupported duality_profile: {duality_profile!r}")
 
     parameters = data.get("parameters", {})
     magnetic = data.get("magnetic", {})
@@ -72,7 +72,7 @@ def build_claim_from_data(data: Mapping[str, Any]) -> DualityClaim:
         # assert any operator maps" and overrides any builder-provided default.
         # This is *not* a request to skip operator-map checking: the
         # SQCD-profile checker may still infer standard defaults from
-        # claim_type. A missing operator_map key preserves any
+        # duality_profile. A missing operator_map key preserves any
         # builder-provided default.
         claim = replace(
             claim,

@@ -23,7 +23,7 @@ def sqcd_one_flavor_mass_deformation_check(claim: DualityClaim) -> CheckResult:
     endpoint is inside the current SU(N>=2) implementation.
     """
 
-    if claim.metadata.get("claim_type") != "seiberg_sqcd":
+    if claim.metadata.get("duality_profile") != "seiberg_sqcd":
         return CheckResult(
             status=Status.NOT_APPLICABLE,
             message="One-flavor mass deformation checker is SQCD-specific.",
@@ -121,7 +121,7 @@ def sqcd_mesonic_flat_direction_flow_check(claim: DualityClaim) -> CheckResult:
     is not a proof of moduli-space equivalence.
     """
 
-    if claim.metadata.get("claim_type") != "seiberg_sqcd":
+    if claim.metadata.get("duality_profile") != "seiberg_sqcd":
         return CheckResult(
             status=Status.NOT_APPLICABLE,
             message="Mesonic flat-direction flow checker is SQCD-specific.",

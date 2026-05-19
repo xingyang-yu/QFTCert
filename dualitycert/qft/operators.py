@@ -36,7 +36,7 @@ def minimal_operator_map_abelian_charges(claim: DualityClaim) -> CheckResult:
     # SQCD default maps (meson M, baryons) only apply to Seiberg SQCD claims.
     # Other claim types (e.g. Kutasov) supply their own operator_map entries.
     default_maps: tuple[_OperatorMap, ...] = ()
-    if nc is not None and claim.metadata.get("claim_type") == "seiberg_sqcd":
+    if nc is not None and claim.metadata.get("duality_profile") == "seiberg_sqcd":
         default_maps = (
             _OperatorMap("meson", (("Q", 1), ("Qtilde", 1)), (("M", 1),)),
             _OperatorMap("baryon", (("Q", int(nc)),), (("q", magnetic_rank),)),
@@ -153,7 +153,7 @@ def sqcd_operator_map_nonabelian_flavor_labels(claim: DualityClaim) -> CheckResu
     the epsilon-tensor equivalence Lambda^k F ~= Lambda^(N-k) anti-F.
     """
 
-    if claim.metadata.get("claim_type") != "seiberg_sqcd":
+    if claim.metadata.get("duality_profile") != "seiberg_sqcd":
         return CheckResult(
             status=Status.NOT_APPLICABLE,
             message="Non-Abelian operator flavor-label checker is SQCD-specific.",
