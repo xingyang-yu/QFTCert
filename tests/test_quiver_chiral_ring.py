@@ -1,11 +1,14 @@
-"""Tests for quiver_chiral_ring steps 1-2.
+"""Tests for quiver_chiral_ring steps 1-3.
 
 Step 1: Arrow/CyclicWord + extract + enumerate.
 Step 2: cyclic_derivative of the superpotential.
+Step 3: validate_w_terms, RelationMatrix, build_relation_matrix,
+        quotient_dimensions. Verdict logic still in step 4.
 
-No F-ideal saturation, no relation matrix, no verdict yet. These tests pin
-the toy-quiver hand-checks from §11.1, the multi-arrow expansion convention
-from §3.2, and the cyclic-derivative definition from §2 / §5.1.
+These tests pin the toy-quiver hand-checks from §11.1, the multi-arrow
+expansion convention from §3.2, the cyclic-derivative definition from §2,
+the two-sided context multiplication of §5.2, and W-term well-formedness
+(P5 from §4) at the build_relation_matrix entry point.
 """
 
 from __future__ import annotations
@@ -20,9 +23,14 @@ from dualitycert.qft.quiver_chiral_ring import (
     Arrow,
     CyclicWord,
     PureQuiverShapeError,
+    RelationMatrix,
+    WTermShapeError,
+    build_relation_matrix,
     cyclic_derivative,
     enumerate_cyclic_words,
     extract_arrows,
+    quotient_dimensions,
+    validate_w_terms,
 )
 
 
@@ -724,3 +732,401 @@ def test_cyclic_derivative_endpoint_check_for_dp0():
         last = arrows_by_label[path[-1]]
         assert first.source == x01_0.target  # path starts at target(X01[0])
         assert last.target == x01_0.source   # path ends at source(X01[0])
+
+
+# ===========================================================================
+# Step 3: validate_w_terms (P5)
+# ===========================================================================
+
+def test_validate_w_terms_accepts_toy_w():
+    """The toy fixture W = Tr(Phi X Y) is a closed monomial walk and validates."""
+    theory = _toy_theory()
+    validate_w_terms(extract_arrows(theory), theory.superpotential_terms)
+
+
+def test_validate_w_terms_rejects_unknown_factor_label():
+    arrows = extract_arrows(_toy_theory())
+    bogus = (SuperpotentialTerm(factors=(("Phi", 1), ("MISSING", 1), ("Y", 1))),)
+    with pytest.raises(WTermShapeError) as exc_info:
+        validate_w_terms(arrows, bogus)
+    assert "MISSING" in str(exc_info.value)
+
+
+def test_validate_w_terms_rejects_non_composable_term():
+    """W = X * Phi: X ends at N2 but Phi starts at N1, so not composable."""
+    arrows = extract_arrows(_toy_theory())
+    bogus = (SuperpotentialTerm(factors=(("X", 1), ("Phi", 1))),)
+    with pytest.raises(WTermShapeError) as exc_info:
+        validate_w_terms(arrows, bogus)
+    assert "compose" in str(exc_info.value) or "source" in str(exc_info.value)
+
+
+def test_validate_w_terms_rejects_non_closed_term():
+    """W = X alone is composable trivially but not closed: target(X) != source(X)."""
+    arrows = extract_arrows(_toy_theory())
+    bogus = (SuperpotentialTerm(factors=(("X", 1),)),)
+    with pytest.raises(WTermShapeError):
+        validate_w_terms(arrows, bogus)
+
+
+def test_validate_w_terms_rejects_empty_term():
+    """A term with no factors is shape-invalid."""
+    # SuperpotentialTerm itself accepts factors=() — guard at validate level.
+    bogus = (SuperpotentialTerm(factors=()),)
+    with pytest.raises(WTermShapeError):
+        validate_w_terms(extract_arrows(_toy_theory()), bogus)
+
+
+def test_build_relation_matrix_runs_validate_defensively():
+    """build_relation_matrix must call validate_w_terms before doing work."""
+    arrows = extract_arrows(_toy_theory())
+    bogus = (SuperpotentialTerm(factors=(("Phi", 1), ("X", 1), ("MISSING", 1))),)
+    with pytest.raises(WTermShapeError):
+        build_relation_matrix(arrows, bogus, max_length=3)
+
+
+# ===========================================================================
+# Step 3: build_relation_matrix — toy hand-checks (design doc §5.2 / §11.1)
+# ===========================================================================
+
+def _toy_relation_matrices(max_length=4, r_graded=True):
+    theory = _toy_theory()
+    arrows = extract_arrows(theory)
+    return build_relation_matrix(arrows, theory.superpotential_terms,
+                                 max_length=max_length, r_graded=r_graded)
+
+
+def test_build_relation_matrix_toy_l1_no_relations():
+    """Length 1: basis {Phi}, no generators of length <= 1 ⇒ 0 rows."""
+    mats = _toy_relation_matrices(max_length=4, r_graded=True)
+    m1 = mats[(1, Fraction(2, 3))]
+    assert m1.num_rows == 0
+    assert m1.num_cols == 1
+    assert m1.column_basis == (("Phi",),)
+    assert m1.rank == 0
+    assert m1.quotient_dimension == 1
+
+
+def test_build_relation_matrix_toy_l2_kills_xy():
+    """Length 2: basis {PhiPhi, XY}. Only g_Phi has length-0 (empty) context
+    from N1 to N1 (Phi is a self-loop), giving one row: 0*PhiPhi + 1*XY = 0."""
+    mats = _toy_relation_matrices(max_length=4, r_graded=True)
+    m2 = mats[(2, Fraction(4, 3))]
+    assert m2.column_basis == (("Phi", "Phi"), ("X", "Y"))
+    assert m2.num_rows == 1
+    assert m2.rows == ((Fraction(0), Fraction(1)),)
+    assert m2.rank == 1
+    assert m2.quotient_dimension == 1  # PhiPhi survives
+
+
+def test_build_relation_matrix_toy_l3_three_redundant_rows_kill_phixy():
+    """Length 3: basis {Phi^3, PhiXY}. All three generators (g_Phi context Phi,
+    g_X context X, g_Y context Y) contribute one row each, all proportional
+    to PhiXY = 0. Rank 1, dim Q = 1 (Phi^3 survives)."""
+    mats = _toy_relation_matrices(max_length=4, r_graded=True)
+    m3 = mats[(3, Fraction(2))]
+    assert m3.column_basis == (("Phi", "Phi", "Phi"), ("Phi", "X", "Y"))
+    assert m3.num_rows == 3
+    for row in m3.rows:
+        assert row == (Fraction(0), Fraction(1))
+    assert m3.rank == 1
+    assert m3.quotient_dimension == 1
+
+
+def test_build_relation_matrix_toy_l4_partial_redundancy():
+    """Length 4: basis {Phi^4, PhiPhiXY, XYXY}. Four generators (g_Phi has
+    2 contexts of length 2: PhiPhi, XY; g_X has 1 context of length 2: PhiX;
+    g_Y has 1 context of length 2: YPhi). Three of the four rows land on
+    PhiPhiXY (duplicates), one on XYXY. Rank 2, dim Q = 1."""
+    mats = _toy_relation_matrices(max_length=4, r_graded=True)
+    m4 = mats[(4, Fraction(8, 3))]
+    assert m4.column_basis == (
+        ("Phi", "Phi", "Phi", "Phi"),
+        ("Phi", "Phi", "X", "Y"),
+        ("X", "Y", "X", "Y"),
+    )
+    assert m4.num_rows == 4
+    # Three rows must be (0, 1, 0); one must be (0, 0, 1). Order not pinned.
+    sorted_rows = sorted(m4.rows)
+    assert sorted_rows == sorted([
+        (Fraction(0), Fraction(1), Fraction(0)),
+        (Fraction(0), Fraction(1), Fraction(0)),
+        (Fraction(0), Fraction(1), Fraction(0)),
+        (Fraction(0), Fraction(0), Fraction(1)),
+    ])
+    assert m4.rank == 2
+    assert m4.quotient_dimension == 1
+
+
+def test_quotient_dimensions_toy_only_adjoint_power_survives_each_block():
+    """End-to-end: at every length 1..4 only the pure adjoint cyclic word
+    Phi^ℓ survives the F-ideal quotient (every cyclic word containing both
+    X and Y has either XY, YPhi, or PhiX as a contiguous substring, all of
+    which are killed by the F-relations)."""
+    dims = quotient_dimensions(
+        extract_arrows(_toy_theory()),
+        _toy_theory().superpotential_terms,
+        max_length=4,
+    )
+    assert dims == {
+        (1, Fraction(2, 3)): 1,
+        (2, Fraction(4, 3)): 1,
+        (3, Fraction(2, 1)): 1,
+        (4, Fraction(8, 3)): 1,
+    }
+
+
+def test_quotient_dimensions_toy_length_only_matches_r_graded():
+    """For the toy every cyclic word at length ℓ has R = 2ℓ/3, so the
+    r_graded blocks coincide with the length-only blocks 1:1."""
+    arrows = extract_arrows(_toy_theory())
+    W = _toy_theory().superpotential_terms
+    r_dims = quotient_dimensions(arrows, W, max_length=4, r_graded=True)
+    l_dims = quotient_dimensions(arrows, W, max_length=4, r_graded=False)
+    assert {length for length, _ in r_dims} == {length for length, _ in l_dims}
+    # Same per-length total
+    for length in range(1, 5):
+        r_total = sum(v for (l, _), v in r_dims.items() if l == length)
+        l_total = sum(v for (l, _), v in l_dims.items() if l == length)
+        assert r_total == l_total
+
+
+def test_build_relation_matrix_block_key_shape_depends_on_r_graded():
+    """r_graded=True ⇒ blocks (length, Fraction); r_graded=False ⇒ (length, None)."""
+    arrows = extract_arrows(_toy_theory())
+    W = _toy_theory().superpotential_terms
+    r_mats = build_relation_matrix(arrows, W, max_length=2, r_graded=True)
+    l_mats = build_relation_matrix(arrows, W, max_length=2, r_graded=False)
+    assert all(isinstance(k[1], Fraction) for k in r_mats)
+    assert all(k[1] is None for k in l_mats)
+
+
+# ===========================================================================
+# Step 3: empty W and ablation
+# ===========================================================================
+
+def test_build_relation_matrix_with_empty_w_returns_all_basis():
+    """No superpotential ⇒ zero relations ⇒ quotient = full basis."""
+    theory = Theory(
+        name="toy no W",
+        gauge_nodes=_toy_theory().gauge_nodes,
+        fields=_toy_theory().fields,
+        superpotential_terms=(),
+    )
+    arrows = extract_arrows(theory)
+    dims = quotient_dimensions(arrows, (), max_length=3)
+    # Expected: each block dim equals the basis size from step 1.
+    # Length 1: {Phi} → 1
+    # Length 2: {PhiPhi, XY} → 2
+    # Length 3: {Phi^3, PhiXY} → 2
+    assert sum(dims.values()) == 1 + 2 + 2
+
+
+def test_build_relation_matrix_drops_w_term_that_lifts_phixy():
+    """W = Tr(Phi^3) (only) leaves XY untouched at length 2. Basis {PhiPhi, XY}.
+    The only generator is g_Phi = ∂_Phi Tr(Phi^3) = 3*Phi*Phi (length 2, loop
+    at N1). With empty context this kills PhiPhi (coeff 3), not XY. dim Q = 1."""
+    theory = _toy_theory()
+    # Override W to Tr(Phi^3)
+    W = (SuperpotentialTerm(factors=(("Phi", 3),)),)
+    arrows = extract_arrows(theory)
+    mats = build_relation_matrix(arrows, W, max_length=2, r_graded=True)
+    m2 = mats[(2, Fraction(4, 3))]
+    assert m2.column_basis == (("Phi", "Phi"), ("X", "Y"))
+    assert m2.num_rows == 1
+    assert m2.rows == ((Fraction(3), Fraction(0)),)  # kills PhiPhi, not XY
+    assert m2.quotient_dimension == 1
+
+
+# ===========================================================================
+# Step 3: RelationMatrix rank (Fraction Gaussian elim)
+# ===========================================================================
+
+def test_relation_matrix_rank_independent_rows():
+    m = RelationMatrix(
+        block=(2, Fraction(4, 3)),
+        column_basis=(("a",), ("b",)),
+        rows=(
+            (Fraction(1), Fraction(0)),
+            (Fraction(0), Fraction(1)),
+        ),
+    )
+    assert m.rank == 2
+    assert m.quotient_dimension == 0
+
+
+def test_relation_matrix_rank_duplicate_rows():
+    m = RelationMatrix(
+        block=(2, None),
+        column_basis=(("a",), ("b",)),
+        rows=(
+            (Fraction(1), Fraction(2)),
+            (Fraction(2), Fraction(4)),  # multiple of the first
+            (Fraction(3), Fraction(6)),
+        ),
+    )
+    assert m.rank == 1
+    assert m.quotient_dimension == 1
+
+
+def test_relation_matrix_rank_zero_rows():
+    m = RelationMatrix(
+        block=(1, None),
+        column_basis=(("a",),),
+        rows=(),
+    )
+    assert m.rank == 0
+    assert m.quotient_dimension == 1
+
+
+def test_relation_matrix_rank_with_fractions():
+    """Rank computation handles non-integer pivots exactly."""
+    m = RelationMatrix(
+        block=(2, None),
+        column_basis=(("a",), ("b",), ("c",)),
+        rows=(
+            (Fraction(1, 3), Fraction(2, 5), Fraction(0)),
+            (Fraction(2, 3), Fraction(4, 5), Fraction(0)),  # 2x the first
+            (Fraction(0), Fraction(0), Fraction(7, 11)),
+        ),
+    )
+    assert m.rank == 2
+    assert m.quotient_dimension == 1
+
+
+def test_relation_matrix_rejects_row_width_mismatch():
+    """Row length must equal column_basis length — drop guarantees rank()."""
+    with pytest.raises(ValueError) as exc_info:
+        RelationMatrix(
+            block=(2, None),
+            column_basis=(("a",), ("b",)),
+            rows=((Fraction(1), Fraction(0), Fraction(0)),),  # 3 entries, basis is 2 cols
+        )
+    assert "length" in str(exc_info.value).lower()
+
+
+def test_relation_matrix_coerces_lists_to_tuples():
+    """List inputs accepted but stored as tuples so frozen=True / hash() hold."""
+    m = RelationMatrix(
+        block=(1, None),
+        column_basis=[("a",), ("b",)],
+        rows=[[Fraction(1), Fraction(0)], [Fraction(0), Fraction(1)]],
+    )
+    assert isinstance(m.column_basis, tuple)
+    assert isinstance(m.rows, tuple)
+    assert all(isinstance(row, tuple) for row in m.rows)
+    # Hashable now (would raise TypeError if lists slipped through).
+    assert hash(m) == hash(RelationMatrix(
+        block=(1, None),
+        column_basis=(("a",), ("b",)),
+        rows=((Fraction(1), Fraction(0)), (Fraction(0), Fraction(1))),
+    ))
+
+
+# ===========================================================================
+# Step 3 regression: mass term (n=0 generator dispatch)
+# ===========================================================================
+
+def test_build_relation_matrix_mass_term_kills_phi_at_all_lengths():
+    """W = Tr(Phi) with R(Phi)=2 is a legitimate adjoint mass term.
+    ∂_Phi W = identity at the node (a length-0 generator). The F-relation
+    says e_v = 0, which kills every cyclic word at that node at every
+    positive length. Without the n=0 dispatch fix the build crashed with
+    RuntimeError because it tried to emit rows in a non-existent length-0
+    cyclic-word block."""
+    node = NODE1_LABEL
+    theory = Theory(
+        name="massive Phi",
+        gauge_nodes=(su(3, label=node),),
+        fields=(
+            Field(name="Phi", field_type="chiral multiplet",
+                  gauge_reps={node: adjoint()}, r_charge=Fraction(2)),
+        ),
+        superpotential_terms=(SuperpotentialTerm(factors=(("Phi", 1),)),),
+    )
+    arrows = extract_arrows(theory)
+    dims = quotient_dimensions(arrows, theory.superpotential_terms, max_length=3)
+    # Every block (1, R=2), (2, R=4), (3, R=6) must be killed completely.
+    assert set(dims.keys()) == {(1, Fraction(2)), (2, Fraction(4)), (3, Fraction(6))}
+    assert all(value == 0 for value in dims.values())
+
+
+def test_build_relation_matrix_mass_term_length_only_also_kills():
+    """Length-only mode behaves the same on the mass-term fixture."""
+    node = NODE1_LABEL
+    theory = Theory(
+        name="massive Phi",
+        gauge_nodes=(su(3, label=node),),
+        fields=(
+            Field(name="Phi", field_type="chiral multiplet",
+                  gauge_reps={node: adjoint()}, r_charge=Fraction(2)),
+        ),
+        superpotential_terms=(SuperpotentialTerm(factors=(("Phi", 1),)),),
+    )
+    arrows = extract_arrows(theory)
+    dims = quotient_dimensions(arrows, theory.superpotential_terms,
+                               max_length=3, r_graded=False)
+    assert dims == {(1, None): 0, (2, None): 0, (3, None): 0}
+
+
+# ===========================================================================
+# Step 3 defensive: r_graded R-homogeneity guard (P3 belt-and-suspenders)
+# ===========================================================================
+
+def test_build_relation_matrix_r_graded_rejects_p3_violating_w():
+    """If two W terms have different total R-charges they share an arrow
+    derivative (here ∂_X) → row_dict mixes cyclic words at different
+    R-charges. With r_graded=True the defensive guard must surface this
+    as a clear P3-violation error instead of silently mis-bucketing rows."""
+    n1 = su(3, label=NODE1_LABEL)
+    n2 = su(3, label=NODE2_LABEL)
+    fields = (
+        Field(name="X", field_type="chiral multiplet",
+              gauge_reps={NODE1_LABEL: antifundamental(), NODE2_LABEL: fundamental()},
+              r_charge=Fraction(2, 3)),
+        Field(name="Y", field_type="chiral multiplet",
+              gauge_reps={NODE2_LABEL: antifundamental(), NODE1_LABEL: fundamental()},
+              r_charge=Fraction(2, 3)),
+        Field(name="Phi", field_type="chiral multiplet",
+              gauge_reps={NODE1_LABEL: adjoint()}, r_charge=Fraction(2, 3)),
+        Field(name="Psi", field_type="chiral multiplet",
+              gauge_reps={NODE1_LABEL: adjoint()}, r_charge=Fraction(1)),
+    )
+    W = (
+        SuperpotentialTerm(factors=(("Phi", 1), ("X", 1), ("Y", 1))),  # R = 2
+        SuperpotentialTerm(factors=(("Psi", 1), ("X", 1), ("Y", 1))),  # R = 7/3 (P3 violated)
+    )
+    theory = Theory(name="P3 violator", gauge_nodes=(n1, n2), fields=fields,
+                    superpotential_terms=W)
+    arrows = extract_arrows(theory)
+    with pytest.raises(ValueError) as exc_info:
+        build_relation_matrix(arrows, W, max_length=3, r_graded=True)
+    assert "P3" in str(exc_info.value) or "R-charge" in str(exc_info.value)
+
+
+def test_build_relation_matrix_length_only_accepts_p3_violating_w():
+    """The same P3-violating W must run cleanly in length-only mode — the
+    guard fires only for r_graded=True."""
+    n1 = su(3, label=NODE1_LABEL)
+    n2 = su(3, label=NODE2_LABEL)
+    fields = (
+        Field(name="X", field_type="chiral multiplet",
+              gauge_reps={NODE1_LABEL: antifundamental(), NODE2_LABEL: fundamental()},
+              r_charge=Fraction(2, 3)),
+        Field(name="Y", field_type="chiral multiplet",
+              gauge_reps={NODE2_LABEL: antifundamental(), NODE1_LABEL: fundamental()},
+              r_charge=Fraction(2, 3)),
+        Field(name="Phi", field_type="chiral multiplet",
+              gauge_reps={NODE1_LABEL: adjoint()}, r_charge=Fraction(2, 3)),
+        Field(name="Psi", field_type="chiral multiplet",
+              gauge_reps={NODE1_LABEL: adjoint()}, r_charge=Fraction(1)),
+    )
+    W = (
+        SuperpotentialTerm(factors=(("Phi", 1), ("X", 1), ("Y", 1))),
+        SuperpotentialTerm(factors=(("Psi", 1), ("X", 1), ("Y", 1))),
+    )
+    arrows = extract_arrows(Theory(name="P3v", gauge_nodes=(n1, n2),
+                                   fields=fields, superpotential_terms=W))
+    # Should not raise.
+    matrices = build_relation_matrix(arrows, W, max_length=3, r_graded=False)
+    assert all(k[1] is None for k in matrices)

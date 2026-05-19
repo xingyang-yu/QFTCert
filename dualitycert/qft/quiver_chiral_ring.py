@@ -1,8 +1,9 @@
 """Bounded cyclic path-algebra primitives for pure_quiver theories.
 
-Phase 2a steps 1-2: arrow extraction, cyclic-word enumeration, and
-cyclic derivatives of the superpotential. No F-ideal saturation, no
-relation matrix, no verdict logic yet — those land in subsequent steps
+Phase 2a steps 1-3: arrow extraction, cyclic-word enumeration, cyclic
+derivatives of the superpotential, two-sided context multiplication into
+F-relation matrices, and per-block quotient dimensions. Verdict logic
+(comparing two theories) still lives in step 4
 (see docs/phase2a_pure_quiver_chiral_ring.md §14).
 
 Conventions (locked in design doc §2):
@@ -23,7 +24,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Iterable, Iterator, Mapping
+from typing import Iterable, Iterator, Mapping, Optional
 
 from dualitycert.core.objects import Field, SuperpotentialTerm, Theory
 
@@ -103,6 +104,76 @@ class CyclicWord:
                 f"CyclicWord arrows {self.arrows!r} is not its canonical "
                 f"lex-min rotation; expected {canonical!r}"
             )
+
+
+class WTermShapeError(ValueError):
+    """Raised when a superpotential term is not a closed monomial walk on
+    the given arrow set, or references a label outside the arrow set.
+
+    P5 in design doc §4. Upstream (step 4) converts this into a
+    NOT_APPLICABLE verdict, mirroring `PureQuiverShapeError` at the
+    arrow-extraction layer.
+    """
+
+    def __init__(self, term_display: str, reason: str) -> None:
+        super().__init__(f"Superpotential term {term_display!r}: {reason}")
+        self.term_display = term_display
+        self.reason = reason
+
+
+# Block key for build_relation_matrix / quotient_dimensions output.
+# (length, r_charge) when r_graded=True; (length, None) when length-only.
+Block = tuple[int, Optional[Fraction]]
+
+
+@dataclass(frozen=True)
+class RelationMatrix:
+    """One block's F-relation matrix expressed in the cyclic-word basis.
+
+    `column_basis` lists the canonical cyclic-word tuples that index the
+    columns (in the same order they were produced by
+    `enumerate_cyclic_words`). Each row in `rows` is a dense Fraction
+    vector aligned to that order. `block` records the (length, r_charge)
+    key the matrix lives in.
+
+    Invariants enforced at construction (RelationMatrix is publicly
+    exported and rank()/quotient_dimension assume well-formed data):
+      - `column_basis` and `rows` (and each row) are coerced to tuples
+        so `frozen=True` and `hash()` actually hold even on list inputs;
+      - every row has length `== len(column_basis)`, so rank() cannot
+        silently drop columns or trip on short rows.
+    """
+
+    block: Block
+    column_basis: tuple[tuple[str, ...], ...]
+    rows: tuple[tuple[Fraction, ...], ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "column_basis", tuple(self.column_basis))
+        object.__setattr__(self, "rows", tuple(tuple(row) for row in self.rows))
+        width = len(self.column_basis)
+        for index, row in enumerate(self.rows):
+            if len(row) != width:
+                raise ValueError(
+                    f"RelationMatrix row {index} has length {len(row)}, "
+                    f"expected {width} to match len(column_basis)"
+                )
+
+    @property
+    def num_rows(self) -> int:
+        return len(self.rows)
+
+    @property
+    def num_cols(self) -> int:
+        return len(self.column_basis)
+
+    @property
+    def rank(self) -> int:
+        return _gaussian_rank(self.rows, self.num_cols)
+
+    @property
+    def quotient_dimension(self) -> int:
+        return self.num_cols - self.rank
 
 
 def extract_arrows(theory: Theory) -> tuple[Arrow, ...]:
@@ -265,6 +336,189 @@ def cyclic_derivative(
     return {path: coeff for path, coeff in result.items() if coeff != 0}
 
 
+def validate_w_terms(
+    arrows: Iterable[Arrow],
+    W_terms: Iterable[SuperpotentialTerm],
+) -> None:
+    """Enforce P5 (design doc §4) on every superpotential term.
+
+    For each `SuperpotentialTerm` in `W_terms`:
+      - every factor name must equal some `Arrow.label` in `arrows`;
+      - the flattened arrow sequence A_1...A_n must form a closed monomial
+        walk, i.e. `target(A_i) == source(A_{i+1})` for all `i` and
+        `target(A_n) == source(A_1)`.
+
+    Raises `WTermShapeError(term_display, reason)` on the first offending
+    term. `cyclic_derivative` itself is deliberately kept as a low-level
+    string-matching primitive (it does not check well-formedness), so this
+    helper must run before `build_relation_matrix` to guarantee that the
+    F-relations it produces are physically meaningful.
+    """
+
+    arrows_by_label: dict[str, Arrow] = {arrow.label: arrow for arrow in arrows}
+    for term in W_terms:
+        labels = term.field_names
+        if not labels:
+            raise WTermShapeError(term.display_name, "term has no factors")
+        for label in labels:
+            if label not in arrows_by_label:
+                raise WTermShapeError(
+                    term.display_name,
+                    f"factor {label!r} is not the machine label of any arrow",
+                )
+        for index in range(len(labels)):
+            a = arrows_by_label[labels[index]]
+            b = arrows_by_label[labels[(index + 1) % len(labels)]]
+            if a.target != b.source:
+                raise WTermShapeError(
+                    term.display_name,
+                    f"arrows {a.label!r} -> {b.label!r} do not compose: "
+                    f"target({a.label})={a.target!r} but source({b.label})={b.source!r}",
+                )
+
+
+def build_relation_matrix(
+    arrows: Iterable[Arrow],
+    W_terms: Iterable[SuperpotentialTerm],
+    max_length: int,
+    r_graded: bool = True,
+) -> dict[Block, RelationMatrix]:
+    """Build the F-relation matrix in each cyclic-word block up to cutoff L.
+
+    For each arrow X, split its cyclic derivative ∂_X W into homogeneous
+    generators by path length (design doc §5.1). For each generator
+    g = Σ α_p · path_p (length n, source = target(X), target = source(X))
+    and each context path C with source(C) = target(g), target(C) =
+    source(g), length(C) = ℓ - n where ℓ ∈ {n, ..., max_length}: emit one
+    row whose entry on canonical(C · path_p) equals α_p (summed over p,
+    zeros dropped). Rows are bucketed into blocks `(ℓ, r_charge)` if
+    `r_graded`, else `(ℓ, None)`.
+
+    Pre-condition: `validate_w_terms` must pass — caller's responsibility,
+    but this function calls it defensively to fail loudly rather than
+    silently producing garbage rows on malformed W.
+
+    Returns a dict keyed by every basis block (length 1..max_length, and
+    each R-charge bucket if r_graded); `RelationMatrix.rows` is `()` when
+    no relation reaches the block.
+    """
+
+    if max_length < 1:
+        raise ValueError(f"max_length must be >= 1, got {max_length}")
+
+    arrows_tuple = tuple(arrows)
+    W_tuple = tuple(W_terms)
+    validate_w_terms(arrows_tuple, W_tuple)
+
+    arrows_by_label = {a.label: a for a in arrows_tuple}
+
+    cyclic_basis = enumerate_cyclic_words(arrows_tuple, max_length)
+    blocks: dict[Block, list[CyclicWord]] = {}
+    for length, words in cyclic_basis.items():
+        for word in words:
+            key: Block = (length, word.r_charge) if r_graded else (length, None)
+            blocks.setdefault(key, []).append(word)
+
+    column_basis: dict[Block, tuple[tuple[str, ...], ...]] = {
+        key: tuple(w.arrows for w in words) for key, words in blocks.items()
+    }
+    column_index: dict[Block, dict[tuple[str, ...], int]] = {
+        key: {cols: i for i, cols in enumerate(basis)}
+        for key, basis in column_basis.items()
+    }
+
+    generators = _enumerate_generators(arrows_tuple, W_tuple)
+    free_paths = _enumerate_free_paths(arrows_tuple, max_length)
+
+    rows_by_block: dict[Block, list[tuple[Fraction, ...]]] = {key: [] for key in blocks}
+
+    for gen in generators:
+        n = gen["length"]
+        context_endpoints = (gen["target"], gen["source"])  # source(C), target(C)
+        # Length-0 generators arise from legitimate mass terms (e.g. ∂_Phi Tr(Phi)
+        # = identity at the node, if R(Phi)=2). The resulting F-relation kills
+        # cyclic words of every positive length through that node, but the
+        # cyclic-word basis itself starts at length 1 — skip total_length=0.
+        for total_length in range(max(1, n), max_length + 1):
+            context_length = total_length - n
+            contexts = free_paths.get((*context_endpoints, context_length), ())
+            for context in contexts:
+                row_dict: dict[tuple[str, ...], Fraction] = {}
+                for path, coeff in gen["paths"].items():
+                    closed_walk = context + path
+                    canonical = _canonical_rotation(closed_walk)
+                    row_dict[canonical] = row_dict.get(canonical, Fraction(0)) + coeff
+                row_dict = {k: v for k, v in row_dict.items() if v != 0}
+                if not row_dict:
+                    continue
+
+                sample = next(iter(row_dict))
+                r_total = sum(
+                    (arrows_by_label[label].r_charge for label in sample),
+                    Fraction(0),
+                )
+                if r_graded and len(row_dict) > 1:
+                    # Defensive: under P3 (each W term has R=2), every cyclic
+                    # word in a single relation row has the same R-charge —
+                    # rows live in one R-bucket. Catching this here turns a
+                    # P3 violation into an explicit error instead of silently
+                    # mis-bucketing the row. Step 4 should validate P3 first;
+                    # this is belt-and-suspenders.
+                    for other_canonical in row_dict:
+                        if other_canonical is sample:
+                            continue
+                        r_other = sum(
+                            (arrows_by_label[label].r_charge for label in other_canonical),
+                            Fraction(0),
+                        )
+                        if r_other != r_total:
+                            raise ValueError(
+                                "build_relation_matrix(r_graded=True) requires "
+                                "every W term to satisfy P3 (R=2). A relation "
+                                "row mixes cyclic words of different R-charges: "
+                                f"{sample!r} has R={r_total} but "
+                                f"{other_canonical!r} has R={r_other}. "
+                                "Validate P3 upstream (or use r_graded=False)."
+                            )
+                block_key: Block = (
+                    (total_length, r_total) if r_graded else (total_length, None)
+                )
+                if block_key not in column_index:
+                    # Should not happen: enumerate_cyclic_words covers every
+                    # closed-walk class up to max_length.
+                    raise RuntimeError(
+                        f"row produced for unknown block {block_key} "
+                        f"(canonical word {sample!r})"
+                    )
+                ncols = len(column_basis[block_key])
+                indexer = column_index[block_key]
+                dense = [Fraction(0)] * ncols
+                for canonical, coeff in row_dict.items():
+                    dense[indexer[canonical]] = coeff
+                rows_by_block[block_key].append(tuple(dense))
+
+    return {
+        key: RelationMatrix(
+            block=key,
+            column_basis=column_basis[key],
+            rows=tuple(rows_by_block[key]),
+        )
+        for key in column_basis
+    }
+
+
+def quotient_dimensions(
+    arrows: Iterable[Arrow],
+    W_terms: Iterable[SuperpotentialTerm],
+    max_length: int,
+    r_graded: bool = True,
+) -> dict[Block, int]:
+    """Convenience wrapper: per-block `|basis| - rank(M)`."""
+
+    matrices = build_relation_matrix(arrows, W_terms, max_length, r_graded=r_graded)
+    return {key: matrix.quotient_dimension for key, matrix in matrices.items()}
+
+
 def _infer_endpoints(
     field_obj: Field,
     non_singlet: Mapping[str, "object"],
@@ -339,11 +593,129 @@ def _canonical_rotation(labels: tuple[str, ...]) -> tuple[str, ...]:
     return best
 
 
+def _enumerate_generators(
+    arrows: tuple[Arrow, ...],
+    W_terms: tuple[SuperpotentialTerm, ...],
+) -> list[dict]:
+    """Split each ∂_X W into homogeneous generators by path length.
+
+    Returns one record per (arrow X, path_length) with at least one
+    surviving path. Different arrows X give independent generators even
+    if their endpoints match: each contributes its own relation rows.
+    """
+
+    records: list[dict] = []
+    for arrow in arrows:
+        derivative = cyclic_derivative(W_terms, arrow)
+        if not derivative:
+            continue
+        paths_by_length: dict[int, dict[tuple[str, ...], Fraction]] = {}
+        for path, coeff in derivative.items():
+            paths_by_length.setdefault(len(path), {})[path] = coeff
+        for path_length, paths in paths_by_length.items():
+            records.append(
+                {
+                    "arrow_label": arrow.label,
+                    "source": arrow.target,   # source(g) = target(X)
+                    "target": arrow.source,   # target(g) = source(X)
+                    "length": path_length,
+                    "paths": paths,
+                }
+            )
+    return records
+
+
+def _enumerate_free_paths(
+    arrows: tuple[Arrow, ...],
+    max_length: int,
+) -> dict[tuple[str, str, int], tuple[tuple[str, ...], ...]]:
+    """Enumerate all free (un-quotiented) paths up to `max_length`, indexed
+    by `(source, target, length)`.
+
+    Length 0 = the empty path / node idempotent `e_v`. It exists for every
+    gauge node and has `source == target == v`. Higher lengths are
+    generated by DFS over the arrow adjacency.
+    """
+
+    by_source: dict[str, list[Arrow]] = defaultdict(list)
+    for arrow in arrows:
+        by_source[arrow.source].append(arrow)
+
+    nodes: set[str] = set()
+    for arrow in arrows:
+        nodes.add(arrow.source)
+        nodes.add(arrow.target)
+
+    paths: dict[tuple[str, str, int], list[tuple[str, ...]]] = defaultdict(list)
+    for node in nodes:
+        paths[(node, node, 0)].append(())
+
+    frontier: list[tuple[str, str, tuple[str, ...]]] = [
+        (node, node, ()) for node in nodes
+    ]
+    for current_length in range(max_length):
+        next_frontier: list[tuple[str, str, tuple[str, ...]]] = []
+        for source, head, labels in frontier:
+            for arrow in by_source.get(head, ()):
+                new_labels = labels + (arrow.label,)
+                paths[(source, arrow.target, current_length + 1)].append(new_labels)
+                next_frontier.append((source, arrow.target, new_labels))
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    return {key: tuple(value) for key, value in paths.items()}
+
+
+def _gaussian_rank(rows: tuple[tuple[Fraction, ...], ...], num_cols: int) -> int:
+    """Exact rank of a Fraction matrix via Gaussian elimination in row-echelon
+    form. Matrices stay tiny at the Phase 2a cutoffs (max_length <= 8), so
+    naive elimination is fast and avoids a sympy dependency."""
+
+    if not rows or num_cols == 0:
+        return 0
+    matrix: list[list[Fraction]] = [list(row) for row in rows]
+    rank = 0
+    pivot_col = 0
+    num_rows = len(matrix)
+    while rank < num_rows and pivot_col < num_cols:
+        pivot_row = None
+        for row_index in range(rank, num_rows):
+            if matrix[row_index][pivot_col] != 0:
+                pivot_row = row_index
+                break
+        if pivot_row is None:
+            pivot_col += 1
+            continue
+        if pivot_row != rank:
+            matrix[rank], matrix[pivot_row] = matrix[pivot_row], matrix[rank]
+        pivot = matrix[rank][pivot_col]
+        matrix[rank] = [entry / pivot for entry in matrix[rank]]
+        for row_index in range(num_rows):
+            if row_index == rank:
+                continue
+            factor = matrix[row_index][pivot_col]
+            if factor == 0:
+                continue
+            matrix[row_index] = [
+                a - factor * b for a, b in zip(matrix[row_index], matrix[rank])
+            ]
+        rank += 1
+        pivot_col += 1
+    return rank
+
+
 __all__ = [
     "Arrow",
+    "Block",
     "CyclicWord",
     "PureQuiverShapeError",
+    "RelationMatrix",
+    "WTermShapeError",
+    "build_relation_matrix",
     "cyclic_derivative",
     "enumerate_cyclic_words",
     "extract_arrows",
+    "quotient_dimensions",
+    "validate_w_terms",
 ]
