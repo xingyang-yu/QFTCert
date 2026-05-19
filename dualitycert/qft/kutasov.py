@@ -210,7 +210,7 @@ def build_kutasov_claim(
         ),
         operator_map=operator_map,
         metadata={
-            "claim_type": "kutasov",
+            "duality_profile": "kutasov",
             "parameters": {
                 "Nc": Nc,
                 "Nf": Nf,

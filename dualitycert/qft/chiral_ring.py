@@ -88,7 +88,7 @@ def sqcd_magnetic_meson_f_term_lifting_check(claim: DualityClaim) -> CheckResult
     presence of a particular superpotential string.
     """
 
-    if claim.metadata.get("claim_type") != "seiberg_sqcd":
+    if claim.metadata.get("duality_profile") != "seiberg_sqcd":
         return CheckResult(
             status=Status.NOT_APPLICABLE,
             message="Magnetic meson F-term lifting checker is SQCD-specific.",

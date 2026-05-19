@@ -148,7 +148,7 @@ def _encoded_operators(claim: DualityClaim) -> tuple[tuple[str, Fraction], ...]:
     if parsed:
         return tuple(parsed)
 
-    if claim.metadata.get("claim_type") != "seiberg_sqcd":
+    if claim.metadata.get("duality_profile") != "seiberg_sqcd":
         return ()
 
     parameters = claim.metadata.get("parameters", {})

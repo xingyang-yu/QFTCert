@@ -38,6 +38,7 @@ OUTWARD_PASSED = "PASSED_IMPLEMENTED_OBLIGATIONS"
 OUTWARD_FAILED = "FAILED_IMPLEMENTED_OBLIGATIONS"
 OUTWARD_NONE = "NO_IMPLEMENTED_OBLIGATIONS"
 OUTWARD_PARTIAL = "PARTIAL_WITH_NOT_IMPLEMENTED_OBLIGATIONS"
+OUTWARD_OUT_OF_SCOPE = "OUT_OF_SCOPE"
 
 
 @dataclass(frozen=True)
@@ -54,7 +55,8 @@ class Certificate:
     assumptions: tuple[str, ...] = DEFAULT_ASSUMPTIONS
     limitations: tuple[str, ...] = DEFAULT_LIMITATIONS
     conventions: Mapping[str, Any] = field(default_factory=lambda: dict(DEFAULT_CONVENTIONS))
-    claim_type: str | None = None
+    duality_profile: str | None = None
+    theory_kind: str | None = None
     parameters: Mapping[str, Any] = field(default_factory=dict)
     detailed_tables: Mapping[str, Any] = field(default_factory=dict)
 
@@ -67,7 +69,8 @@ class Certificate:
         assumptions: tuple[str, ...] = DEFAULT_ASSUMPTIONS,
         limitations: tuple[str, ...] = DEFAULT_LIMITATIONS,
         conventions: Mapping[str, Any] | None = None,
-        claim_type: str | None = None,
+        duality_profile: str | None = None,
+        theory_kind: str | None = None,
         parameters: Mapping[str, Any] | None = None,
     ) -> "Certificate":
         result_tuple = tuple(results)
@@ -109,13 +112,17 @@ class Certificate:
             assumptions=assumptions,
             limitations=limitations,
             conventions=dict(conventions or DEFAULT_CONVENTIONS),
-            claim_type=claim_type,
+            duality_profile=duality_profile,
+            theory_kind=theory_kind,
             parameters=dict(parameters or {}),
             detailed_tables=detailed_tables,
         )
 
     @property
     def outward_status(self) -> str:
+        from dualitycert.core.theory_kind import FLAVORED_QUIVER
+        if self.theory_kind == FLAVORED_QUIVER:
+            return OUTWARD_OUT_OF_SCOPE
         if self.failed_obligations:
             return OUTWARD_FAILED
         if self.passed_obligations and self.not_implemented_obligations:
@@ -143,7 +150,8 @@ class Certificate:
         return {
             "claim_id": _slugify(self.claim_name),
             "claim_name": self.claim_name,
-            "claim_type": self.claim_type,
+            "duality_profile": self.duality_profile,
+            "theory_kind": self.theory_kind,
             "parameters": _json_safe(self.parameters),
             "outward_status": self.outward_status,
             "internal_status": self.overall_status.value,

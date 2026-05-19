@@ -10,7 +10,7 @@ Coverage:
   2. Verifier: passing claim passes; broken claim fails at anomaly matching.
   3. Round-trip: a deterministic agent that knows kNf-Nc can repair the claim.
   4. Registry dispatch: SQCD-only checks absent; Kutasov-specific check present.
-  5. JSON loader: claim_type=kutasov round-trips through build_claim_from_data.
+  5. JSON loader: duality_profile=kutasov round-trips through build_claim_from_data.
   6. Superpotential checker: Tr(X^n) and M_j q Y^n qtilde are recognized as
      gauge invariant (tests the susy.py _contains_singlet extension).
 """
@@ -201,7 +201,7 @@ def test_kutasov_check_not_in_sqcd_obligations():
 def test_json_loader_kutasov_passing_fixture():
     data = _load_claim_data("kutasov_Nc3_Nf5_k2.json")
     claim = build_claim_from_data(data)
-    assert claim.metadata.get("claim_type") == "kutasov"
+    assert claim.metadata.get("duality_profile") == "kutasov"
     assert claim.magnetic_theory.gauge_nodes[0].N == 7
     cert = evaluate_claim(claim)
     assert cert.outward_status in PASSING_STATUSES
