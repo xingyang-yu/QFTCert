@@ -1613,6 +1613,82 @@ def test_bounded_chiral_ring_details_carry_mandatory_r_graded_key_on_every_path(
     assert res_p4.details["require_r_graded"] is True
 
 
+def test_bounded_chiral_ring_details_schema_split_between_always_and_comparison_paths():
+    """Design doc §7 splits details into always-present keys (cutoff_L,
+    r_graded, mod_cyclic_rotation, orientation_preserved,
+    context_multiplied_ideal, preconditions, limitations) and
+    comparison-path-only keys (tested_blocks, failed_blocks,
+    sample_operators, arrow_machine_labels_electric/magnetic,
+    r_graded_blocked_by). Empty-list defaults are explicitly NOT used
+    so consumers can distinguish "comparison ran with zero failed
+    blocks" (CERTIFIED) from "comparison never ran" (NOT_APPLICABLE)."""
+
+    always_present_keys = {
+        "cutoff_L",
+        "r_graded",
+        "require_r_graded",
+        "r_graded_blocked_by",
+        "mod_cyclic_rotation",
+        "orientation_preserved",
+        "context_multiplied_ideal",
+        "preconditions",
+        "limitations",
+    }
+    comparison_only_keys = {
+        "tested_blocks",
+        "failed_blocks",
+        "sample_operators",
+        "arrow_machine_labels_electric",
+        "arrow_machine_labels_magnetic",
+    }
+
+    # CERTIFIED comparison path — both sets present.
+    res_ok = bounded_chiral_ring_consistency_check(
+        _wrap_claim(_toy_theory(), _toy_theory(),
+                    max_length=3, require_r_graded=True, profile="schema_ok"),
+        _certified_prior_anomalies(),
+    )
+    assert always_present_keys.issubset(res_ok.details)
+    assert comparison_only_keys.issubset(res_ok.details)
+
+    # Early NOT_APPLICABLE (P1 fail via SQCD claim) — always-present keys
+    # only; comparison keys must NOT have been fabricated as empty defaults.
+    from dualitycert.qft.dualities import build_seiberg_sqcd_claim
+    res_p1 = bounded_chiral_ring_consistency_check(
+        build_seiberg_sqcd_claim(Nc=3, Nf=5), _certified_prior_anomalies()
+    )
+    assert res_p1.status == Status.NOT_APPLICABLE
+    assert always_present_keys.issubset(res_p1.details)
+    assert not (comparison_only_keys & set(res_p1.details))
+
+    # Early UNKNOWN (P6 over-cutoff) — same shape.
+    huge_claim = DualityClaim(
+        name="huge L",
+        electric_theory=_toy_theory(),
+        magnetic_theory=_toy_theory(),
+        metadata={
+            "duality_profile": "schema_p6",
+            "theory_kind": "pure_quiver",
+            "bounded_chiral_ring": {"max_length": 10, "require_r_graded": False},
+        },
+    )
+    res_p6 = bounded_chiral_ring_consistency_check(huge_claim, {})
+    assert res_p6.status == Status.UNKNOWN
+    assert always_present_keys.issubset(res_p6.details)
+    assert not (comparison_only_keys & set(res_p6.details))
+
+    # Strict-P4 NOT_APPLICABLE (require_r_graded=True, empty prior) —
+    # same shape: the comparison was suppressed before block-wise math.
+    res_p4 = bounded_chiral_ring_consistency_check(
+        _wrap_claim(_toy_theory(), _toy_theory(),
+                    max_length=3, require_r_graded=True, profile="schema_p4"),
+        {},
+    )
+    assert res_p4.status == Status.NOT_APPLICABLE
+    assert always_present_keys.issubset(res_p4.details)
+    assert not (comparison_only_keys & set(res_p4.details))
+
+
 def test_bounded_chiral_ring_strict_p4_length_only_unaffected_by_missing_upstream():
     """Strict P4 only matters in r_graded mode. With require_r_graded=False
     the same missing-upstream claim falls through to length-only
