@@ -28,6 +28,7 @@ from dualitycert.core.objects import (
     Theory,
 )
 from dualitycert.groups.su import adjoint, antifundamental, fundamental, su
+from dualitycert.groups.u1 import u1_r
 
 
 def build_pure_quiver(
@@ -139,6 +140,97 @@ def dp0_superpotential(
             )
         )
     return tuple(terms)
+
+
+def build_dp0_magnetic_effective(*, N: int = 3) -> Theory:
+    """Build the effective magnetic dual of the dP_0 toric phase after
+    single-node Seiberg duality on node A and integration of the mass-
+    deformed antisymmetric mesons + X_BC pairs.
+
+    See `docs/phase2b_dp0_magnetic.md` for the full physics derivation
+    (field content, R-charges, anomaly verification, W derivation, and
+    the symmetric-pair indexing convention used for the 6 surviving
+    mesons).
+
+    Convention: arrows incident to the dualized node A are reversed; the
+    BC edge is gone (X_BC integrated out together with the antisymmetric
+    part of the meson M^{[a,c]}).
+
+    Returned theory (with N = 3 by default):
+      - Gauge: SU(2N) × SU(N) × SU(N) at nodes 0 (= A), 1 (= B), 2 (= C).
+      - 12 bifundamentals on three directed edges:
+        - q̃ on edge 0 → 2 (A → C): 3 copies, R = 1/3, labels X02[0..2].
+        - q  on edge 1 → 0 (B → A): 3 copies, R = 1/3, labels X10[0..2].
+        - M^{(a,c)} on edge 2 → 1 (C → B): 6 copies, R = 4/3, labels
+          X21[0..5] indexed by unordered (a, c) pairs in lex order
+          (0,0), (0,1), (0,2), (1,1), (1,2), (2,2).
+      - U(1)_R global attached so the mixed anomaly check has data.
+      - W_eff: 9 cubic monomials encoding M^{(a,c)} q̃[a] q[c] with the
+        (q, q̃, M) factor order required for closed-walk validation.
+    """
+
+    r_q = Fraction(1, 3)
+    r_M = Fraction(4, 3)
+
+    # Symmetric (a, c) pair indexing: lex order on (a, c) with a <= c.
+    pair_for_index = [(a, c) for a in range(3) for c in range(a, 3)]
+    index_for_pair = {pair: k for k, pair in enumerate(pair_for_index)}
+
+    W_terms: list[SuperpotentialTerm] = []
+
+    # Diagonal pairs (a = c): one monomial each.
+    # Each W term is (q, q̃, M) so it composes into a closed walk
+    # 1 -> 0 -> 2 -> 1.
+    for a in range(3):
+        k = index_for_pair[(a, a)]
+        W_terms.append(
+            SuperpotentialTerm(
+                factors=(
+                    (f"X10[{a}]", 1),
+                    (f"X02[{a}]", 1),
+                    (f"X21[{k}]", 1),
+                ),
+                coefficient=Fraction(1),
+            )
+        )
+
+    # Off-diagonal pairs (a < c): two monomials, one for each ordering
+    # of (q̃, q) flavor indices, reflecting that
+    # M^{(a,c)} (q̃[a] q[c] + q̃[c] q[a]) is a single symmetric coupling.
+    for a in range(3):
+        for c in range(a + 1, 3):
+            k = index_for_pair[(a, c)]
+            W_terms.append(
+                SuperpotentialTerm(
+                    factors=(
+                        (f"X10[{c}]", 1),
+                        (f"X02[{a}]", 1),
+                        (f"X21[{k}]", 1),
+                    ),
+                    coefficient=Fraction(1),
+                )
+            )
+            W_terms.append(
+                SuperpotentialTerm(
+                    factors=(
+                        (f"X10[{a}]", 1),
+                        (f"X02[{c}]", 1),
+                        (f"X21[{k}]", 1),
+                    ),
+                    coefficient=Fraction(1),
+                )
+            )
+
+    return build_pure_quiver(
+        ranks=(2 * N, N, N),
+        arrows={
+            (0, 2): [r_q] * 3,
+            (1, 0): [r_q] * 3,
+            (2, 1): [r_M] * 6,
+        },
+        superpotential=tuple(W_terms),
+        u1_globals=(u1_r(),),
+    )
 
 
 def _arrow_base_name(i: int, j: int) -> str:
