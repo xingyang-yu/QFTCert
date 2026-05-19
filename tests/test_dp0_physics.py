@@ -20,19 +20,44 @@ Theory under test: dP_0 = D3-branes at the tip of C^3/Z_3.
 Physical interpretation of the verifier's bounded chiral-ring output
 on this fixture (single-trace cyclic words modulo cyclic-derivative
 F-ideal, up to length L):
-  - length 3, R = 2: dim Sym^3(C^3) = 10. These are the 9 raw mesonic
-    operators M^{abc} = X^a_01 X^b_12 X^c_20 in the symmetric rep of
-    SU(3)_flavor under cyclic rotation, modulo the single ε W = 0
-    relation that kills the antisymmetric component.
-  - length 6, R = 4: dim Sym^6(C^3) = 28. The symmetric quadratic
-    power of the mesonic generators.
+
+  - length 3: every closed walk has shape (X01[a], X12[b], X20[c])
+    with (a, b, c) ∈ {0,1,2}^3, giving **27** raw cyclic words
+    (Burnside does not collapse them — cyclic rotation of the closed
+    walk permutes the *arrow types* X01 → X12 → X20, and canonical
+    rotation picks the X01-leading rep, so each (a,b,c) is its own
+    cyclic class). Under SU(3)_flavor the 27 decompose as
+    3 ⊗ 3 ⊗ 3 = **10_S ⊕ 8 ⊕ 8 ⊕ 1_A**. The 9 F-relations
+    ∂_{X01[a]} W = 0, ∂_{X12[b]} W = 0, ∂_{X20[c]} W = 0 (each is
+    an ε contraction at length 2, lifted to length 3 by the 3
+    independent contexts on each side) jointly enforce total
+    symmetry in (a,b,c), killing **8 ⊕ 8 ⊕ 1 = 17** non-symmetric
+    components and leaving the **Sym^3(C^3) = 10** totally symmetric
+    mesonic invariants. Verifier should report dim 10 and rank 17.
+
+  - length 6: 3^6 closed walks per starting node × 3 nodes = 2187
+    ordered walks; Burnside on Z/6 (only rotation-by-3 has fixed
+    points — the period-3 walks — counted as 3^3 × 3 = 81) yields
+    **(2187 + 81)/6 = 378** cyclic classes. The two-sided F-ideal
+    saturated to length 6 leaves **dim Sym^6(C^3) = C(8,2) = 28**
+    — the degree-6 piece of the polynomial ring in three variables.
+    Verifier should report dim 28 and rank 350.
+
+  - lengths 4 / 5 / 7 / 8: no closed walks (the 3-cycle quiver
+    closes only at multiples of 3), so no blocks are emitted at all.
+
+The deeper physics statement: the mesonic moduli space of dP_0 is the
+orbifold C^3/Z_3, whose coordinate ring is the Z_3-invariant
+polynomials in three variables. At degree n divisible by 3 this is
+the full dim Sym^n(C^3) = C(n+2, 2); at degree n not divisible by 3
+it is empty. The verifier reproduces both halves: dim Sym^n(C^3) at
+n ∈ {3, 6} and zero (no block emitted) at n ∈ {1, 2, 4, 5, 7, 8}.
 
 (The verifier does NOT impose Casimir / tracelessness identities, per
-design doc §12; the dim numbers above are therefore *bounded single-
-trace counts*, not Hilbert-series coefficients. But because dim
-Sym^n(C^3) = C(n+2, 2) is well-defined independently of the verifier,
-locking these numbers as regression targets pins the algorithm against
-real physics.)
+design doc §12, so its output is a *bounded single-trace count*
+rather than a Hilbert series. But dim Sym^n(C^3) is well-defined
+independently of the verifier, so locking these numbers as regression
+targets pins the algorithm against real physics.)
 """
 
 from __future__ import annotations
@@ -165,15 +190,21 @@ def test_dp0_self_equivalence_full_pipeline_at_default_L6():
 
     blocks = {(b["length"], b["r_charge"]): b for b in tested}
 
-    # length 3, R = 2: dim Sym^3(C^3) = C(5, 2) = 10 — the symmetric
-    # mesonic invariants under SU(3)_flavor cyclic.
+    # length 3, R = 2: 27 raw cyclic words M^{abc} = (X01[a], X12[b],
+    # X20[c]) decompose under SU(3)_flavor as 10_S ⊕ 8 ⊕ 8 ⊕ 1_A.
+    # The 9 ε-form F-relations enforce total symmetry in (a, b, c),
+    # killing 8 ⊕ 8 ⊕ 1_A = 17 components → dim Sym^3(C^3) = C(5,2) = 10
+    # surviving. This is the SU(3)_flavor symmetric mesonic invariants.
     assert (3, "2") in blocks, f"missing length-3 block; got {list(blocks)}"
     b3 = blocks[(3, "2")]
     assert b3["electric_dim"] == 10
     assert b3["magnetic_dim"] == 10
 
-    # length 6, R = 4: dim Sym^6(C^3) = C(8, 2) = 28 — symmetric
-    # quadratic in the mesonic generators.
+    # length 6, R = 4: 378 raw cyclic words (Burnside on Z/6, 2187
+    # ordered walks reduced to 378 classes). F-ideal saturated to
+    # length 6 leaves dim Sym^6(C^3) = C(8,2) = 28 — the degree-6
+    # piece of the polynomial ring in three variables (= mesonic
+    # chiral ring of dP_0 = C^3/Z_3 at degrees divisible by 3).
     assert (6, "4") in blocks, f"missing length-6 block; got {list(blocks)}"
     b6 = blocks[(6, "4")]
     assert b6["electric_dim"] == 28
