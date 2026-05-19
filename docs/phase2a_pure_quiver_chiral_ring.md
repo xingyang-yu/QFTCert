@@ -173,12 +173,16 @@ The check must distinguish the two:
 - `require_r_graded = true` (default):
   - P2 missing → `NOT_APPLICABLE` (cannot R-grade without arrow R-charges)
   - P3 fails → `NOT_APPLICABLE` (W not R = 2 ⇒ F-relations not R-homogeneous)
-  - P4 fails (upstream anomaly check FAILED on either side) →
-    `NOT_APPLICABLE` with category `r_symmetry_anomalous_upstream`,
-    pointing to the specific failed anomaly obligation. The R-graded
-    chiral-ring comparison is suppressed because R-grading on an
-    anomalous U(1)_R is physically meaningless; the physics failure is
-    already reported by Phase 1 and need not be re-flagged here.
+  - P4 fails (any upstream anomaly obligation **not** `CERTIFIED` —
+    `FAILED`, `NOT_APPLICABLE`, or missing from `prior_results` — on
+    either side) → `NOT_APPLICABLE` with category
+    `r_symmetry_anomalous_upstream`, pointing to the specific upstream
+    obligation. The R-graded chiral-ring comparison requires a
+    physically meaningful, anomaly-free U(1)_R; an absent or
+    indeterminate upstream verdict is treated identically to an
+    anomalous one because neither supplies the anomaly-free guarantee
+    R-grading rests on. Callers that lack an encoded U(1)_R global
+    must opt into `require_r_graded = false` (length-only fallback).
 - `require_r_graded = false`:
   - P2 / P3 / P4 may all fail without blocking the check. The verifier
     proceeds with the length-only quotient (Section 8 fallback) and

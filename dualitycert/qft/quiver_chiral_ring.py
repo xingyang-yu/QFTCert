@@ -596,6 +596,14 @@ def bounded_chiral_ring_consistency_check(
 
     base_details: dict = {
         "cutoff_L": max_length,
+        # `r_graded` is the mandatory key from design doc §7: it records
+        # whether this run actually executed in R-graded mode. Defaults to
+        # False (early-fail paths never reach the comparison); the success
+        # path overwrites it once `require_r_graded` and the P3/P4 blockers
+        # are resolved. `require_r_graded` is also exposed separately so
+        # consumers can distinguish "user asked for r_graded but it got
+        # downgraded" from "user asked for length-only".
+        "r_graded": False,
         "require_r_graded": require_r_graded,
         "mod_cyclic_rotation": True,
         "orientation_preserved": True,
@@ -782,7 +790,7 @@ def bounded_chiral_ring_consistency_check(
 
     details = {
         **base_details,
-        "r_graded_effective": r_graded_effective,
+        "r_graded": r_graded_effective,
         "r_graded_blocked_by": r_graded_blocked_by,
         "tested_blocks": tested_blocks,
         "failed_blocks": failed_blocks,

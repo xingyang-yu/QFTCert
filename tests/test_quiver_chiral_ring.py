@@ -1214,7 +1214,7 @@ def test_bounded_chiral_ring_dp0_self_equivalence_r_graded_certified():
     res = bounded_chiral_ring_consistency_check(claim, _certified_prior_anomalies())
     assert res.status == Status.CERTIFIED
     assert "PASSED_BOUNDED_CHIRAL_RING_CONSISTENCY" in res.message
-    assert res.details["r_graded_effective"] is True
+    assert res.details["r_graded"] is True
     assert len(res.details["failed_blocks"]) == 0
     assert len(res.details["tested_blocks"]) >= 1
     # Must always carry the dim-only PASS limitations forward.
@@ -1229,7 +1229,7 @@ def test_bounded_chiral_ring_toy_self_equivalence_length_only_certified():
                         max_length=4, require_r_graded=False, profile="toy_self")
     res = bounded_chiral_ring_consistency_check(claim, {})
     assert res.status == Status.CERTIFIED
-    assert res.details["r_graded_effective"] is False
+    assert res.details["r_graded"] is False
     assert len(res.details["failed_blocks"]) == 0
     # Length-only warning must be present.
     assert any("length-only" in w for w in res.warnings)
@@ -1327,7 +1327,7 @@ def test_bounded_chiral_ring_wrong_r_charge_under_length_only_still_runs():
                         max_length=3, require_r_graded=False, profile="bad_r_relaxed")
     res = bounded_chiral_ring_consistency_check(claim, {})
     assert res.status in {Status.CERTIFIED, Status.FAILED}
-    assert res.details["r_graded_effective"] is False
+    assert res.details["r_graded"] is False
 
 
 # --- P4: upstream anomaly gating -------------------------------------------
@@ -1365,7 +1365,7 @@ def test_bounded_chiral_ring_p4_failure_length_only_runs():
                         max_length=3, require_r_graded=False, profile="p4_relaxed")
     res = bounded_chiral_ring_consistency_check(claim, prior)
     assert res.status == Status.CERTIFIED
-    assert res.details["r_graded_effective"] is False
+    assert res.details["r_graded"] is False
 
 
 # --- P1, P5, P6 pre-conditions ---------------------------------------------
@@ -1562,6 +1562,57 @@ def test_bounded_chiral_ring_strict_p4_blocks_when_upstream_not_applicable():
     assert any("NOT_APPLICABLE" in failure for failure in res.details["p4_failures"])
 
 
+def test_bounded_chiral_ring_details_carry_mandatory_r_graded_key_on_every_path():
+    """Design doc §7 lists `r_graded` as a mandatory certificate key. It
+    must appear on every path (CERTIFIED success, NOT_APPLICABLE early
+    failure, UNKNOWN over-cutoff, NOT_APPLICABLE strict-P4-blocked) and
+    must reflect what actually ran (True only when the comparison
+    executed in R-graded mode; False on every early failure)."""
+
+    # Path 1: success in r_graded mode → True.
+    claim_ok = _wrap_claim(_toy_theory(), _toy_theory(),
+                           max_length=3, require_r_graded=True, profile="r_graded_ok")
+    res = bounded_chiral_ring_consistency_check(claim_ok, _certified_prior_anomalies())
+    assert "r_graded" in res.details
+    assert res.details["r_graded"] is True
+
+    # Path 2: P1 fail (non-pure_quiver) → still has key, False.
+    from dualitycert.qft.dualities import build_seiberg_sqcd_claim
+    sqcd = build_seiberg_sqcd_claim(Nc=3, Nf=5)
+    res_p1 = bounded_chiral_ring_consistency_check(sqcd, _certified_prior_anomalies())
+    assert res_p1.status == Status.NOT_APPLICABLE
+    assert res_p1.details["r_graded"] is False
+
+    # Path 3: P6 fail (max_length too big) → False.
+    huge = DualityClaim(
+        name="huge",
+        electric_theory=_toy_theory(),
+        magnetic_theory=_toy_theory(),
+        metadata={
+            "duality_profile": "p6",
+            "theory_kind": "pure_quiver",
+            "bounded_chiral_ring": {"max_length": 10, "require_r_graded": True},
+        },
+    )
+    res_p6 = bounded_chiral_ring_consistency_check(huge, _certified_prior_anomalies())
+    assert res_p6.status == Status.UNKNOWN
+    assert res_p6.details["r_graded"] is False
+
+    # Path 4: strict P4 blocks r_graded → False (the comparison was
+    # suppressed even though the user asked for r_graded).
+    res_p4 = bounded_chiral_ring_consistency_check(
+        _wrap_claim(_toy_theory(), _toy_theory(),
+                    max_length=3, require_r_graded=True, profile="p4_block_doc_test"),
+        {},
+    )
+    assert res_p4.status == Status.NOT_APPLICABLE
+    assert res_p4.details["r_graded"] is False
+    # `require_r_graded` is also carried so a consumer can distinguish
+    # "user asked for r_graded but it was suppressed" from "user asked for
+    # length-only".
+    assert res_p4.details["require_r_graded"] is True
+
+
 def test_bounded_chiral_ring_strict_p4_length_only_unaffected_by_missing_upstream():
     """Strict P4 only matters in r_graded mode. With require_r_graded=False
     the same missing-upstream claim falls through to length-only
@@ -1571,6 +1622,6 @@ def test_bounded_chiral_ring_strict_p4_length_only_unaffected_by_missing_upstrea
                         profile="missing_upstream_length_only")
     res = bounded_chiral_ring_consistency_check(claim, {})
     assert res.status == Status.CERTIFIED
-    assert res.details["r_graded_effective"] is False
+    assert res.details["r_graded"] is False
     # P4 still recorded as blocker for diagnostics, just non-fatal here.
     assert "P4" in res.details["r_graded_blocked_by"]
