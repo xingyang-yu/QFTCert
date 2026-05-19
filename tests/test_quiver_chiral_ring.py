@@ -1,8 +1,11 @@
-"""Tests for quiver_chiral_ring step 1: Arrow/CyclicWord + extract + enumerate.
+"""Tests for quiver_chiral_ring steps 1-2.
 
-Phase 2a step 1 scope (design doc §14): no F-ideal saturation, no relation
-matrix, no verdict yet. These tests pin the toy-quiver hand-checks from §11.1
-and the multi-arrow expansion convention from §3.2.
+Step 1: Arrow/CyclicWord + extract + enumerate.
+Step 2: cyclic_derivative of the superpotential.
+
+No F-ideal saturation, no relation matrix, no verdict yet. These tests pin
+the toy-quiver hand-checks from §11.1, the multi-arrow expansion convention
+from §3.2, and the cyclic-derivative definition from §2 / §5.1.
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ from dualitycert.qft.quiver_chiral_ring import (
     Arrow,
     CyclicWord,
     PureQuiverShapeError,
+    cyclic_derivative,
     enumerate_cyclic_words,
     extract_arrows,
 )
@@ -506,3 +510,217 @@ def test_enumerate_pure_adjoint_loop_powers():
         (w,) = block
         assert w.arrows == tuple(["Phi"] * length)
         assert w.r_charge == TWO_THIRDS * length
+
+
+# ---------------------------------------------------------------------------
+# cyclic_derivative — toy quiver hand-checks (design doc §11.1)
+# ---------------------------------------------------------------------------
+
+def _toy_arrows_by_label() -> dict[str, Arrow]:
+    return {a.label: a for a in extract_arrows(_toy_theory())}
+
+
+def test_cyclic_derivative_d_phi_w_equals_xy():
+    """W = Tr(Phi X Y) ⇒ ∂_Phi W = X·Y."""
+    arrows = _toy_arrows_by_label()
+    theory = _toy_theory()
+    result = cyclic_derivative(theory.superpotential_terms, arrows["Phi"])
+    assert result == {("X", "Y"): Fraction(1)}
+
+
+def test_cyclic_derivative_d_x_w_equals_y_phi():
+    """W = Tr(Phi X Y) ⇒ ∂_X W = Y·Phi."""
+    arrows = _toy_arrows_by_label()
+    theory = _toy_theory()
+    result = cyclic_derivative(theory.superpotential_terms, arrows["X"])
+    assert result == {("Y", "Phi"): Fraction(1)}
+
+
+def test_cyclic_derivative_d_y_w_equals_phi_x():
+    """W = Tr(Phi X Y) ⇒ ∂_Y W = Phi·X."""
+    arrows = _toy_arrows_by_label()
+    theory = _toy_theory()
+    result = cyclic_derivative(theory.superpotential_terms, arrows["Y"])
+    assert result == {("Phi", "X"): Fraction(1)}
+
+
+def test_cyclic_derivative_open_path_endpoints_match_spec():
+    """∂_X W is a path from target(X) to source(X) (design doc §2)."""
+    arrows = _toy_arrows_by_label()
+    # X: source = N1, target = N2. ∂_X W should be a path N2 → N1.
+    # The toy result is (Y, Phi). Y goes N2 → N1; Phi goes N1 → N1.
+    # Concatenation source(Y) = N2 = target(X), target(Phi) = N1 = source(X). ✓
+    result = cyclic_derivative(_toy_theory().superpotential_terms, arrows["X"])
+    (path,) = result.keys()
+    assert path == ("Y", "Phi")
+    assert arrows[path[0]].source == arrows["X"].target
+    assert arrows[path[-1]].target == arrows["X"].source
+
+
+# ---------------------------------------------------------------------------
+# cyclic_derivative — edge cases and properties
+# ---------------------------------------------------------------------------
+
+def test_cyclic_derivative_empty_w_returns_empty():
+    arrows = _toy_arrows_by_label()
+    assert cyclic_derivative((), arrows["Phi"]) == {}
+
+
+def test_cyclic_derivative_arrow_absent_from_w():
+    """If the arrow doesn't appear in any W term, the result is empty."""
+    theory = _toy_theory()
+    other = Arrow(label="Z", display_label="Z", source=NODE1_LABEL,
+                  target=NODE1_LABEL, r_charge=TWO_THIRDS)
+    assert cyclic_derivative(theory.superpotential_terms, other) == {}
+
+
+def test_cyclic_derivative_respects_term_coefficient():
+    """Coefficient on the W term flows through to the derivative."""
+    arrows = _toy_arrows_by_label()
+    W = (SuperpotentialTerm(
+        factors=(("Phi", 1), ("X", 1), ("Y", 1)),
+        coefficient=Fraction(7, 3),
+    ),)
+    assert cyclic_derivative(W, arrows["Phi"]) == {("X", "Y"): Fraction(7, 3)}
+
+
+def test_cyclic_derivative_tr_phi_cubed_accumulates_to_same_path():
+    """W = Tr(Phi^3): all three Phi positions produce the SAME open path
+    (Phi, Phi) since the rotation just shifts indistinguishable letters.
+    The derivative must therefore have coefficient 3, not three distinct
+    entries of coefficient 1. Pins the `result.get(path, 0) + c` accumulation
+    branch within a single term."""
+    theory = Theory(
+        name="phi-cubed",
+        gauge_nodes=(su(3, label=NODE1_LABEL),),
+        fields=(
+            Field(name="Phi", field_type="chiral multiplet",
+                  gauge_reps={NODE1_LABEL: adjoint()}, r_charge=Fraction(2, 3)),
+        ),
+        superpotential_terms=(SuperpotentialTerm(factors=(("Phi", 3),)),),
+    )
+    arrows = {a.label: a for a in extract_arrows(theory)}
+    result = cyclic_derivative(theory.superpotential_terms, arrows["Phi"])
+    assert result == {("Phi", "Phi"): Fraction(3)}
+
+
+def test_cyclic_derivative_multiple_occurrences_sum_independently():
+    """W = Phi·Phi·X has two Phi positions; ∂_Phi sums both rotations."""
+    n1 = su(3, label=NODE1_LABEL)
+    n2 = su(3, label=NODE2_LABEL)
+    fields = (
+        Field(name="Phi", field_type="chiral multiplet",
+              gauge_reps={NODE1_LABEL: adjoint()}, r_charge=TWO_THIRDS),
+        Field(name="X", field_type="chiral multiplet",
+              gauge_reps={NODE1_LABEL: antifundamental(), NODE2_LABEL: fundamental()},
+              r_charge=TWO_THIRDS),
+        Field(name="Xback", field_type="chiral multiplet",
+              gauge_reps={NODE2_LABEL: antifundamental(), NODE1_LABEL: fundamental()},
+              r_charge=TWO_THIRDS),
+    )
+    # Note: W = Tr(Phi·Phi·X·Xback) closes: 1→1→1→2→1
+    W = (SuperpotentialTerm(factors=(("Phi", 2), ("X", 1), ("Xback", 1))),)
+    theory = Theory(name="phi-phi-X-Xback", gauge_nodes=(n1, n2), fields=fields,
+                    superpotential_terms=W)
+    arrows = {a.label: a for a in extract_arrows(theory)}
+    # Positions of Phi in flat factors: 0 and 1.
+    # i=0: open_path = (Phi, X, Xback)
+    # i=1: open_path = (X, Xback, Phi)
+    expected = {
+        ("Phi", "X", "Xback"): Fraction(1),
+        ("X", "Xback", "Phi"): Fraction(1),
+    }
+    assert cyclic_derivative(W, arrows["Phi"]) == expected
+
+
+def test_cyclic_derivative_cancellation_drops_zero_entries():
+    """+1·Tr(Phi X Y) - 1·Tr(Phi X Y) gives ∂_Phi = 0, returned as empty dict."""
+    arrows = _toy_arrows_by_label()
+    W = (
+        SuperpotentialTerm(factors=(("Phi", 1), ("X", 1), ("Y", 1)),
+                           coefficient=Fraction(1)),
+        SuperpotentialTerm(factors=(("Phi", 1), ("X", 1), ("Y", 1)),
+                           coefficient=Fraction(-1)),
+    )
+    assert cyclic_derivative(W, arrows["Phi"]) == {}
+
+
+def test_cyclic_derivative_multiple_terms_accumulate_into_same_path():
+    """Two distinct terms whose ∂_Phi share a path → coefficients add."""
+    arrows = _toy_arrows_by_label()
+    W = (
+        SuperpotentialTerm(factors=(("Phi", 1), ("X", 1), ("Y", 1)),
+                           coefficient=Fraction(2)),
+        SuperpotentialTerm(factors=(("Phi", 1), ("X", 1), ("Y", 1)),
+                           coefficient=Fraction(3)),
+    )
+    assert cyclic_derivative(W, arrows["Phi"]) == {("X", "Y"): Fraction(5)}
+
+
+# ---------------------------------------------------------------------------
+# cyclic_derivative on dP_0 (design doc §11.1 lookahead, exercises multi-arrow)
+# ---------------------------------------------------------------------------
+
+def test_cyclic_derivative_on_dp0_pure_quiver_builder():
+    """dP_0 W = ε_{abc} X01[a] X12[b] X20[c]. ∂_{X01[0]} W picks the (a=0)
+    permutations: (0,1,2) and (0,2,1) with signs +1 and -1.
+
+    Resulting open path (length 2, target=node 1 → source=node 0):
+        +1 · (X12[1], X20[2])
+        -1 · (X12[2], X20[1])
+    """
+    from fractions import Fraction
+    from dualitycert.qft.pure_quiver_builder import (
+        arrow_names,
+        build_pure_quiver,
+        dp0_superpotential,
+    )
+
+    r = Fraction(2, 3)
+    names_01 = arrow_names(0, 1, 3)
+    names_12 = arrow_names(1, 2, 3)
+    names_20 = arrow_names(2, 0, 3)
+    theory = build_pure_quiver(
+        ranks=(3, 3, 3),
+        arrows={
+            (0, 1): [r, r, r],
+            (1, 2): [r, r, r],
+            (2, 0): [r, r, r],
+        },
+        superpotential=dp0_superpotential(names_01, names_12, names_20),
+    )
+    arrows_by_label = {a.label: a for a in extract_arrows(theory)}
+    x01_0 = arrows_by_label["X01[0]"]
+    result = cyclic_derivative(theory.superpotential_terms, x01_0)
+    assert result == {
+        ("X12[1]", "X20[2]"): Fraction(1),
+        ("X12[2]", "X20[1]"): Fraction(-1),
+    }
+
+
+def test_cyclic_derivative_endpoint_check_for_dp0():
+    """For each X01[a], the open path runs from target=node 1 to source=node 0."""
+    from fractions import Fraction
+    from dualitycert.qft.pure_quiver_builder import (
+        arrow_names,
+        build_pure_quiver,
+        dp0_superpotential,
+    )
+
+    r = Fraction(2, 3)
+    names_01 = arrow_names(0, 1, 3)
+    names_12 = arrow_names(1, 2, 3)
+    names_20 = arrow_names(2, 0, 3)
+    theory = build_pure_quiver(
+        ranks=(3, 3, 3),
+        arrows={(0, 1): [r] * 3, (1, 2): [r] * 3, (2, 0): [r] * 3},
+        superpotential=dp0_superpotential(names_01, names_12, names_20),
+    )
+    arrows_by_label = {a.label: a for a in extract_arrows(theory)}
+    x01_0 = arrows_by_label["X01[0]"]
+    result = cyclic_derivative(theory.superpotential_terms, x01_0)
+    for path in result:
+        first = arrows_by_label[path[0]]
+        last = arrows_by_label[path[-1]]
+        assert first.source == x01_0.target  # path starts at target(X01[0])
+        assert last.target == x01_0.source   # path ends at source(X01[0])

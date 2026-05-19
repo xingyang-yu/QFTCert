@@ -1,8 +1,9 @@
 """Bounded cyclic path-algebra primitives for pure_quiver theories.
 
-Phase 2a step 1: arrow extraction + cyclic-word enumeration. No F-ideal
-saturation, no relation matrix, no verdict logic yet — those land in
-subsequent steps (see docs/phase2a_pure_quiver_chiral_ring.md §14).
+Phase 2a steps 1-2: arrow extraction, cyclic-word enumeration, and
+cyclic derivatives of the superpotential. No F-ideal saturation, no
+relation matrix, no verdict logic yet — those land in subsequent steps
+(see docs/phase2a_pure_quiver_chiral_ring.md §14).
 
 Conventions (locked in design doc §2):
   - Path multiplication is left-to-right: AB means first A, then B; valid
@@ -24,7 +25,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Iterable, Iterator, Mapping
 
-from dualitycert.core.objects import Field, Theory
+from dualitycert.core.objects import Field, SuperpotentialTerm, Theory
 
 
 class PureQuiverShapeError(ValueError):
@@ -228,6 +229,42 @@ def enumerate_cyclic_words(
     return result
 
 
+def cyclic_derivative(
+    W_terms: Iterable[SuperpotentialTerm],
+    arrow: Arrow,
+) -> dict[tuple[str, ...], Fraction]:
+    """Compute ∂_arrow W as a Q-linear combination of open paths.
+
+    For each term `c · A_1 ... A_n` in `W_terms` and each position `i`
+    with `A_i.label == arrow.label`, the cyclic derivative contributes
+    `c · (A_{i+1}, ..., A_n, A_1, ..., A_{i-1})` — the rotation that
+    places the matched arrow at the start, with that arrow stripped off.
+    Per design doc §2, the open path runs from `target(arrow)` back to
+    `source(arrow)`; this function returns it as a tuple of machine
+    labels and lets the caller verify endpoints if needed.
+
+    Multiple occurrences within a single term contribute independently.
+    Multiple terms contribute additively. Paths that sum to zero across
+    the input are omitted from the returned dict.
+
+    Factor names in `W_terms` are interpreted as Arrow machine labels
+    (design doc §3.2: claim JSON references machine labels, not
+    Field.name shorthands, for multi-arrow expansions).
+    """
+
+    result: dict[tuple[str, ...], Fraction] = {}
+    target_label = arrow.label
+    for term in W_terms:
+        flat = term.field_names
+        coefficient = term.coefficient
+        for position, name in enumerate(flat):
+            if name != target_label:
+                continue
+            open_path = tuple(flat[position + 1 :]) + tuple(flat[:position])
+            result[open_path] = result.get(open_path, Fraction(0)) + coefficient
+    return {path: coeff for path, coeff in result.items() if coeff != 0}
+
+
 def _infer_endpoints(
     field_obj: Field,
     non_singlet: Mapping[str, "object"],
@@ -306,6 +343,7 @@ __all__ = [
     "Arrow",
     "CyclicWord",
     "PureQuiverShapeError",
+    "cyclic_derivative",
     "enumerate_cyclic_words",
     "extract_arrows",
 ]
