@@ -313,6 +313,32 @@ def test_zero_dim_toy_single_adjoint_uniquely_determined():
 # ----------------------------------------------------------------------
 
 
+def test_representative_name_is_idempotent_on_noop():
+    """No-op repair (trial already feasible, no fields changed) must
+    preserve the input theory's `name` so repair-on-feasible JSON is
+    byte-for-byte idempotent. Non-trivial repair appends a
+    `(R-repaired)` suffix so downstream traces / LLM logs can tell the
+    input theory from the repaired one.
+    """
+
+    # No-op: dP_0 magnetic effective.
+    noop_input = pure_quiver_to_json(build_dp0_magnetic_effective(N=3))
+    noop_result = repair_r_charges(noop_input)
+    assert noop_result["changed_fields"] == []
+    assert noop_result["representative"]["name"] == noop_input["name"]
+
+    # Non-trivial: F_0 II engine output (8 fields change).
+    electric = _electric_f0_phase_ii_trial(N=3)
+    engine_out = integrate_linear_fields(
+        mutate_bare(pure_quiver_to_json(electric), node=0)
+    )
+    changed_result = repair_r_charges(engine_out)
+    assert len(changed_result["changed_fields"]) == 8
+    assert changed_result["representative"]["name"] == (
+        f"{engine_out['name']} (R-repaired)"
+    )
+
+
 def test_unsupported_tie_mode_raises():
     theory_json = pure_quiver_to_json(build_dp0_magnetic_effective(N=3))
     with pytest.raises(RRepairError, match="tie_mode"):

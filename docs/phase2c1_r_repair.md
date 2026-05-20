@@ -113,12 +113,19 @@ already feasible" from "no change because the L2 projection happened to
 fall on the trial" — the latter cannot occur with a strict L2 picker, but
 future pickers may surface that ambiguity.
 
-**`RRepairError`.** Raised for inputs the MVP cannot handle:
-`tie_mode != "field"`, `representative != "l2_nearest_trial"`,
-ill-formed JSON (mirrors `MutationEngineError` / `PureQuiverJSONError`
-patterns elsewhere in the codebase). Infeasibility is **not** an
-exception — it is `status: "infeasible"` in the returned dict, so
+**`RRepairError`.** Raised for inputs outside the MVP scope:
+`tie_mode != "field"`, `representative != "l2_nearest_trial"`, or an
+internally inconsistent kernel-projection state (should not happen for
+a linearly-independent kernel basis — raised as a defensive check).
+Mirrors `MutationEngineError` / `PureQuiverJSONError` patterns
+elsewhere in the codebase. Infeasibility of the linear system is **not**
+an exception — it is `status: "infeasible"` in the returned dict, so
 callers can branch on it without try/except.
+
+R-repair otherwise trusts its input JSON (mirrors `mutation_engine.py`'s
+posture — see §6). Missing keys / type errors in the input surface as
+plain `KeyError` / `TypeError`. Callers that want schema validation
+should run `pure_quiver_from_json` on the input first.
 
 ---
 
@@ -247,27 +254,23 @@ baryonic U(1)s mixing into U(1)_R remain after fixing
 W=2 ∧ mixed-anomaly=0); a-maximization would pick a unique point inside
 this 3-dimensional affine space, but a-maximization is out of MVP scope.
 
-**Constructed infeasible toy.** A 2-node single-edge quiver `SU(N) →
-SU(N)` with a single W term that fixes `R(X) = 2` but a mixed-anomaly
-row that fixes `R(X) = ...something else`. The minimal recipe:
-- ranks `[3, 3]`, single arrow `X01[0]` with trial R = `2`,
-- empty W (so no W constraint),
-- the node-0 anomaly row reads `(1/2)·3·(R − 1) + 3 = 0` ⇒ `R = -1`
-  (so R = 2 from no-W-constraint conflicts with R = -1 from anomaly).
+**Constructed infeasible toy.** Two-node mass loop
+`SU(2) × SU(2)` with one arrow each way (`X01[0]` and `X10[0]`) and
+mass W = `X01[0] · X10[0]`. Two constraints contradict each other:
+- W forces `R(X01) + R(X10) = 2`.
+- Node-0 anomaly: `(1/2)·2·(R_X01 − 1) + (1/2)·2·(R_X10 − 1) + 2 = 0`
+  collapses to `R(X01) + R(X10) = 0`.
 
-Actually with empty W there is no W constraint, so the only constraint
-is the anomaly row at each node — and both nodes give the same equation
-(by symmetry), so the system has a unique solution `R = -1`, not
-infeasible. To force infeasibility we add a second constraint that
-contradicts it (e.g. a length-1 W term `Σ R = 2` on a single-arrow loop,
-which is impossible to satisfy together with anomaly cancellation). The
-test fixture pins one concrete construction in `tests/test_r_repair.py`;
-see that file for the exact recipe.
+`2 ≠ 0`, so the system is inconsistent and R-repair returns
+`status: "infeasible"`. The exact fixture lives in
+`tests/test_r_repair.py::test_infeasible_toy_reports_infeasible`.
 
-**Constructed 0-dim toy.** A theory whose `A` matrix has full column
-rank, so `dimension = 0` and there's a unique feasible R. SQCD with
-W = 0 and matched anomaly counts is the natural candidate; the test
-file pins the precise recipe.
+**Constructed 0-dim toy.** Single SU(3) gauge node with one adjoint
+chiral `Phi0[0]` and W = 0. The only constraint is the node-0 anomaly
+`T(adj)·(R − 1) + T(adj) = 0`, i.e. `3·(R − 1) + 3 = 0 ⇒ R = 0`. Rank
+1 = n_fields, so `dimension = 0` and the feasible R is unique. The
+exact fixture lives in
+`tests/test_r_repair.py::test_zero_dim_toy_single_adjoint_uniquely_determined`.
 
 ---
 

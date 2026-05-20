@@ -100,7 +100,10 @@ def repair_r_charges(
     changed_fields = _compute_changed_fields(field_labels, trial_r, repaired_r)
 
     representative_json = _build_representative_json(
-        theory_json, field_labels, repaired_r
+        theory_json,
+        field_labels,
+        repaired_r,
+        is_noop=not changed_fields,
     )
 
     feasible_space = {
@@ -423,8 +426,17 @@ def _build_representative_json(
     theory_json: Mapping[str, Any],
     field_labels: list[str],
     repaired: list[Fraction],
+    *,
+    is_noop: bool,
 ) -> dict[str, Any]:
-    """Reconstruct the theory JSON with the repaired R-charges in place."""
+    """Reconstruct the theory JSON with the repaired R-charges in place.
+
+    When `is_noop` is True (no field changed value), the original name is
+    preserved so that repair-on-already-feasible JSON is byte-for-byte
+    idempotent. When `is_noop` is False, the name gets a `(R-repaired)`
+    suffix so downstream traces / LLM logs can distinguish the input
+    theory from the repaired one.
+    """
 
     r_by_label = {label: repaired[i] for i, label in enumerate(field_labels)}
     new_arrows = [
@@ -436,8 +448,13 @@ def _build_representative_json(
         }
         for a in theory_json["arrows"]
     ]
+    name = (
+        theory_json["name"]
+        if is_noop
+        else f"{theory_json['name']} (R-repaired)"
+    )
     return {
-        "name": f"{theory_json['name']} (R-repaired)",
+        "name": name,
         "node_labels": list(theory_json["node_labels"]),
         "ranks": [int(r) for r in theory_json["ranks"]],
         "u1_globals": list(theory_json.get("u1_globals", [])),
