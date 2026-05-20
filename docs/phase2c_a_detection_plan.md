@@ -1,11 +1,14 @@
 # Phase 2c-a Detection Benchmark (Design Lock, MVP)
 
-**Status:** spec + design lock for Phase 2c-a, **not yet implemented**. The
+**Status:** spec + design lock for Phase 2c-a, **MVP implemented and sealed**
+(commit `e586456`, 2026-05-20 — same day as the design lock). The
 detection benchmark is the first of three planned LLM evaluation layers
 (2c-a / 2c-b / 2c-c, see §1). Design was closed with codex review on
-2026-05-20; implementation is deferred to a fresh session. Phase 2c0
-(mutation engine) and Phase 2c1 (R-repair) are sealed prerequisites
-(see `docs/phase2c0_mutation_engine.md`, `docs/phase2c1_r_repair.md`).
+2026-05-20; the 8-step implementation order in §"Implementation order"
+landed end-to-end and the smoke + MVP fixture sets are committed under
+`fixtures/`. Phase 2c0 (mutation engine) and Phase 2c1 (R-repair) are
+sealed prerequisites (see `docs/phase2c0_mutation_engine.md`,
+`docs/phase2c1_r_repair.md`).
 
 This doc is the single source of truth for the Phase 2c-a contract. New
 sessions picking up implementation should treat the rules in §3 as
@@ -225,11 +228,16 @@ MVP scope:
 - seeds = dP_0 toric + F_0 II electric trial only
 - mutate at every legal `node v` per seed
 
-Expected fixture count: dP_0 (3 nodes) + F_0 II (1 valid node = node 0
-only; nodes 1/2/3 may fail the anomaly cancellation check in
-`mutate_bare` — see `test_mutate_bare_rejects_anomaly_mismatch`) → ~4
-positives. Augment to **6 positives** for the MVP target by varying N
-over `{3, 4}` (e.g. dP_0 at N=3 *and* N=4).
+Expected fixture count: dP_0 (3 nodes) + F_0 II positives. F_0 II nodes
+are verifier-gated case-by-case (the §"Expected fixture count" estimate
+during design lock was conservative — at implementation time every F_0
+II node 0/1/2/3 turned out to pass `mutate_bare`, and the Rule 6 gate
+also CERTIFIED them after R-repair; only a subset is needed to fill the
+budget). The frozen MVP composition picks **dP_0 N=3 at all three nodes
++ dP_0 N=4 at node 0 + F_0 II N=3 at nodes 0 and 2** for 6 positives
+total (see `scripts/generate_detection_fixtures.py` `_mvp_positives()`).
+The augmentation over N ∈ {3, 4} on dP_0 is preserved as a hedge against
+LLM memorization of the canonical N=3 dP_0 dual.
 
 **Avoid N=2** in MVP positives. SU(2) hits low-rank special cases that
 Phase 3 boundary-scope marking is intended to flag (`SU(2)`,
