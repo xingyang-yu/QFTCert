@@ -563,3 +563,66 @@ def test_f0_phase_ii_mutation_topology_matches_but_trial_r_fails_mixed_anomaly()
     # spurious CERTIFIED in a state with broken anomalies.
     bcr = by_name["bounded chiral-ring consistency"]
     assert bcr.status != Status.CERTIFIED
+
+
+def test_f0_phase_ii_after_r_repair_certifies_on_anomalies():
+    """Phase 2c1 acceptance gate on F_0 phase II.
+
+    This test sits *next to* (not replacing)
+    `test_f0_phase_ii_mutation_topology_matches_but_trial_r_fails_mixed_anomaly`.
+    That boundary regression remains as a guard against backsliding on
+    Phase 2c0's "engine is structurally correct but trial R fails"
+    behavior; this one pins Phase 2c1's win: after R-repair, the
+    verifier certifies on the magnetic mixed anomaly, bounded chiral-
+    ring consistency, and central-charge matching.
+
+    The acceptance contract here is intentionally narrow — we only
+    assert the three checks the Phase 2c1 spec calls out (docs §4) flip
+    from FAILED/NOT_APPLICABLE to CERTIFIED. We do NOT assert
+    `overall_status == CERTIFIED`, because the overall certificate
+    composes many obligations and a future-added check could
+    legitimately still be NOT_APPLICABLE on F_0 II without invalidating
+    the Phase 2c1 win we're pinning.
+    """
+
+    from dualitycert.qft.r_repair import repair_r_charges
+
+    N = 3
+    electric = _electric_f0_phase_ii_trial(N=N)
+    engine_out = integrate_linear_fields(
+        mutate_bare(pure_quiver_to_json(electric), node=0)
+    )
+    repaired = repair_r_charges(engine_out)
+    assert repaired["status"] == "underdetermined"
+    assert repaired["trial_feasible"] is False
+    assert len(repaired["changed_fields"]) == 8
+
+    magnetic = pure_quiver_from_json(repaired["representative"])
+    claim = DualityClaim(
+        name="F_0 II Seiberg dual at TL (R-repaired)",
+        electric_theory=electric,
+        magnetic_theory=magnetic,
+        metadata={
+            "duality_profile": "f0_phase_ii_repaired_dual",
+            "bounded_chiral_ring": {"max_length": 3, "require_r_graded": True},
+        },
+    )
+    certificate = evaluate_claim(claim)
+    by_name = {r.name: r for r in certificate.obligation_results}
+
+    # The three checks Phase 2c1 is designed to fix.
+    assert (
+        by_name["magnetic gauge-global mixed anomaly cancellation"].status
+        == Status.CERTIFIED
+    )
+    assert by_name["bounded chiral-ring consistency"].status == Status.CERTIFIED
+    assert (
+        by_name["central charge matching from encoded R-symmetry"].status
+        == Status.CERTIFIED
+    )
+
+    # Electric side should still cancel (regression guard).
+    assert (
+        by_name["electric gauge-global mixed anomaly cancellation"].status
+        == Status.CERTIFIED
+    )
