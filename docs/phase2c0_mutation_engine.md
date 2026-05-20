@@ -72,7 +72,7 @@ Conventions:
   `SuperpotentialTerm.field_names`).
 - **u1_globals** is a list of U(1) symmetry labels. MVP only supports
   `["U(1)_R"]` (forwarded to `u1_r()`); other entries raise
-  `NotImplementedError`. Wider global-symmetry schema is out of MVP scope.
+  `PureQuiverJSONError`. Wider global-symmetry schema is out of MVP scope.
 - **node_labels** length must equal `len(ranks)`.
 
 `pure_quiver_to_json(theory)` reads a `Theory` produced by
@@ -144,7 +144,7 @@ dualize).
      exactly one such rotation per occurrence of `node` in the walk's
      node sequence (MVP requires `node` to occur at most once per
      monomial; W terms that visit `node` twice are rejected with
-     `NotImplementedError`).
+     `MutationEngineError`).
    - Replace the adjacent `(X_{u,node}, X_{node,w})` pair with the
      corresponding meson `M[in_copy, out_copy]` (machine label per
      step 6) on edge `(u, w)`.
@@ -227,9 +227,9 @@ the next layer can be unit-tested independently.
    every pivot column is expressible as a single free variable (i.e.
    the substitution is a simple identification / sign-flip), not a
    nontrivial linear combination. If a pivot column needs a sum of two
-   or more free variables, raise `NotImplementedError("integration
-   needs nontrivial linear substitution")` — this case requires more
-   careful chiral-ring algebra than the MVP commits to.
+   or more free variables, raise `MutationEngineError("pivot needs
+   nontrivial substitution")` — this case requires more careful
+   chiral-ring algebra than the MVP commits to.
 
 7. **Rewrite W.** Substitute every pivot variable with its
    free-variable representative in every remaining W term. Drop any W
