@@ -1,0 +1,12 @@
+{
+  "fixture_set_hash": "d4235f79583b56763179f59fb5825ce398d1205da08b7ea6e501ff0b848537c6",
+  "max_tokens": 2048,
+  "model": "claude-sonnet-4-6",
+  "n_fixtures": 30,
+  "run_config": {
+    "dry_run": false,
+    "fixtures_path": "fixtures/detection_mvp.jsonl"
+  },
+  "run_id": "pilot_baseline_20260520",
+  "timestamp": "2026-05-20T23:27:46+00:00"
+}

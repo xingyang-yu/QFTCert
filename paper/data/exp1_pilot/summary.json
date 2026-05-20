@@ -1,0 +1,59 @@
+{
+  "accuracy": 0.8,
+  "accuracy_by_class": {
+    "dual": 0.0,
+    "not_dual": 1.0
+  },
+  "accuracy_by_perturbation_type": {
+    "none": 0.0,
+    "r_naive": 1.0,
+    "rank_perturb": 1.0,
+    "w_drop": 1.0,
+    "w_sign_swap": 1.0,
+    "wrong_pair": 1.0
+  },
+  "accuracy_by_source": {
+    "dp0_toric": 0.8181818181818182,
+    "dp0_toric_x_f0_phase_ii": 1.0,
+    "f0_phase_ii": 0.6666666666666666
+  },
+  "confusion_matrix": {
+    "dual": {
+      "dual": 0,
+      "not_dual": 6
+    },
+    "not_dual": {
+      "dual": 0,
+      "not_dual": 24
+    }
+  },
+  "counts_by_class": {
+    "dual": 6,
+    "not_dual": 24
+  },
+  "counts_by_perturbation_type": {
+    "none": 6,
+    "r_naive": 8,
+    "rank_perturb": 2,
+    "w_drop": 8,
+    "w_sign_swap": 4,
+    "wrong_pair": 2
+  },
+  "counts_by_source": {
+    "dp0_toric": 22,
+    "dp0_toric_x_f0_phase_ii": 2,
+    "f0_phase_ii": 6
+  },
+  "latency_s": {
+    "max": 14.005142625000019,
+    "mean": 11.579177490133334,
+    "median": 11.616868291499998,
+    "min": 8.334206416
+  },
+  "n_correct": 24,
+  "n_total": 30,
+  "tokens": {
+    "input": 95846,
+    "output": 14598
+  }
+}
