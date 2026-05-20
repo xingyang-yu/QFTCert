@@ -1,7 +1,7 @@
 """Phase 2c0 mutation-engine tests.
 
-Three layers, matching the design doc §4 oracle / adversarial / failure
-characterization:
+Four layers, matching the design doc §4 oracle / adversarial / failure
+characterization + the §5 boundary regression on F_0 phase II:
 
   - Bare-mutation structural sanity (field counts, label conventions).
   - End-to-end MVP oracle: integrate(mutate_bare(electric)) structurally
@@ -10,15 +10,25 @@ characterization:
   - Bare-mutation legitimate FAIL — pins that integration is required.
   - W-drop adversarial on engine output still FAILS at length=3 R=2
     (Phase 2b Type-4 regression, restated for engine-produced theory).
+  - **F_0 phase II boundary regression**: engine reproduces the dual's
+    topology (ranks, edge multiplicities, total chiral count) but the
+    verifier (correctly) rejects the trial UV R assignment on
+    SU(N)² × U(1)_R grounds. This is a *boundary* regression — it pins
+    where Phase 2c0 stops and Phase 2c1 (R-charge repair) begins.
 """
 
 from __future__ import annotations
 
+import itertools
 from fractions import Fraction
 
 import pytest
 
-from dualitycert.core.objects import DualityClaim, Theory
+from dualitycert.core.objects import (
+    DualityClaim,
+    SuperpotentialTerm,
+    Theory,
+)
 from dualitycert.core.status import Status
 from dualitycert.groups.u1 import u1_r
 from dualitycert.qft.dualities import evaluate_claim
@@ -346,3 +356,210 @@ def test_w_drop_on_engine_output_fails_at_length_3_r_charge_2():
     # dimension by 4 because each of the three cyclic derivatives loses
     # one path-monomial.
     assert int(target["magnetic_dim"]) == 14
+
+
+# ----------------------------------------------------------------------
+# Layer 5: F_0 phase II boundary regression.
+#
+# This is a *boundary* regression, not a failure regression. It pins
+# where Phase 2c0's mechanical Seiberg mutation stops being a valid
+# physical dual: the engine correctly reproduces the topology
+# (rank changes, edge multiplicities, total chiral count) but the
+# verifier (correctly) rejects the result on SU(N)² × U(1)_R grounds
+# because the naive Seiberg `R(q̃) = 1 - R(Q)` formula gives a
+# *trial UV R*, not the SCFT R of the dual. The R-repair step belongs
+# to Phase 2c1 (see docs/phase2c0_mutation_engine.md §5).
+# ----------------------------------------------------------------------
+
+
+def _electric_f0_phase_ii_trial(N: int = 3) -> Theory:
+    """Build an F_0-phase-II-style 4-node trial quiver.
+
+    Topology (matching the green diagram the user shared):
+      - nodes 0=TL, 1=TR, 2=BR, 3=BL, all rank N;
+      - edges (single-direction each):
+          0 → 1 (top, 2 copies), 0 → 3 (left, 2 copies),
+          2 → 0 (diagonal BR→TL, 4 copies),
+          1 → 2 (right, 2 copies), 3 → 2 (bottom, 2 copies);
+      - R-charges: boundary chirals R = 1/2, diagonal R = 1, so each
+        cubic W term has R(W) = 1/2 + 1/2 + 1 = 2 ✓.
+
+    W is the natural ε×ε antisymmetric coupling of the two SU(2)-like
+    flavor indices on the cubic walks through node 0:
+      W = ε_{aα} ε_{iβ} X01[a] X12[i] X20[(α, β)]
+        − ε_{aα} ε_{iβ} X03[a] X32[i] X20[(α, β)]
+    with X20[k] = X20[(α, β)] for k = 2α + β. The relative minus
+    between the two triangles is chosen so that the electric side's
+    mixed anomaly + bounded chiral-ring both certify under self-equiv
+    (verified at construction time, see test below).
+
+    This is a *trial* fixture: it is what the engine sees as input;
+    nothing in this test claims it is THE F_0 II SCFT (the exact R
+    after mutation needs Phase 2c1 R-repair).
+    """
+
+    def eps(a: int, b: int) -> int:
+        if (a, b) == (0, 1):
+            return 1
+        if (a, b) == (1, 0):
+            return -1
+        return 0
+
+    R_BD = Fraction(1, 2)
+    R_DI = Fraction(1, 1)
+
+    W_terms: list[SuperpotentialTerm] = []
+    for a, i, alpha, beta in itertools.product(range(2), repeat=4):
+        sign = eps(a, alpha) * eps(i, beta)
+        if sign == 0:
+            continue
+        W_terms.append(
+            SuperpotentialTerm(
+                factors=(
+                    (f"X01[{a}]", 1),
+                    (f"X12[{i}]", 1),
+                    (f"X20[{2 * alpha + beta}]", 1),
+                ),
+                coefficient=Fraction(sign),
+            )
+        )
+    for a, i, alpha, beta in itertools.product(range(2), repeat=4):
+        sign = eps(a, alpha) * eps(i, beta)
+        if sign == 0:
+            continue
+        W_terms.append(
+            SuperpotentialTerm(
+                factors=(
+                    (f"X03[{a}]", 1),
+                    (f"X32[{i}]", 1),
+                    (f"X20[{2 * alpha + beta}]", 1),
+                ),
+                coefficient=Fraction(-sign),
+            )
+        )
+
+    return build_pure_quiver(
+        ranks=(N, N, N, N),
+        arrows={
+            (0, 1): [R_BD] * 2,
+            (0, 3): [R_BD] * 2,
+            (2, 0): [R_DI] * 4,
+            (1, 2): [R_BD] * 2,
+            (3, 2): [R_BD] * 2,
+        },
+        superpotential=tuple(W_terms),
+        u1_globals=(u1_r(),),
+    )
+
+
+def test_f0_phase_ii_electric_self_equivalence_certifies():
+    """Sanity gate before the boundary test: the F_0 II trial fixture
+    is internally consistent on its own (all anomalies cancel, W is
+    R=2, bounded chiral-ring trivially self-equates). If this fails,
+    the boundary test below is meaningless because we'd be feeding the
+    engine a broken input.
+    """
+
+    electric = _electric_f0_phase_ii_trial(N=3)
+    claim = DualityClaim(
+        name="F_0 II trial (self)",
+        electric_theory=electric,
+        magnetic_theory=electric,
+        metadata={
+            "duality_profile": "f0_phase_ii_self",
+            "bounded_chiral_ring": {"max_length": 3, "require_r_graded": True},
+        },
+    )
+    certificate = evaluate_claim(claim)
+    assert certificate.overall_status == Status.CERTIFIED
+
+
+def test_f0_phase_ii_mutation_topology_matches_but_trial_r_fails_mixed_anomaly():
+    """Phase 2c0 boundary regression on F_0 phase II.
+
+    What this pins:
+      (a) **Topology is reproduced.** The engine's mutation at node 0
+          gives ranks [3N, N, N, N], the expected (2, 2, 6, 6, 4) edge
+          multiplicities matching the purple diagram, and total chiral
+          count 20.
+      (b) **Trial R fails verifier.** The naive
+          R(q̃) = 1 - R(Q) assignment makes the reversed diagonal
+          carry R = 0, breaking SU(N)² × U(1)_R at the non-dualized
+          nodes. evaluate_claim returns FAILED. Bounded chiral-ring is
+          NOT_APPLICABLE in r_graded mode because P4 (upstream anomaly
+          CERTIFIED) is violated.
+
+    This is a *boundary regression*, not a failure regression:
+      - the engine itself did the right thing within MVP scope;
+      - the verifier did the right thing within its own scope;
+      - the gap between them is exactly what Phase 2c1's R-repair
+        is for (linear feasibility on `R(W)=2 ∧ Σ mixed anomalies = 0`,
+        and only a-maximize when a unique SCFT R is needed by
+        central-charge / unitarity obligations).
+    """
+
+    N = 3
+    electric = _electric_f0_phase_ii_trial(N=N)
+    engine_out = integrate_linear_fields(
+        mutate_bare(pure_quiver_to_json(electric), node=0)
+    )
+
+    # ----- (a) Topology assertions: matches the purple diagram. -----
+    assert engine_out["ranks"] == [3 * N, N, N, N]
+
+    edge_multiplicities = {}
+    for arrow in engine_out["arrows"]:
+        key = (arrow["source"], arrow["target"])
+        edge_multiplicities[key] = edge_multiplicities.get(key, 0) + 1
+
+    # Top: 2 reversed quarks (1 → 0). Left: 2 reversed quarks (3 → 0).
+    # Diagonal: 4 reversed in-arrows (0 → 2). Right and bottom: 6 each
+    # (2 original directional arrows integrated out together with the
+    # antisymmetric mesons; 6 symmetric mesons survive on the bypass
+    # edges 2 → 1 and 2 → 3).
+    assert edge_multiplicities == {
+        (0, 2): 4,   # reversed diagonal (TL → BR)
+        (1, 0): 2,   # reversed top    (TR → TL)
+        (2, 1): 6,   # bypass mesons   (BR → TR) — matches purple right
+        (2, 3): 6,   # bypass mesons   (BR → BL) — matches purple bottom
+        (3, 0): 2,   # reversed left   (BL → TL)
+    }
+
+    assert len(engine_out["arrows"]) == 20  # total chiral count
+
+    # ----- (b) Verifier rejects trial R on mixed-anomaly grounds. -----
+    magnetic = pure_quiver_from_json(engine_out)
+    claim = DualityClaim(
+        name="F_0 II Seiberg dual at TL (trial R)",
+        electric_theory=electric,
+        magnetic_theory=magnetic,
+        metadata={
+            "duality_profile": "f0_phase_ii_trial_dual",
+            "bounded_chiral_ring": {"max_length": 3, "require_r_graded": True},
+        },
+    )
+    certificate = evaluate_claim(claim)
+
+    assert certificate.overall_status == Status.FAILED
+
+    by_name = {r.name: r for r in certificate.obligation_results}
+
+    # The smoking gun: mixed anomaly fails on the magnetic side.
+    assert (
+        by_name["magnetic gauge-global mixed anomaly cancellation"].status
+        == Status.FAILED
+    )
+
+    # Electric mixed anomaly should still cancel (that's what the
+    # self-equivalence sanity test pinned).
+    assert (
+        by_name["electric gauge-global mixed anomaly cancellation"].status
+        == Status.CERTIFIED
+    )
+
+    # Bounded chiral-ring should NOT be CERTIFIED — in r_graded mode it
+    # routes through NOT_APPLICABLE because P4 is broken upstream. We
+    # accept either NOT_APPLICABLE or FAILED here; what we forbid is a
+    # spurious CERTIFIED in a state with broken anomalies.
+    bcr = by_name["bounded chiral-ring consistency"]
+    assert bcr.status != Status.CERTIFIED

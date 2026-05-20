@@ -100,10 +100,11 @@ dualize).
 
 1. **Validate** that there is at least one in-arrow (`target == node`)
    and one out-arrow (`source == node`). Reject adjoint loops at the
-   target node for MVP (`NotImplementedError`) — Kutasov-style mutations
-   on adjoints are out of MVP scope. If both in-degree and out-degree
-   are zero (isolated node), return the input unchanged with a sentinel
-   note in the returned dict.
+   target node for MVP (`MutationEngineError`) — Kutasov-style mutations
+   on adjoints are out of MVP scope. If either in-degree or out-degree
+   is zero (degenerate / isolated node), raise `MutationEngineError`
+   reporting both degrees so the caller can route this case explicitly
+   instead of silently consuming a degenerate output.
 
 2. **Flavor count and new rank.** Let
    - `N_in  = sum(ranks[a.source] for a in in_arrows)`
@@ -158,12 +159,16 @@ dualize).
    - Pair count: `N_in × N_out` (when `N_in_arrows × N_out_arrows = 9`,
      9 Seiberg terms for dP_0).
 
-9. **Validate output.** Run an internal closed-walk check on every new W
-   term (same predicate as `validate_w_terms` from
-   `quiver_chiral_ring.py`, replicated locally so the engine has no
-   verifier import). Also verify gauge-anomaly cancellation at the new
-   node and the two neighbors (cubic only, hand-coded; full ABJ
-   verification is left to the verifier).
+9. **No internal post-output validation.** The engine does not re-run
+   closed-walk or anomaly checks on its own output. The schema is
+   enforced when the JSON is rebuilt into a `Theory` via
+   `pure_quiver_from_json` (label naming, edge endpoints) and the
+   physics (cubic + mixed anomaly, W consistency, bounded chiral-ring)
+   is left to the verifier downstream. The engine's only post-mutation
+   guard is the cubic-anomaly balance check from step 2 — that one
+   *is* hand-coded because it's required to compute `N_m`. Adding an
+   internal mixed-anomaly cross-check is a Phase 2c1 hardening
+   candidate, not a Phase 2c0 requirement.
 
 **Output JSON shape** matches the input schema. For dP_0 at node 0:
 - ranks `[6, 3, 3]`.
@@ -288,19 +293,43 @@ In `tests/test_mutation_engine.py`:
   one W term (e.g. the (0,0)-diagonal), rebuild the duality claim,
   assert bounded chiral-ring FAILs at block (length=3, R=2) with
   electric_dim=10, magnetic_dim>10.
-- **Symmetric-pair detection.** On a smaller hand-built fixture (toy
-  2-node quiver with mass-term pattern), confirm
-  `integrate_linear_fields` correctly identifies the linear auxiliary
-  field, solves the constraint, and produces the expected reduced
-  theory.
+- **Boundary regression on F_0 phase II** (see §5 "Dual R-charge
+  assignment" limitation). Confirms the engine reproduces the
+  *topology* of the non-toric dual (ranks, edge multiplicities, total
+  chiral count) but the verifier correctly rejects the trial UV R
+  assignment on mixed-anomaly grounds. This is a *boundary* regression
+  — it pins where Phase 2c0 stops and Phase 2c1 begins.
 
 ## 5. Out of MVP scope
 
+- **Dual R-charge assignment.** The engine applies the naive Seiberg
+  formula `R(q̃) = 1 − R(Q)`, `R(M) = R(Q) + R(Q̃)`. This is best
+  read as a *trial UV mutation R* rather than the SCFT R of the dual.
+  For SQCD and for quivers where the electric R already coincides with
+  the dual's anomaly-free R (e.g. dP_0), the trial R is also the SCFT
+  R and the verifier certifies. For quivers like F_0 phase II — where
+  the dual's exact R needs re-solving against baryonic/flavor (and in
+  some cases accidental) U(1)s — the trial R fails the SU(N)² × U(1)_R
+  mixed anomaly on the non-dualized nodes, and the verifier (correctly)
+  rejects. The right next step is **not** full a-maximization on top of
+  the engine. The right next step (Phase 2c1) is a two-layer R-repair:
+  first solve the linear feasibility space `R(W)=2 ∧ Σ mixed = 0` on
+  the dualized theory; a-maximize *only* when a unique SCFT R is
+  required by downstream obligations (central-charge matching,
+  unitarity). The two layers serve different needs and keep the engine
+  itself out of the optimization business.
 - Multi-node mutation chains (the engine should be composable, but
   Phase 2c will test composition).
 - Adjoint Seiberg duality at a node carrying an adjoint loop (Kutasov).
 - F-term integration beyond linear-field elimination (no general
   Gröbner; no quadratic mass matrices that couple non-bilinearly).
+- Robustness when `_find_linear_field` returns a candidate whose
+  subsequent substitution constraint (single-term identification) is
+  violated. The current engine raises `MutationEngineError` with the
+  blocking field name; Phase 2c1 should turn this into an *informative
+  non-fatal* deferred-elimination signal so a caller (mutation chain
+  runner, LLM harness) can decide whether to fall back, without losing
+  diagnostic detail.
 - Picking a non-default sign convention for the Seiberg coupling
   (MVP locks `y = +1` and lifts coefficients from the electric W
   verbatim — for dP_0 this yields the `ε` signs the verified fixture
