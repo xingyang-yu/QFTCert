@@ -17,6 +17,9 @@
     "dp0_toric_x_f0_phase_ii": 1.0,
     "f0_phase_ii": 0.6666666666666666
   },
+  "always_dual_baseline": 0.2,
+  "always_not_dual_baseline": 0.8,
+  "balanced_accuracy": 0.5,
   "confusion_matrix": {
     "dual": {
       "dual": 0,

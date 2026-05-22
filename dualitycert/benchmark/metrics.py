@@ -10,6 +10,9 @@ Locked summary shape (Rule 10, plan §10 "Runner outputs"):
       "n_total": int,
       "n_correct": int,
       "accuracy": float,
+      "balanced_accuracy": float | None,
+      "always_not_dual_baseline": float,
+      "always_dual_baseline": float,
       "accuracy_by_class": {"dual": float, "not_dual": float},
       "accuracy_by_source": {"dp0_toric": float, "f0_phase_ii": float, ...},
       "accuracy_by_perturbation_type": {"none": float, "w_drop": float, ...},
@@ -24,6 +27,20 @@ Locked summary shape (Rule 10, plan §10 "Runner outputs"):
 "accuracy_by_source" plays the role of the plan's "accuracy_by_seed":
 the analytically interesting bucket is the source seed theory family
 (`dp0_toric` / `f0_phase_ii`), not the per-fixture RNG seed.
+
+`balanced_accuracy` = (recall_dual + recall_not_dual) / 2 — the right
+headline number on class-imbalanced fixture sets. Raw `accuracy` is
+inflated by the majority class; a degenerate "always-no" policy on a
+24/30 not_dual mix will hit raw accuracy 0.80 while balanced_accuracy
+stays at 0.50 (chance). Set to `None` when one of the classes has zero
+samples, so the metric is meaningful only when defined.
+
+`always_not_dual_baseline` / `always_dual_baseline` are the trivial-
+policy floors: what a model that always replies "not_dual" or "dual"
+would score on the input distribution. If a model's raw accuracy
+equals `always_not_dual_baseline`, it has zero discrimination above
+the trivial baseline — this is exactly Sonnet 4.6's behavior on the
+Phase 2c-a depth=1 pilot.
 """
 
 from __future__ import annotations
@@ -126,10 +143,31 @@ def build_summary(
     accuracy_by_source = _ratio_table(correct_by_source, counts_by_source)
     accuracy_by_ptype = _ratio_table(correct_by_ptype, counts_by_ptype)
 
+    # Degenerate-policy guards: a class-imbalanced fixture set will
+    # produce a high raw `accuracy` for a trivial constant-prediction
+    # policy. balanced_accuracy + always_X_baseline make the imbalance
+    # visible in the summary itself so the headline reading is not
+    # misled. See Phase 2c-a Exp 1 pilot for the canonical example
+    # (raw accuracy 0.80 = always-not_dual baseline; bal_acc = 0.50).
+    n_dual = counts_by_class.get("dual", 0)
+    n_not_dual = counts_by_class.get("not_dual", 0)
+    if n_dual > 0 and n_not_dual > 0:
+        balanced_accuracy: float | None = (
+            accuracy_by_class.get("dual", 0.0)
+            + accuracy_by_class.get("not_dual", 0.0)
+        ) / 2.0
+    else:
+        balanced_accuracy = None
+    always_not_dual_baseline = (n_not_dual / n_total) if n_total else 0.0
+    always_dual_baseline = (n_dual / n_total) if n_total else 0.0
+
     summary: dict[str, Any] = {
         "n_total": n_total,
         "n_correct": n_correct,
         "accuracy": accuracy,
+        "balanced_accuracy": balanced_accuracy,
+        "always_not_dual_baseline": always_not_dual_baseline,
+        "always_dual_baseline": always_dual_baseline,
         "accuracy_by_class": accuracy_by_class,
         "accuracy_by_source": accuracy_by_source,
         "accuracy_by_perturbation_type": accuracy_by_ptype,

@@ -224,6 +224,74 @@ def test_summary_rejects_mismatched_results_and_fixtures():
         build_summary(bogus_results, fixtures)
 
 
+def test_summary_exposes_balanced_accuracy_and_trivial_baselines():
+    """Class-imbalance guards (Phase 2c-a Exp 1 sediment): a degenerate
+    'always not_dual' policy must be visible from summary.json alone,
+    not inferable only from the confusion matrix."""
+
+    fixtures = read_fixtures_jsonl(SMOKE_FIXTURES_PATH)
+    # Oracle responses: balanced_accuracy should be 1.0.
+    oracle = MockLLMClient(structured_responses=_oracle_responses(fixtures))
+    summary_oracle = build_summary(
+        [
+            {
+                "fixture_id": f.fixture_id,
+                "ground_truth": f.ground_truth_label,
+                "llm_decision": f.ground_truth_label,
+                "correct": True,
+            }
+            for f in fixtures
+        ],
+        fixtures,
+    )
+    assert summary_oracle["balanced_accuracy"] == 1.0
+
+    # Always-not_dual policy: raw accuracy == always_not_dual_baseline,
+    # balanced_accuracy == 0.5 (chance) regardless of class skew.
+    always_not_dual = [
+        {
+            "fixture_id": f.fixture_id,
+            "ground_truth": f.ground_truth_label,
+            "llm_decision": "not_dual",
+            "correct": f.ground_truth_label == "not_dual",
+        }
+        for f in fixtures
+    ]
+    summary_degen = build_summary(always_not_dual, fixtures)
+    assert summary_degen["balanced_accuracy"] == 0.5
+    assert summary_degen["accuracy"] == summary_degen["always_not_dual_baseline"]
+
+    # The two trivial baselines sum to 1 (each fixture is in exactly one class).
+    assert (
+        summary_degen["always_not_dual_baseline"]
+        + summary_degen["always_dual_baseline"]
+    ) == 1.0
+
+
+def test_summary_balanced_accuracy_is_none_for_single_class_set():
+    """When the input distribution has only one ground-truth class,
+    balanced_accuracy is undefined — surface as None, not 0 / 1."""
+
+    fixtures = [
+        f for f in read_fixtures_jsonl(SMOKE_FIXTURES_PATH)
+        if f.ground_truth_label == "not_dual"
+    ]
+    assert fixtures, "smoke set should contain at least one not_dual fixture"
+    records = [
+        {
+            "fixture_id": f.fixture_id,
+            "ground_truth": "not_dual",
+            "llm_decision": "not_dual",
+            "correct": True,
+        }
+        for f in fixtures
+    ]
+    summary = build_summary(records, fixtures)
+    assert summary["balanced_accuracy"] is None
+    assert summary["always_dual_baseline"] == 0.0
+    assert summary["always_not_dual_baseline"] == 1.0
+
+
 def test_summary_handles_partial_unknown_token_counts():
     """If the backend reports None for token counts (MockLLMClient case),
     the summary omits the tokens block rather than emitting zeros."""

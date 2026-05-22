@@ -20,11 +20,25 @@ the table in the paper is locked.
 | Token usage | 95 846 input / 14 598 output |
 | Approx cost (Sonnet 4.6 pricing) | ≈ $0.51 |
 
-## Headline finding
+## Headline finding (read this carefully — raw accuracy is misleading)
 
-Sonnet 4.6 on sanitized depth=1 quiver duality pairs achieves **80%
-accuracy (24/30)** but the apparent score reflects only the negative-
-class base rate: the model labels **every** candidate as `not_dual`.
+Sonnet 4.6 implements a **degenerate constant-prediction policy**: it
+labels every one of the 30 sanitized depth=1 pairs as `not_dual`. The
+fixture set is class-imbalanced (24 negatives / 6 positives), so an
+always-`not_dual` predictor scores 24/30 = 0.80 by construction.
+**Sonnet's raw accuracy is exactly the always-`not_dual` baseline** —
+the model has no discrimination above the trivial floor.
+
+| metric | value | how to read |
+|---|---|---|
+| **raw accuracy** | **0.80 (24/30)** | DO NOT report as headline — it is the class-imbalance floor |
+| **balanced accuracy** | **0.50 (chance)** | The actual headline number on this fixture set |
+| **always-`not_dual` baseline** | **0.80** | Equal to raw accuracy → Sonnet is the trivial baseline |
+| **always-`dual` baseline** | 0.20 | symmetric reference |
+| **positive recall** (`dual` → `dual`) | **0/6 = 0.00** | Sonnet catches no positives |
+| **negative recall** (`not_dual` → `not_dual`) | 24/24 = 1.00 | Trivially, because Sonnet always says `not_dual` |
+
+Confusion matrix:
 
 |  | LLM `dual` | LLM `not_dual` |
 |---|---|---|
@@ -33,8 +47,14 @@ class base rate: the model labels **every** candidate as `not_dual`.
 
 - False positives: 0
 - False negatives: 6 (all positives misclassified)
-- Per-class accuracy: `dual` = 0/6, `not_dual` = 24/24
-- Confidence: every wrong call was rated `high`
+- Confidence: every wrong call was rated `high` — Sonnet is
+  high-confidence at being uniformly cautious, not at making physical
+  judgments.
+
+**Bottom line:** the right reading of this pilot is "Sonnet 4.6
+single-shot has zero discriminative ability above the class-imbalance
+baseline on sanitized depth=1 quiver duality pairs", not "Sonnet 4.6
+achieves 80% accuracy".
 
 ## Specific physics failure mode read from `reasoning` field
 
@@ -88,9 +108,15 @@ negatives and there are no F_0 II negatives to dilute the score.
 ## Paper-narrative implications
 
 1. **Headline framing** — "vanilla Sonnet 4.6 on sanitized 4d N=1
-   quiver duality pairs achieves 80% accuracy, but discrimination is
-   illusory: the model labels every candidate as `not_dual`, so the
-   apparent accuracy is the negative-class base rate (24/30 = 80%)."
+   quiver duality pairs implements a degenerate constant-prediction
+   policy (always `not_dual`), yielding balanced accuracy = 0.50 —
+   chance. The apparent raw accuracy of 0.80 reflects only the
+   class-imbalance baseline (24/30 negatives in the fixture set).
+   Reporting raw accuracy alone would be misleading on this
+   distribution; balanced accuracy is the headline number." Any
+   downstream paper text must use `balanced_accuracy` /
+   `always_not_dual_baseline` from `summary.json`, not `accuracy`
+   alone.
 
 2. **Citeable failure mode** — bifundamental flavor miscounting in
    quiver Seiberg duality. Specific, namable, reproducible from the
