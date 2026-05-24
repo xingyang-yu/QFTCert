@@ -1,0 +1,19 @@
+{
+  "name": "wrong_superpotential_charge",
+  "duality_profile": "seiberg_sqcd",
+  "parameters": {
+    "Nc": 3,
+    "Nf": 5
+  },
+  "magnetic": {
+    "rank": 2,
+    "include_meson": true,
+    "charges": {
+      "q_B_override": "0"
+    }
+  },
+  "superpotential": {
+    "terms": [["M", "q", "qtilde"]]
+  },
+  "expected_outcome": "Implemented superpotential U(1)_B invariance and Abelian baryon operator-map checks should fail because the magnetic q charge is inconsistent with the stated convention."
+}

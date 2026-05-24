@@ -1,0 +1,16 @@
+{
+  "name": "missing_meson",
+  "duality_profile": "seiberg_sqcd",
+  "parameters": {
+    "Nc": 3,
+    "Nf": 5
+  },
+  "magnetic": {
+    "rank": 2,
+    "include_meson": false
+  },
+  "superpotential": {
+    "terms": [["M", "q", "qtilde"]]
+  },
+  "expected_outcome": "Implemented magnetic superpotential consistency should fail because W references the missing meson M."
+}

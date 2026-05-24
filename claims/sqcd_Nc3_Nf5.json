@@ -1,0 +1,23 @@
+{
+  "name": "sqcd_Nc3_Nf5",
+  "duality_profile": "seiberg_sqcd",
+  "parameters": {
+    "Nc": 3,
+    "Nf": 5
+  },
+  "magnetic": {
+    "rank": 2,
+    "include_meson": true
+  },
+  "superpotential": {
+    "terms": [["M", "q", "qtilde"]]
+  },
+  "requested_checks": [
+    "gauge_anomaly",
+    "superpotential_invariance",
+    "r_charge",
+    "global_anomaly_matching",
+    "operator_map_placeholder"
+  ],
+  "expected_outcome": "Implemented checks pass, including Abelian operator-map charges; non-Abelian operator-map flavor matching, index, and deformation obligations remain NOT_IMPLEMENTED."
+}

@@ -1,0 +1,13 @@
+{
+  "duality_profile": "kutasov",
+  "name": "Kutasov SU(3) Nf=5 k=2",
+  "parameters": {
+    "Nc": 3,
+    "Nf": 5,
+    "k": 2
+  },
+  "magnetic": {
+    "rank": 7
+  },
+  "expected_outcome": "All implemented consistency checks should pass for the correct Kutasov-Schwimmer duality with Nm = kNf - Nc = 7."
+}

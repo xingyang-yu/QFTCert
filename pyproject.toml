@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dualitycert"
+version = "0.1.0"
+description = "Consistency certificates for SQCD-like duality claims"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+  { name = "Xingyang Yu" }
+]
+dependencies = []
+
+[project.scripts]
+dualitycert = "dualitycert.cli:main"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "slow: tests that take more than ~10 seconds (run with `pytest -m \"not slow\"` to skip)",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dualitycert*"]

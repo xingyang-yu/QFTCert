@@ -1,0 +1,13 @@
+{
+  "duality_profile": "kutasov",
+  "name": "Kutasov SU(3) Nf=5 k=2 (wrong rank)",
+  "parameters": {
+    "Nc": 3,
+    "Nf": 5,
+    "k": 2
+  },
+  "magnetic": {
+    "rank": 4
+  },
+  "expected_outcome": "Global anomaly matching should fail because the proposed magnetic rank 4 is not kNf - Nc = 7."
+}

@@ -1,0 +1,17 @@
+{
+  "name": "wrong_meson_R_charge",
+  "duality_profile": "seiberg_sqcd",
+  "parameters": {
+    "Nc": 3,
+    "Nf": 5
+  },
+  "magnetic": {
+    "rank": 2,
+    "include_meson": true,
+    "meson_R_override": "1"
+  },
+  "superpotential": {
+    "terms": [["M", "q", "qtilde"]]
+  },
+  "expected_outcome": "Implemented R(W)=2, global anomaly matching, and Abelian meson operator-map checks should fail under this R-charge assignment."
+}
