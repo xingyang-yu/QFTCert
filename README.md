@@ -10,6 +10,11 @@ QFTCert does not prove QFT statements and does not prove Seiberg duality. It
 checks implemented consistency obligations under stated assumptions and
 conventions.
 
+> This repository is a public-facing subset of QFTCert demonstrating the
+> architecture and core verifier loop. Additional in-development capabilities
+> are kept private and available on demo for hiring or collaboration
+> discussions.
+
 ## DualityCert-0 Scope
 
 The current target is SQCD-like Seiberg-duality-style claims:
@@ -49,6 +54,26 @@ Known obligations recorded as `NOT_IMPLEMENTED`:
 
 - index matching;
 - deformation checks.
+
+## Pure-Quiver and dP_0 Capabilities
+
+Beyond strict SQCD scope, the current build implements:
+
+- **Pure-quiver bounded chiral-ring consistency** (`pure_quiver` claims): a
+  cyclic-derivative F-term quotient check on bounded paths of length up to a
+  user-specified depth `L`. The output is a *bounded chiral-ring verdict*, not
+  a full chiral-ring equivalence. See
+  [docs/phase2a_pure_quiver_chiral_ring.md](docs/phase2a_pure_quiver_chiral_ring.md).
+- **dP_0 paired Seiberg-dual consistency**: a paired check of the toric
+  `SU(N)^3` electric phase against its non-toric
+  `SU(2N) x SU(N) x SU(N)` single-node Seiberg dual with 12 bifundamentals.
+  Covers anomaly matching, R-charge constraints, superpotential structure,
+  and bounded chiral-ring verdicts on both sides. See
+  [docs/phase2b_dp0_magnetic.md](docs/phase2b_dp0_magnetic.md).
+- **Adversarial catch/miss characterization** on `dP_0`: a documented map of
+  which adversarial perturbations the verifier currently catches versus
+  misses. See
+  [docs/phase2b_adversarial_catch_miss.md](docs/phase2b_adversarial_catch_miss.md).
 
 ## What a Certificate Means
 
