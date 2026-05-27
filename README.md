@@ -10,10 +10,9 @@ QFTCert does not prove QFT statements and does not prove Seiberg duality. It
 checks implemented consistency obligations under stated assumptions and
 conventions.
 
-This public demo snapshot focuses on the implemented verifier loop, from
-SQCD-style claims through a bounded pure-quiver chiral-ring check on a
-dP_0 Seiberg-duality fixture. It is intentionally curated: the repository
-contains only the code, fixtures, and tests needed to run the public checks.
+> This repository is a public-facing subset of QFTCert demonstrating the
+> architecture and core verifier loop. Additional in-development capabilities
+> are kept private and shown on request.
 
 ## DualityCert-0 Scope
 
@@ -40,9 +39,6 @@ Currently implemented checks:
 - R >= 2/3 checks for encoded/default SQCD gauge-invariant chiral operators;
 - SQCD one-flavor mass-deformation rank-flow arithmetic.
 - SQCD mesonic flat-direction rank-flow arithmetic.
-- pure-quiver bounded chiral-ring quotient comparisons at finite path length;
-- paired dP_0 electric/magnetic Seiberg-duality fixtures with anomaly,
-  R-charge, superpotential, and bounded chiral-ring consistency checks.
 
 Metadata-level scaffold checks return `UNKNOWN` when the required data is not
 encoded, instead of failing the claim:
@@ -58,20 +54,25 @@ Known obligations recorded as `NOT_IMPLEMENTED`:
 - index matching;
 - deformation checks.
 
-## Pure-Quiver and dP_0 Demo
+## Pure-Quiver and dP_0 Capabilities
 
-Beyond the SQCD builder, this snapshot includes a pure-quiver verifier layer:
+Beyond strict SQCD scope, the current build implements:
 
-- bounded cyclic-word enumeration and F-term quotient dimensions for
-  `pure_quiver` claims;
-- a toric `dP_0` electric phase with three `SU(3)` gauge nodes;
-- the paired non-toric magnetic phase obtained by single-node Seiberg duality;
-- adversarial tests showing which superpotential perturbations are caught by
-  the bounded chiral-ring check and which are invisible to that layer.
-
-The bounded chiral-ring verdict is a finite-cutoff consistency check, not a
-proof of full chiral-ring equivalence. The dP_0 magnetic derivation is
-summarized in [docs/phase2b_dp0_magnetic.md](docs/phase2b_dp0_magnetic.md).
+- **Pure-quiver bounded chiral-ring consistency** (`pure_quiver` claims): a
+  cyclic-derivative F-term quotient check on bounded paths of length up to a
+  user-specified depth `L`. The output is a *bounded chiral-ring verdict*, not
+  a full chiral-ring equivalence. See
+  [docs/phase2a_pure_quiver_chiral_ring.md](docs/phase2a_pure_quiver_chiral_ring.md).
+- **dP_0 paired Seiberg-dual consistency**: a paired check of the toric
+  `SU(N)^3` electric phase against its non-toric
+  `SU(2N) x SU(N) x SU(N)` single-node Seiberg dual with 12 bifundamentals.
+  Covers anomaly matching, R-charge constraints, superpotential structure,
+  and bounded chiral-ring verdicts on both sides. See
+  [docs/phase2b_dp0_magnetic.md](docs/phase2b_dp0_magnetic.md).
+- **Adversarial catch/miss characterization** on `dP_0`: a documented map of
+  which adversarial perturbations the verifier currently catches versus
+  misses. See
+  [docs/phase2b_adversarial_catch_miss.md](docs/phase2b_adversarial_catch_miss.md).
 
 ## What a Certificate Means
 
@@ -128,8 +129,7 @@ fails implemented consistency checks.
 ## Generate Critic Reports and Repair Prompts
 
 QFTCert can turn a failed certificate into a short critic report or a repair
-prompt for a human or automated downstream tool. The repository does not call
-any external service:
+prompt for a human or LLM, without calling any model API:
 
 ```bash
 python3 -m dualitycert.cli critique claims/wrong_magnetic_rank.json
@@ -146,7 +146,7 @@ claim.json -> certificate -> critic report / repair prompt -> repaired claim
 ## Example Workflow for AI-Assisted QFT Reasoning
 
 ```text
-Human or AI system proposes a QFT claim
+LLM proposes a QFT claim
 -> QFTCert loads the typed/machine-readable claim
 -> QFTCert generates obligations
 -> implemented checkers run
@@ -171,3 +171,6 @@ AI-generated QFT claims.
 - The superpotential invariant checker is intentionally SQCD-like and narrow.
 - Baryon-number normalization is explicit; a global rescaling is not by itself
   treated as a physical failure.
+
+A detailed design document covering conventions, implementation, and roadmap
+is available on request.
