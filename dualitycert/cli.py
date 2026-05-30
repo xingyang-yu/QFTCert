@@ -71,7 +71,20 @@ def main(argv: list[str] | None = None) -> int:
         help="Optional path to write the full iteration trace as JSON.",
     )
 
+    # Paper-scale experiment harness subcommands (Deliverable 9). Handlers
+    # live in dualitycert.experiments.cli and lazily import the heavy
+    # experiment modules, so the core commands above stay lightweight.
+    from dualitycert.experiments.cli import add_subparsers as _add_experiment_subparsers
+
+    _add_experiment_subparsers(subparsers)
+
     args = parser.parse_args(argv)
+
+    # Experiment subcommands attach a `func` handler via set_defaults.
+    handler = getattr(args, "func", None)
+    if handler is not None:
+        return handler(args)
+
     if args.command == "check":
         try:
             claim = load_claim_file(args.claim_file)

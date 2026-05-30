@@ -1,0 +1,32 @@
+{
+  "name": "mvp_depth1",
+  "notes": "Reproduces the locked Phase 2c-a depth=1 detection MVP (L=3, phase2c_a_detection profile). Two seed families, six fixture classes.",
+  "depths": [1],
+  "fixture_classes": [
+    "positive",
+    "drop_w_term",
+    "flip_w_sign",
+    "r_charge_perturb",
+    "rank_perturb",
+    "wrong_pair"
+  ],
+  "n_per_cell": 2,
+  "seed": 10000,
+  "split": "eval",
+  "output_dir": "runs/experiments/mvp",
+  "verifier": {
+    "duality_profile": "phase2c_a_detection",
+    "chiral_ring_max_length": 3,
+    "require_r_graded": true
+  },
+  "model": {
+    "provider": "dryrun",
+    "model": "dryrun",
+    "max_tokens": 2048
+  },
+  "repair": {
+    "max_rounds": 5,
+    "feedback_mode": "verifier_feedback",
+    "feedback_detail": "medium"
+  }
+}
