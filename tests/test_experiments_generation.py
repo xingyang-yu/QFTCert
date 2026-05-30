@@ -7,13 +7,14 @@ import random
 
 import pytest
 
-from dualitycert.experiments.chains import (
-    DepthNotImplementedError,
-    generate_mutation_chain,
-)
+from dualitycert.experiments.chains import generate_mutation_chain
 from dualitycert.benchmark.fixtures import sanitize_for_prompt
 from dualitycert.benchmark.generators import attempt_positive, attempt_w_drop
-from dualitycert.experiments.config import ExperimentConfig, VerifierConfig
+from dualitycert.experiments.config import (
+    ChainConfig,
+    ExperimentConfig,
+    VerifierConfig,
+)
 from dualitycert.experiments.generation import IncompleteCellsError, generate_fixtures
 from dualitycert.experiments.jsonpatch import apply_patches
 from dualitycert.experiments.perturbations import _edit_drop_w
@@ -23,7 +24,7 @@ from dualitycert.experiments.perturbations import (
     PerturbationError,
     apply_single_positive_edit,
 )
-from dualitycert.experiments.seeds import default_seed_specs, dp0_electric
+from dualitycert.experiments.seeds import SeedSpec, default_seed_specs, dp0_electric
 
 
 def _mvp_config(**kw) -> ExperimentConfig:
@@ -80,26 +81,50 @@ def test_generation_is_deterministic(tmp_path):
     assert [x.to_dict() for x in a.attrition] == [x.to_dict() for x in b.attrition]
 
 
-def test_strict_depth_preflight_raises(tmp_path):
-    # Strict by default: requesting depth>=2 fails before generating.
-    cfg = _mvp_config(depths=(1, 2, 3))
-    with pytest.raises(IncompleteCellsError):
-        generate_fixtures(cfg, out_dir=tmp_path, generated_at="t", git_commit="c")
+# dp0-only seed + small chain budget: dp0 depth-2 fails fast at the
+# engine level (no verifier calls), keeping these tests quick.
+_DP0_SPEC = [SeedSpec("dp0_toric", dp0_electric, node=0, N=3)]
 
 
-def test_depth_ge_2_routes_to_attrition_when_allowed(tmp_path):
-    cfg = _mvp_config(depths=(1, 2, 3))
-    res = generate_fixtures(
-        cfg, out_dir=tmp_path, generated_at="t", git_commit="c",
-        allow_incomplete_cells=True,
+def _depth_cfg(depths, **kw):
+    return ExperimentConfig(
+        name="depthtest",
+        depths=depths,
+        fixture_classes=("positive", "drop_w_term"),
+        n_per_cell=1,
+        seed=7,
+        chain=ChainConfig(max_chain_attempts_per_cell=2),
+        **kw,
     )
+
+
+def test_strict_completeness_raises_on_empty_depth2_cell(tmp_path):
+    # Strict by default: depth-2 cells stay empty (dp0 cannot re-mutate),
+    # so the post-generation completeness check fails loudly.
+    cfg = _depth_cfg((1, 2))
+    with pytest.raises(IncompleteCellsError):
+        generate_fixtures(
+            cfg, out_dir=tmp_path, seed_specs=_DP0_SPEC,
+            generated_at="t", git_commit="c",
+        )
+
+
+def test_depth2_attrition_is_precise_when_allowed(tmp_path):
+    cfg = _depth_cfg((1, 2))
+    res = generate_fixtures(
+        cfg, out_dir=tmp_path, seed_specs=_DP0_SPEC, generated_at="t",
+        git_commit="c", allow_incomplete_cells=True,
+    )
+    # depth-1 main fixtures exist; depth-2 produced none on dp0.
     assert all(r.depth == 1 for r in res.manifest)
+    assert any(r.depth == 1 for r in res.manifest)
     reasons = {a.attrition_reason for a in res.attrition}
-    assert "depth_not_implemented" in reasons
-    # every depth>=2 attrition row is labeled depth_not_implemented.
-    for a in res.attrition:
-        if a.depth >= 2:
-            assert a.attrition_reason == "depth_not_implemented"
+    # The placeholder is gone; the reason is a real chain-runner reason.
+    assert "depth_not_implemented" not in reasons
+    assert any(
+        a.depth == 2 and a.attrition_reason == "single_step_mutation_failed"
+        for a in res.attrition
+    )
 
 
 def test_decoupled_edit_matches_mvp_generator(tmp_path):
@@ -229,24 +254,7 @@ def test_drop_w_on_empty_superpotential_raises():
         apply_single_positive_edit("drop_w_term", theory, random.Random(0))
 
 
-# ----------------------------------------------------------------------
-# Mutation chain runner.
-# ----------------------------------------------------------------------
-
-
-def test_chain_depth1_builds():
-    chain = generate_mutation_chain(
-        dp0_electric(3), 1, random.Random(0), source_name="dp0", node=0
-    )
-    assert chain.node_sequence == (0,)
-    assert chain.in_scope
-    assert "ranks" in chain.final_theory
-    assert len(chain.intermediate_theories) == 2
-
-
-def test_chain_depth2_raises():
-    with pytest.raises(DepthNotImplementedError):
-        generate_mutation_chain(dp0_electric(3), 2, random.Random(0), node=0)
+# Mutation chain-runner unit tests live in tests/test_experiments_chains.py.
 
 
 # ----------------------------------------------------------------------

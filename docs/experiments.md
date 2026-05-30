@@ -29,7 +29,7 @@ single-shot (Layer A/B) and repair (Layer C) runners, and statistics.
 | `experiments/manifest.py` | `ManifestRecord`, `AttritionRecord`, `SizeCovariates`, JSONL + CSV I/O |
 | `experiments/verifier.py` | verifier wrapper with the chiral-ring cutoff knob + obligation→category map |
 | `experiments/perturbations.py` | the standardized perturbation operators (pure edits) |
-| `experiments/chains.py` | `generate_mutation_chain` (depth=1 wired; depth≥2 raises) |
+| `experiments/chains.py` | depth-K `generate_mutation_chain` + `apply_single_seiberg_mutation` (single-step move) |
 | `experiments/generation.py` | verifier-gated depth×class fixture generation |
 | `agent/diagnosis.py` | single-call diagnosis (parallel to `agent/detection.py`) |
 | `agent/dryrun.py` | `DryRunModelClient` (offline, deterministic, no API key) |
@@ -97,7 +97,11 @@ Key fields: `depths`, `fixture_classes`, `n_per_cell`, `seed`,
 | `fixture_id` | stable deterministic id |
 | `seed_id` | the rng sub-seed for this fixture |
 | `mutation_chain_id` | the chain that built the positive (or `null`) |
-| `depth` | mutation depth (1 today) |
+| `depth` | requested cell depth |
+| `chain_depth` | generated chain length (moves applied; = `depth` on success) |
+| `mutation_node_sequence` | the node mutated at each step |
+| `intermediate_hashes` | canonical hashes `h0..h_K` of `T0..T_K` |
+| `final_theory_hash` | canonical hash of `T_K` (the candidate) |
 | `perturbation_class` | `positive` / `drop_w_term` / `flip_w_sign` / `r_charge_perturb` / `rank_perturb` / `trivial_rank` / `wrong_pair` |
 | `label` / `verifier_status` | `CERTIFIED` or `FAILED` (manifest is verifier-gated) |
 | `repairable` | true for the four repairable negative classes |
@@ -193,25 +197,90 @@ the feedback verifier but fails the final one, `success=False` and
 supplies verifier settings (they come only from config), and patches
 targeting verifier metadata are rejected.
 
-## depth ≥ 2 support status (strict by default)
+## Depth-K mutation chains (Phase 2d)
 
-The single-node Seiberg engine (`dualitycert.qft.mutation_engine`)
-supports exactly one mutation step today
-(`chains.MAX_IMPLEMENTED_DEPTH == 1`). Generation is **strict by
-default**: if a config requests depths the engine cannot build (≥ 2),
-`generate_fixtures` raises `IncompleteCellsError` during preflight — so
-a paper run cannot silently ship depth=1-only data while claiming depth
-1–4 coverage. The shipped `paper_*` configs intentionally keep depths
-`[1,2,3,4]` and therefore preflight-fail until depth ≥ 2 lands.
+`generate_mutation_chain(seed_theory, depth, rng, constraints,
+verifier_config=...)` composes `depth` single-node Seiberg moves
+(`apply_single_seiberg_mutation` = `mutate_bare` → `integrate_linear_fields`
+→ `repair_r_charges`, the same pipeline the depth-1 MVP positives use)
+from a seed `T0` to a final `T_K`. The positive fixture pair is
+`(T0, T_K)`; negative perturbations are applied to `T_K`.
 
-To do a depth-1 run from a paper config (development / smoke), pass
-`--allow-incomplete-cells` (or `allow_incomplete_cells: true` in the
-config / `allow_incomplete_cells=True` to `generate_fixtures`). Then
-`generate_mutation_chain(depth>=2)` raises `DepthNotImplementedError`
-and those cells route to attrition with reason `depth_not_implemented`.
-**No deep chains are fabricated.** When multi-step mutation lands, only
-the depth ≥ 2 branch in `experiments/chains.py` (and
-`MAX_IMPLEMENTED_DEPTH`) needs to change.
+**`depth` is the GENERATED chain length** — the number of moves applied —
+**not** a proven minimal mutation distance. Records expose it as
+`chain_depth` / `depth_requested` / `depth_realized`. We make no
+shortest-path / minimal-duality-depth claim.
+
+Node selection at each step is deterministic under `rng` (the first
+step prefers the seed's pinned node so depth-1 reproduces the locked MVP
+fixtures). A step is rejected — and another node tried, up to
+`chain.max_attempts_per_step` — if the move fails, immediately
+backtracks (`T_i == T_{i-2}`), repeats an earlier state, exceeds a size
+budget, is schema-invalid, or fails adjacent verification. depth ≥ 2
+generation retries the whole chain up to `chain.max_chain_attempts_per_cell`
+with fresh rng.
+
+### Verification policy (configurable)
+
+For a chain `T0 → T1 → … → T_K`:
+
+- `chain.verify_adjacent_steps` (default **true**): every
+  `(T_{i-1}, T_i)` must verify CERTIFIED, else the step is rejected.
+  This is conservative — it only composes *verified* single duals.
+- `chain.verify_seed_to_final` (default **true**): the `(T0, T_K)`
+  endpoint pair must verify CERTIFIED for the positive to enter the main
+  manifest. **Success is always judged by this seed-to-final check.**
+
+Empirically on the current seeds: with adjacent verification ON, no
+depth-2 positive is reachable (dp0's dual is outside single-step MVP
+scope; every f0 depth-2 adjacent pair fails) → honest attrition. With
+**seed-to-final gating only** (adjacent OFF, see
+`configs/paper_detection_dev_depth2.json`), F_0 yields genuine depth-2
+CERTIFIED duals whose intermediate theory is mechanical scaffolding (not
+itself required to be a dual). No depth-2 examples are ever fabricated.
+
+### Strict completeness (replaces the old depth preflight)
+
+Generation is **strict by default**: after generating, if any requested
+`(depth × class)` cell produced zero main fixtures,
+`generate_fixtures` raises `IncompleteCellsError` listing the empty
+cells. This keeps a paper run from silently shipping partial coverage.
+The shipped `paper_*` configs keep depths `[1,2,3,4]` and so fail
+completeness until verified depth ≥ 2 chains exist on their seeds. Pass
+`--allow-incomplete-cells` (or `allow_incomplete_cells: true`) to record
+honest attrition instead — as the dev depth-2 config does.
+
+### Tiny depth-2 dry run
+
+```bash
+dualitycert generate-fixtures \
+    --config configs/paper_detection_dev_depth2.json \
+    --out runs/dev_depth2 --allow-incomplete-cells
+```
+
+This produces depth-1 fixtures plus real depth-2 fixtures from F_0
+(positive + perturbed negatives) and routes dp0 depth-2 attempts to
+attrition (`single_step_mutation_failed`).
+
+### Chain attrition reasons
+
+`no_valid_mutation_nodes`, `single_step_mutation_failed`,
+`immediate_backtracking_rejected`, `repeated_state_rejected`,
+`intermediate_schema_invalid`, `intermediate_out_of_scope`,
+`adjacent_verifier_failed`, `adjacent_verifier_unknown`,
+`final_verifier_failed`, `final_verifier_unknown`,
+`exceeds_size_budget`, `duplicate_chain`, `duplicate_final_pair`,
+`max_attempts_exceeded`.
+
+### Known limitations
+
+- `canonical_theory_hash` is a normalized-JSON hash, **not** a
+  graph-isomorphism canonical form: dedup is sound (no false merges) but
+  may keep isomorphic duplicates.
+- depth ≥ 2 success depends on verifier scope and on theory-size growth
+  along the chain (size budgets send oversized chains to attrition).
+- "generated depth" is chain length only — **no** minimal-distance /
+  shortest-path claim.
 
 ### Known TODOs
 

@@ -33,6 +33,7 @@ __all__ = [
     "FIXTURE_CLASSES",
     "FEEDBACK_MODES",
     "FEEDBACK_DETAIL_LEVELS",
+    "ChainConfig",
     "ModelConfig",
     "VerifierConfig",
     "RepairConfig",
@@ -130,6 +131,80 @@ class VerifierConfig:
 
 
 @dataclass(frozen=True)
+class ChainConfig:
+    """Constraints for the depth-K Seiberg mutation chain-runner (Phase 2d).
+
+    `generated_depth` (chain length) is the number of single-node Seiberg
+    steps composed — NOT a proven minimal mutation distance. Size budgets
+    send oversized chains to attrition rather than truncating them.
+    """
+
+    max_chain_attempts_per_cell: int = 8
+    max_attempts_per_step: int = 8
+    max_gauge_nodes: int = 12
+    max_fields: int = 80
+    max_superpotential_terms: int = 160
+    max_json_token_estimate: int = 8000
+    allow_repeated_states: bool = False
+    forbid_immediate_backtracking: bool = True
+    verify_adjacent_steps: bool = True
+    verify_seed_to_final: bool = True
+    save_intermediate_theories: bool = True
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "max_chain_attempts_per_cell": int(self.max_chain_attempts_per_cell),
+            "max_attempts_per_step": int(self.max_attempts_per_step),
+            "max_gauge_nodes": int(self.max_gauge_nodes),
+            "max_fields": int(self.max_fields),
+            "max_superpotential_terms": int(self.max_superpotential_terms),
+            "max_json_token_estimate": int(self.max_json_token_estimate),
+            "allow_repeated_states": bool(self.allow_repeated_states),
+            "forbid_immediate_backtracking": bool(self.forbid_immediate_backtracking),
+            "verify_adjacent_steps": bool(self.verify_adjacent_steps),
+            "verify_seed_to_final": bool(self.verify_seed_to_final),
+            "save_intermediate_theories": bool(self.save_intermediate_theories),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "ChainConfig":
+        d = cls()
+        return cls(
+            max_chain_attempts_per_cell=int(
+                data.get("max_chain_attempts_per_cell", d.max_chain_attempts_per_cell)
+            ),
+            max_attempts_per_step=int(
+                data.get("max_attempts_per_step", d.max_attempts_per_step)
+            ),
+            max_gauge_nodes=int(data.get("max_gauge_nodes", d.max_gauge_nodes)),
+            max_fields=int(data.get("max_fields", d.max_fields)),
+            max_superpotential_terms=int(
+                data.get("max_superpotential_terms", d.max_superpotential_terms)
+            ),
+            max_json_token_estimate=int(
+                data.get("max_json_token_estimate", d.max_json_token_estimate)
+            ),
+            allow_repeated_states=bool(
+                data.get("allow_repeated_states", d.allow_repeated_states)
+            ),
+            forbid_immediate_backtracking=bool(
+                data.get(
+                    "forbid_immediate_backtracking", d.forbid_immediate_backtracking
+                )
+            ),
+            verify_adjacent_steps=bool(
+                data.get("verify_adjacent_steps", d.verify_adjacent_steps)
+            ),
+            verify_seed_to_final=bool(
+                data.get("verify_seed_to_final", d.verify_seed_to_final)
+            ),
+            save_intermediate_theories=bool(
+                data.get("save_intermediate_theories", d.save_intermediate_theories)
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class RepairConfig:
     """Repair-loop knobs (Deliverable 6 + 7).
 
@@ -217,6 +292,7 @@ class ExperimentConfig:
     verifier: VerifierConfig = field(default_factory=VerifierConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
     repair: RepairConfig = field(default_factory=RepairConfig)
+    chain: ChainConfig = field(default_factory=ChainConfig)
     output_dir: str = "runs/experiments"
     split: str = "eval"
     notes: str = ""
@@ -258,6 +334,7 @@ class ExperimentConfig:
             "verifier": self.verifier.to_dict(),
             "model": self.model.to_dict(),
             "repair": self.repair.to_dict(),
+            "chain": self.chain.to_dict(),
             "output_dir": self.output_dir,
             "split": self.split,
             "notes": self.notes,
@@ -277,6 +354,7 @@ class ExperimentConfig:
             verifier=VerifierConfig.from_dict(data.get("verifier", {})),
             model=ModelConfig.from_dict(data.get("model", {})),
             repair=RepairConfig.from_dict(data.get("repair", {})),
+            chain=ChainConfig.from_dict(data.get("chain", {})),
             output_dir=str(data.get("output_dir", "runs/experiments")),
             split=str(data.get("split", "eval")),
             notes=str(data.get("notes", "")),

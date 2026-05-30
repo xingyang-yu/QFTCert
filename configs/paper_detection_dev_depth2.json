@@ -1,0 +1,41 @@
+{
+  "name": "paper_detection_dev_depth2",
+  "notes": "DEV config that actually produces depth-2 fixtures. Uses seed-to-final gating only (chain.verify_adjacent_steps=false): intermediate theories are mechanical scaffolding and are NOT required to be duals; only the (T0, T_K) endpoint pair is verifier-gated as a real dual. allow_incomplete_cells=true because dp0's dual cannot be re-mutated in MVP scope (honest attrition). depth here is GENERATED chain length, not a minimal mutation distance.",
+  "depths": [1, 2],
+  "fixture_classes": [
+    "positive",
+    "drop_w_term",
+    "flip_w_sign",
+    "r_charge_perturb",
+    "rank_perturb"
+  ],
+  "n_per_cell": 2,
+  "seed": 20260601,
+  "split": "dev",
+  "output_dir": "runs/experiments/dev_depth2",
+  "allow_incomplete_cells": true,
+  "verifier": {
+    "duality_profile": "phase2c_a_detection",
+    "chiral_ring_max_length": 3,
+    "require_r_graded": true
+  },
+  "chain": {
+    "max_chain_attempts_per_cell": 12,
+    "max_attempts_per_step": 8,
+    "verify_adjacent_steps": false,
+    "verify_seed_to_final": true,
+    "forbid_immediate_backtracking": true,
+    "allow_repeated_states": false,
+    "save_intermediate_theories": true
+  },
+  "model": {
+    "provider": "dryrun",
+    "model": "dryrun",
+    "max_tokens": 2048
+  },
+  "repair": {
+    "max_rounds": 5,
+    "feedback_mode": "verifier_feedback",
+    "feedback_detail": "medium"
+  }
+}

@@ -43,8 +43,9 @@ __all__ = [
 
 
 # Why fixtures get excluded from the main eval manifest. The first six
-# are the deliverable-specified vocabulary; the last three are concrete
-# operational reasons this harness emits (documented in docs/experiments.md).
+# are the original deliverable vocabulary; the rest are concrete
+# operational reasons this harness emits (documented in
+# docs/experiments.md), including the Phase 2d chain-runner reasons.
 ATTRITION_REASONS: tuple[str, ...] = (
     "UNKNOWN",
     "NOT_APPLICABLE",
@@ -52,9 +53,24 @@ ATTRITION_REASONS: tuple[str, ...] = (
     "verifier_error",
     "duplicate",
     "schema_invalid",
-    "depth_not_implemented",  # mutation chain runner cannot build depth>=2 yet
+    "depth_not_implemented",  # legacy (pre-Phase-2d); retained for back-compat
     "unexpected_label",  # verifier verdict disagreed with the class's expectation
-    "generator_discard",  # operator could not apply (e.g. empty W)
+    "generator_discard",  # perturbation operator could not apply (e.g. empty W)
+    # --- Phase 2d chain-runner reasons ---
+    "no_valid_mutation_nodes",
+    "single_step_mutation_failed",
+    "immediate_backtracking_rejected",
+    "repeated_state_rejected",
+    "intermediate_schema_invalid",
+    "intermediate_out_of_scope",
+    "adjacent_verifier_failed",
+    "adjacent_verifier_unknown",
+    "final_verifier_failed",
+    "final_verifier_unknown",
+    "exceeds_size_budget",
+    "duplicate_chain",
+    "duplicate_final_pair",
+    "max_attempts_exceeded",
 )
 
 
@@ -167,6 +183,13 @@ class ManifestRecord:
     generation_metadata: dict[str, Any]
     perturbation_metadata: dict[str, Any] = field(default_factory=dict)
     mutation_chain_id: str | None = None
+    # Chain provenance (Phase 2d). chain_depth is the GENERATED chain
+    # length (number of single-node Seiberg moves), not a minimal
+    # mutation distance. For depth-1 it equals 1.
+    chain_depth: int = 1
+    mutation_node_sequence: tuple[int, ...] = ()
+    intermediate_hashes: tuple[str, ...] = ()
+    final_theory_hash: str = ""
     source: str = ""
     split: str = "eval"
 
@@ -208,6 +231,10 @@ def manifest_record_to_dict(record: ManifestRecord) -> dict[str, Any]:
         "size_covariates": record.size_covariates.to_dict(),
         "generation_metadata": dict(record.generation_metadata),
         "perturbation_metadata": dict(record.perturbation_metadata),
+        "chain_depth": int(record.chain_depth),
+        "mutation_node_sequence": list(record.mutation_node_sequence),
+        "intermediate_hashes": list(record.intermediate_hashes),
+        "final_theory_hash": record.final_theory_hash,
         "source": record.source,
         "split": record.split,
     }
@@ -236,6 +263,14 @@ def manifest_record_from_dict(data: Mapping[str, Any]) -> ManifestRecord:
             if data.get("mutation_chain_id") is None
             else str(data["mutation_chain_id"])
         ),
+        chain_depth=int(data.get("chain_depth", data.get("depth", 1))),
+        mutation_node_sequence=tuple(
+            int(n) for n in data.get("mutation_node_sequence", [])
+        ),
+        intermediate_hashes=tuple(
+            str(h) for h in data.get("intermediate_hashes", [])
+        ),
+        final_theory_hash=str(data.get("final_theory_hash", "")),
         source=str(data.get("source", "")),
         split=str(data.get("split", "eval")),
     )
@@ -378,6 +413,9 @@ _CSV_COLUMNS: tuple[str, ...] = (
     "seed_id",
     "mutation_chain_id",
     "depth",
+    "chain_depth",
+    "mutation_node_sequence",
+    "final_theory_hash",
     "perturbation_class",
     "label",
     "ground_truth_label",
@@ -421,6 +459,11 @@ def write_manifest_csv(
                     "seed_id": r.seed_id,
                     "mutation_chain_id": r.mutation_chain_id or "",
                     "depth": r.depth,
+                    "chain_depth": r.chain_depth,
+                    "mutation_node_sequence": "-".join(
+                        str(n) for n in r.mutation_node_sequence
+                    ),
+                    "final_theory_hash": r.final_theory_hash,
                     "perturbation_class": r.perturbation_class,
                     "label": r.label,
                     "ground_truth_label": r.ground_truth_label,

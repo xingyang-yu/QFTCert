@@ -27,10 +27,9 @@ from typing import Any, Mapping
 
 from dualitycert.benchmark.fixtures import sanitize_for_prompt
 from dualitycert.experiments.chains import (
-    ChainConstructionError,
-    DepthNotImplementedError,
+    MutationChainResult,
+    canonical_theory_hash,
     generate_mutation_chain,
-    unimplemented_depths,
 )
 from dualitycert.experiments.config import ExperimentConfig
 from dualitycert.experiments.manifest import (
@@ -62,11 +61,14 @@ GENERATOR_VERSION = "qftcert-experiments/0.1"
 
 
 class IncompleteCellsError(ValueError):
-    """A strict run requested depths the mutation engine cannot build yet.
+    """A strict run left one or more requested (depth x class) cells empty.
 
-    Raised by `generate_fixtures` during preflight when the config asks
-    for depth >= 2 and `allow_incomplete_cells` is False, so a paper run
-    cannot silently ship depth=1-only coverage labeled as depth 1-4.
+    Raised by `generate_fixtures` AFTER generation when
+    `allow_incomplete_cells` is False and some requested cell produced
+    zero main-manifest fixtures (e.g. the physics / verifier scope
+    rejected every depth-K attempt). This keeps a paper run from silently
+    claiming coverage it does not actually have; set
+    `allow_incomplete_cells` to record honest attrition instead.
     """
 
 
@@ -117,15 +119,6 @@ def generate_fixtures(
         if allow_incomplete_cells is None
         else allow_incomplete_cells
     )
-    missing = unimplemented_depths(config.depths)
-    if missing and not allow_incomplete:
-        raise IncompleteCellsError(
-            f"config '{config.name}' requests depths {missing} that the "
-            "mutation engine cannot build yet (supports depth=1 only). "
-            "Pass allow_incomplete_cells=True (CLI: --allow-incomplete-cells) "
-            "to generate the implemented depths and route depth>=2 cells to "
-            "the attrition manifest."
-        )
 
     out_dir_path = Path(out_dir if out_dir is not None else config.output_dir)
     seed_specs = seed_specs if seed_specs is not None else default_seed_specs()
@@ -159,6 +152,10 @@ def generate_fixtures(
         source: str,
         chain_id: str | None,
         perturbation_metadata: Mapping[str, Any],
+        chain_depth: int = 1,
+        mutation_node_sequence: tuple[int, ...] = (),
+        intermediate_hashes: tuple[str, ...] = (),
+        final_theory_hash: str = "",
     ) -> ManifestRecord | None:
         pair_hash = _pair_hash(electric, candidate)
         if pair_hash in seen_pair_hash:
@@ -204,11 +201,44 @@ def generate_fixtures(
             generation_metadata=_gen_meta(seed_id),
             perturbation_metadata=dict(perturbation_metadata),
             mutation_chain_id=chain_id,
+            chain_depth=chain_depth,
+            mutation_node_sequence=tuple(mutation_node_sequence),
+            intermediate_hashes=tuple(intermediate_hashes),
+            final_theory_hash=final_theory_hash,
             source=source,
             split=config.split,
         )
         result.manifest.append(record)
         return record
+
+    def _attempt_chain(
+        electric: Mapping[str, Any],
+        depth: int,
+        spec: SeedSpec,
+        si: int,
+    ) -> MutationChainResult:
+        """Build a depth-K chain. depth=1 pins the seed node (MVP-exact);
+        depth>=2 retries with fresh rng (unpinned node) up to the budget."""
+
+        if depth == 1:
+            chain_seed = _stable_seed(config.seed, depth, si, "chain")
+            return generate_mutation_chain(
+                electric, 1, Random(chain_seed), config.chain,
+                verifier_config=config.verifier, source_name=spec.source_name,
+                node=spec.node, seed_id=chain_seed,
+            )
+        last: MutationChainResult | None = None
+        for attempt in range(config.chain.max_chain_attempts_per_cell):
+            attempt_seed = _stable_seed(config.seed, depth, si, "chain", attempt)
+            chain = generate_mutation_chain(
+                electric, depth, Random(attempt_seed), config.chain,
+                verifier_config=config.verifier, source_name=spec.source_name,
+                node=None, seed_id=attempt_seed,
+            )
+            if chain.success:
+                return chain
+            last = chain
+        return last  # all attempts failed; carries the last attrition_reason
 
     single_classes = [
         c
@@ -224,49 +254,42 @@ def generate_fixtures(
         for si, spec in enumerate(seed_specs):
             electric = spec.electric()
             base_id = f"{spec.source_name}_N{spec.N}_d{depth}_node{spec.node}"
-            chain_seed = _stable_seed(config.seed, depth, si, "chain")
 
-            try:
-                chain = generate_mutation_chain(
-                    electric,
-                    depth,
-                    Random(chain_seed),
-                    source_name=spec.source_name,
-                    node=spec.node,
-                )
-            except DepthNotImplementedError as exc:
-                for cls in config.fixture_classes:
-                    result.attrition.append(
-                        AttritionRecord(
-                            fixture_id=f"{base_id}_{cls}",
-                            seed_id=chain_seed,
-                            depth=depth,
-                            perturbation_class=cls,
-                            attrition_reason="depth_not_implemented",
-                            detail=str(exc).splitlines()[0],
-                            verifier_status=None,
-                            generation_metadata=_gen_meta(chain_seed),
-                            source=spec.source_name,
-                        )
-                    )
-                continue
-            except ChainConstructionError as exc:
+            chain = _attempt_chain(electric, depth, spec, si)
+            if chain is None or not chain.success:
+                reason = (
+                    chain.attrition_reason if chain is not None else "max_attempts_exceeded"
+                ) or "no_valid_mutation_nodes"
                 result.attrition.append(
                     AttritionRecord(
                         fixture_id=f"{base_id}_positive",
-                        seed_id=chain_seed,
+                        seed_id=(chain.seed_id if chain is not None else 0) or 0,
                         depth=depth,
                         perturbation_class="positive",
-                        attrition_reason="generator_discard",
-                        detail=str(exc),
-                        verifier_status=None,
-                        generation_metadata=_gen_meta(chain_seed),
+                        attrition_reason=reason,
+                        detail=(
+                            f"depth-{depth} chain failed: {reason} "
+                            f"(realized {chain.depth_realized if chain else 0})"
+                        ),
+                        verifier_status=(
+                            chain.verifier_status_seed_to_final if chain else None
+                        ),
+                        generation_metadata=_gen_meta(
+                            (chain.seed_id if chain is not None else 0) or 0
+                        ),
+                        mutation_chain_id=chain.chain_id if chain is not None else None,
                         source=spec.source_name,
                     )
                 )
                 continue
 
             positive_candidate = chain.final_theory
+            chain_fields = dict(
+                chain_depth=chain.depth_realized,
+                mutation_node_sequence=chain.node_sequence,
+                intermediate_hashes=chain.intermediate_hashes,
+                final_theory_hash=chain.final_theory_hash,
+            )
             pos_outcome = run_verifier(
                 electric, positive_candidate, config.verifier, claim_name=base_id
             )
@@ -279,7 +302,7 @@ def generate_fixtures(
                 result.attrition.append(
                     AttritionRecord(
                         fixture_id=f"{base_id}_positive",
-                        seed_id=chain_seed,
+                        seed_id=chain.seed_id or 0,
                         depth=depth,
                         perturbation_class="positive",
                         attrition_reason=reason,
@@ -288,7 +311,7 @@ def generate_fixtures(
                             or f"positive expected CERTIFIED, got {pos_outcome.status}"
                         ),
                         verifier_status=pos_outcome.status,
-                        generation_metadata=_gen_meta(chain_seed),
+                        generation_metadata=_gen_meta(chain.seed_id or 0),
                         mutation_chain_id=chain.chain_id,
                         source=spec.source_name,
                     )
@@ -311,10 +334,11 @@ def generate_fixtures(
                     source=spec.source_name,
                     chain_id=chain.chain_id,
                     perturbation_metadata={
-                        "mutation_node": spec.node,
-                        "mutation_depth": depth,
+                        "mutation_node_sequence": list(chain.node_sequence),
+                        "mutation_depth": chain.depth_realized,
                         "N": spec.N,
                     },
+                    **chain_fields,
                 )
 
             for cls in single_classes:
@@ -396,6 +420,7 @@ def generate_fixtures(
                         source=spec.source_name,
                         chain_id=chain.chain_id,
                         perturbation_metadata=meta,
+                        **chain_fields,
                     )
 
         if want_wrong_pair:
@@ -408,10 +433,40 @@ def generate_fixtures(
                 gen_meta=_gen_meta,
             )
 
+    # Strict completeness: every requested (depth x class) cell must have
+    # produced at least one main fixture, else fail loudly (unless the
+    # caller opted into incomplete coverage). This replaces the old
+    # depth-preflight now that depth>=2 is actually attempted.
+    empty = _empty_cells(config, result.manifest)
+    if empty and not allow_incomplete:
+        raise IncompleteCellsError(
+            f"config '{config.name}': {len(empty)} requested (depth, class) "
+            f"cell(s) produced zero main fixtures: {empty}. The physics / "
+            "verifier scope rejected every attempt for these cells (see the "
+            "attrition manifest for precise reasons). Pass "
+            "allow_incomplete_cells=True to record honest attrition instead "
+            "of failing."
+        )
+
     if write:
         _write_outputs(config, result, out_dir_path)
 
     return result
+
+
+def _empty_cells(
+    config: ExperimentConfig, manifest: list[ManifestRecord]
+) -> list[str]:
+    """Requested (depth x class) cells with zero main-manifest fixtures."""
+
+    filled = {(r.depth, r.perturbation_class) for r in manifest}
+    missing = [
+        f"d{depth}|{cls}"
+        for depth in config.depths
+        for cls in config.fixture_classes
+        if (depth, cls) not in filled
+    ]
+    return sorted(missing)
 
 
 # ----------------------------------------------------------------------
@@ -489,6 +544,8 @@ def _build_wrong_pairs(
             source=source,
             chain_id=None,
             perturbation_metadata={"cross_family": source},
+            chain_depth=depth,
+            final_theory_hash=canonical_theory_hash(candidate),
         )
         if rec is not None:
             produced += 1
