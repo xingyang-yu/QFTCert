@@ -4,6 +4,13 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
+from dualitycert.agent.diagnosis import (
+    DIAGNOSIS_FAILURE_MODES,
+    DIAGNOSIS_SUSPECTED_CAUSES,
+    DiagnosisDecision,
+)
 from dualitycert.agent.dryrun import DryRunModelClient
 from dualitycert.experiments.config import ExperimentConfig, VerifierConfig
 from dualitycert.experiments.generation import generate_fixtures
@@ -133,6 +140,40 @@ def test_macro_f1_perfect_and_partial():
     golds2 = [["anomaly"], ["chiral_ring"]]
     macro2, per2 = macro_f1(preds2, golds2)
     assert 0.0 < macro2 < 1.0
+
+
+def test_diagnosis_failure_modes_exclude_rank():
+    assert "rank" not in DIAGNOSIS_FAILURE_MODES
+    assert "rank_perturb" in DIAGNOSIS_SUSPECTED_CAUSES
+    with pytest.raises(ValueError):
+        DiagnosisDecision(failure_modes=("rank",), confidence="low", reasoning="x")
+
+
+def test_diagnosis_suspected_cause_validated():
+    d = DiagnosisDecision(
+        failure_modes=("anomaly",),
+        suspected_cause=("rank_perturb",),
+        confidence="low",
+        reasoning="x",
+    )
+    assert d.suspected_cause == ("rank_perturb",)
+    with pytest.raises(ValueError):
+        DiagnosisDecision(
+            failure_modes=(), suspected_cause=("nope",), confidence="low", reasoning="x"
+        )
+
+
+def test_diagnosis_macro_uses_fixed_labels_and_secondary(tmp_path):
+    records, root = _make_manifest(tmp_path)
+    client = DryRunModelClient(diagnosis_modes=("anomaly",), diagnosis_causes=("rank_perturb",))
+    res = run_single_shot(
+        records, theory_root=root, client=client, out_dir=tmp_path / "o",
+        model="dryrun", tasks=("diagnosis",), run_id="r",
+    )
+    g = res.summary["diagnosis"]
+    assert g["macro_f1_labels"] == ["anomaly", "superpotential", "r_charge", "chiral_ring"]
+    assert "suspected_cause" in g  # secondary analysis recorded
+    assert 0.0 <= g["suspected_cause"]["exact_match_rate"] <= 1.0
 
 
 def test_summarize_detection_and_diagnosis():

@@ -229,6 +229,49 @@ def test_run_repair_experiment_writes_artifacts(tmp_path):
                {x.fixture_id for x in exp.results})
 
 
+def test_force_model_on_certified_no_change_is_safe(tmp_path):
+    cfg, res, root = _dp0_manifest(tmp_path)
+    pos = _by_class(res.manifest, "positive")
+    client = DryRunModelClient()  # default no_change
+    r = run_repair_loop(
+        pos, theory_root=root, client=client, config=cfg,
+        arm="verifier_feedback", force_model_on_certified=True,
+    )
+    assert r.started_certified is True
+    assert client.structured_calls  # model WAS invoked (no short-circuit)
+    assert r.harmed is False
+    assert r.unnecessary_edit is False
+    assert r.success is True
+
+
+def test_force_model_on_certified_detects_harm(tmp_path):
+    cfg, res, root = _dp0_manifest(tmp_path)
+    pos = _by_class(res.manifest, "positive")
+
+    def harmful(*, user, tool_name, schema):
+        # Remove a W term from a valid dual -> breaks the chiral-ring check.
+        return {
+            "action": "edit_candidate",
+            "patches": [{"op": "remove", "path": "/superpotential/0"}],
+            "reasoning": "break it",
+        }
+
+    client = DryRunModelClient(structured_policy=harmful)
+    r = run_repair_loop(
+        pos, theory_root=root, client=client, config=cfg,
+        arm="verifier_feedback", force_model_on_certified=True,
+    )
+    assert r.started_certified is True
+    assert r.unnecessary_edit is True
+    assert r.harmed is True
+    assert r.success is False
+
+    summary = score_repair([r], max_rounds=5)
+    assert summary["n_started_certified"] == 1
+    assert summary["harm_rate"] == 1.0
+    assert summary["unnecessary_edit_rate"] == 1.0
+
+
 def test_theory_edit_distance():
     a = {"ranks": [2, 3], "name": "x"}
     b = {"ranks": [2, 4], "name": "x"}

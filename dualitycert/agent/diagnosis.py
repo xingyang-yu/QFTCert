@@ -24,6 +24,7 @@ __all__ = [
     "DIAGNOSIS_SYSTEM_PROMPT",
     "DIAGNOSIS_TOOL_NAME",
     "DIAGNOSIS_FAILURE_MODES",
+    "DIAGNOSIS_SUSPECTED_CAUSES",
     "DEFAULT_MODEL",
     "DEFAULT_MAX_TOKENS",
     "DiagnosisDecision",
@@ -37,15 +38,28 @@ DEFAULT_MAX_TOKENS = 2048
 
 DIAGNOSIS_TOOL_NAME = "duality_diagnosis"
 
-# Mirrors `dualitycert.experiments.verifier.FAILURE_MODE_CATEGORIES`
-# minus "unknown" handling: "unknown" is offered to the model as a
-# catch-all, but a consistent pair is signaled by an empty list.
+# PRIMARY task labels: the verifier *obligation* categories. These are
+# what the verifier can actually report as failed, so they are the
+# scorable ground truth. "rank" is deliberately NOT here — a rank
+# perturbation surfaces as an anomaly obligation failure; rank is a
+# perturbation *cause*, not a verifier obligation (see suspected_cause).
 DIAGNOSIS_FAILURE_MODES: tuple[str, ...] = (
     "anomaly",
     "superpotential",
     "r_charge",
     "chiral_ring",
-    "rank",
+    "unknown",
+)
+
+# SECONDARY task labels: the upstream perturbation the model suspects
+# caused the inconsistency. Scored only as secondary analysis (the
+# primary diagnosis metric uses failure_modes).
+DIAGNOSIS_SUSPECTED_CAUSES: tuple[str, ...] = (
+    "drop_w_term",
+    "flip_w_sign",
+    "r_charge_perturb",
+    "rank_perturb",
+    "wrong_pair",
     "unknown",
 )
 
@@ -57,13 +71,22 @@ DIAGNOSIS_DECISION_SCHEMA: dict[str, Any] = {
             "type": "array",
             "items": {"type": "string", "enum": list(DIAGNOSIS_FAILURE_MODES)},
             "description": (
-                "The consistency obligation categories Theory B violates "
-                "relative to Theory A. Return an EMPTY list if the pair is a "
-                "valid dual (no obligation fails). Categories: anomaly "
-                "(gauge / mixed 't Hooft anomalies), superpotential (W "
-                "consistency / R(W)=2), r_charge (R-symmetry / central "
-                "charge), chiral_ring (bounded chiral-ring multiplicities), "
-                "rank (gauge rank), unknown."
+                "PRIMARY: the verifier obligation categories Theory B "
+                "violates relative to Theory A. Return an EMPTY list if the "
+                "pair is a valid dual. Categories: anomaly (gauge / mixed "
+                "'t Hooft anomalies), superpotential (W consistency / "
+                "R(W)=2), r_charge (R-symmetry / central charge), chiral_ring "
+                "(bounded chiral-ring multiplicities), unknown."
+            ),
+        },
+        "suspected_cause": {
+            "type": "array",
+            "items": {"type": "string", "enum": list(DIAGNOSIS_SUSPECTED_CAUSES)},
+            "description": (
+                "SECONDARY (optional): the upstream edit you suspect broke "
+                "the duality, from drop_w_term, flip_w_sign, r_charge_perturb, "
+                "rank_perturb, wrong_pair, unknown. EMPTY if the pair is a "
+                "valid dual."
             ),
         },
         "confidence": {
@@ -90,18 +113,23 @@ You will see two quiver theory JSONs labeled "Theory A" (electric) and \
 "Theory B" (candidate dual): gauge ranks, bifundamental arrows with \
 R-charges, and a superpotential.
 
-Your task: identify which consistency obligation categories Theory B \
+PRIMARY task — identify which consistency obligation categories Theory B \
 violates relative to Theory A, choosing from:
   - anomaly        : cubic gauge or SU(N)^2 x U(1)_R mixed 't Hooft anomalies
   - superpotential : superpotential consistency / R(W)=2 balance
   - r_charge       : R-symmetry assignment / central charge matching
   - chiral_ring    : bounded chiral-ring multiplicity mismatch
-  - rank           : gauge rank mismatch
   - unknown        : a failure you cannot localize
+Return these in failure_modes (EMPTY if the pair is a valid dual). Note a \
+gauge-rank error shows up as an anomaly obligation failure — there is no \
+separate "rank" obligation.
 
-If Theory A and Theory B ARE a valid dual (no obligation fails), return an \
-EMPTY failure_modes list. Use the structured-output tool only; do not write \
-anything outside the tool call."""
+SECONDARY task (optional) — in suspected_cause, name the upstream edit you \
+think broke the duality (drop_w_term, flip_w_sign, r_charge_perturb, \
+rank_perturb, wrong_pair, unknown), or EMPTY for a valid dual.
+
+Use the structured-output tool only; do not write anything outside the \
+tool call."""
 
 
 @dataclass(frozen=True)
@@ -111,6 +139,7 @@ class DiagnosisDecision:
     failure_modes: tuple[str, ...]
     confidence: str
     reasoning: str
+    suspected_cause: tuple[str, ...] = ()
     latency_s: float | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
@@ -121,6 +150,12 @@ class DiagnosisDecision:
                 raise ValueError(
                     f"DiagnosisDecision.failure_modes contains invalid mode "
                     f"{mode!r}; allowed {DIAGNOSIS_FAILURE_MODES!r}"
+                )
+        for cause in self.suspected_cause:
+            if cause not in DIAGNOSIS_SUSPECTED_CAUSES:
+                raise ValueError(
+                    f"DiagnosisDecision.suspected_cause contains invalid cause "
+                    f"{cause!r}; allowed {DIAGNOSIS_SUSPECTED_CAUSES!r}"
                 )
         if self.confidence not in {"low", "medium", "high"}:
             raise ValueError(
@@ -179,8 +214,10 @@ def run_diagnosis(
     )
     data = response.data
     modes = tuple(str(m) for m in data.get("failure_modes", []))
+    causes = tuple(str(c) for c in data.get("suspected_cause", []) or [])
     return DiagnosisDecision(
         failure_modes=modes,
+        suspected_cause=causes,
         confidence=str(data["confidence"]),
         reasoning=str(data["reasoning"]),
         latency_s=response.latency_s,

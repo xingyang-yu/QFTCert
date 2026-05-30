@@ -83,7 +83,11 @@ def main(argv: list[str] | None = None) -> int:
     # Experiment subcommands attach a `func` handler via set_defaults.
     handler = getattr(args, "func", None)
     if handler is not None:
-        return handler(args)
+        try:
+            return handler(args)
+        except Exception as exc:  # clean message, matching the CLI's style
+            print(f"dualitycert: {exc}", file=sys.stderr)
+            return 2
 
     if args.command == "check":
         try:

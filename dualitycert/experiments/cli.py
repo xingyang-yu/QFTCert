@@ -30,6 +30,14 @@ def add_subparsers(subparsers) -> None:
     )
     gen.add_argument("--config", required=True, help="Experiment config JSON path.")
     gen.add_argument("--out", required=True, help="Output directory.")
+    gen.add_argument(
+        "--allow-incomplete-cells",
+        action="store_true",
+        help=(
+            "Allow depth>=2 cells (unimplemented) to route to attrition instead "
+            "of preflight-failing the run."
+        ),
+    )
     gen.set_defaults(func=cmd_generate_fixtures)
 
     ver = subparsers.add_parser(
@@ -90,6 +98,14 @@ def add_subparsers(subparsers) -> None:
         action="store_true",
         help="Also run positives / wrong_pair (do-no-harm / abstention stress).",
     )
+    rep.add_argument(
+        "--force-model-on-certified",
+        action="store_true",
+        help=(
+            "Challenge mode: do not short-circuit passing candidates; force the "
+            "model to act so harm / unnecessary-edit rates are measurable."
+        ),
+    )
     rep.set_defaults(func=cmd_run_repair_loop)
 
     score_rep = subparsers.add_parser(
@@ -127,7 +143,9 @@ def cmd_generate_fixtures(args) -> int:
     from dualitycert.experiments.generation import generate_fixtures
 
     config = ExperimentConfig.from_json_file(args.config)
-    result = generate_fixtures(config, out_dir=args.out)
+    result = generate_fixtures(
+        config, out_dir=args.out, allow_incomplete_cells=args.allow_incomplete_cells
+    )
     print(f"[generate-fixtures] config={config.name} out={args.out}")
     print(f"  manifest: {len(result.manifest)} fixtures  {result.label_counts()}")
     print(f"  by class: {result.class_counts()}")
@@ -268,6 +286,7 @@ def cmd_run_repair_loop(args) -> int:
         run_id=args.run_id,
         model=model_name,
         repairable_only=not args.include_non_repairable,
+        force_model_on_certified=args.force_model_on_certified,
     )
     s = result.summary
     print(f"[run-repair-loop] arm={args.arm} run_dir={result.run_dir}")

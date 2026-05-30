@@ -34,12 +34,14 @@ class DryRunModelClient:
         *,
         detection_verdict: str = "not_dual",
         diagnosis_modes: tuple[str, ...] = ("unknown",),
+        diagnosis_causes: tuple[str, ...] = (),
         structured_policy: StructuredPolicy | None = None,
         text_policy: Callable[[str], str] | None = None,
         fail_structured: bool = False,
     ) -> None:
         self.detection_verdict = detection_verdict
         self.diagnosis_modes = tuple(diagnosis_modes)
+        self.diagnosis_causes = tuple(diagnosis_causes)
         self.structured_policy = structured_policy
         self.text_policy = text_policy
         self.fail_structured = fail_structured
@@ -109,6 +111,7 @@ class DryRunModelClient:
         if "failure_modes" in props:
             return {
                 "failure_modes": list(self.diagnosis_modes),
+                "suspected_cause": list(self.diagnosis_causes),
                 "confidence": "low",
                 "reasoning": "dry-run deterministic stub",
             }

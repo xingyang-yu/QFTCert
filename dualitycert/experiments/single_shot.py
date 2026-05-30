@@ -33,8 +33,10 @@ from dualitycert.experiments.scoring import (
     detection_correct,
     diagnosis_exact_match,
     gold_categories,
+    gold_cause_for_class,
     summarize_detection,
     summarize_diagnosis,
+    suspected_cause_exact_match,
 )
 
 
@@ -203,6 +205,7 @@ def _call_diagnosis(
     except Exception as exc:
         return {
             "failure_modes": None,
+            "suspected_cause": None,
             "confidence": None,
             "reasoning": None,
             "valid": False,
@@ -213,6 +216,7 @@ def _call_diagnosis(
         }
     return {
         "failure_modes": list(dec.failure_modes),
+        "suspected_cause": list(dec.suspected_cause),
         "confidence": dec.confidence,
         "reasoning": dec.reasoning,
         "valid": True,
@@ -251,7 +255,13 @@ def build_scored_rows(
             if (diag is not None and diag_valid)
             else None
         )
+        diag_causes = (
+            list(diag.get("suspected_cause") or [])
+            if (diag is not None and diag_valid)
+            else None
+        )
         diag_conf = diag["confidence"] if diag is not None else None
+        gold_cause = list(gold_cause_for_class(rec.perturbation_class))
 
         latencies = [
             x["latency_s"]
@@ -289,6 +299,13 @@ def build_scored_rows(
                 "diagnosis_valid": diag_valid if diag is not None else None,
                 "diagnosis_exact_match": (
                     diagnosis_exact_match(diag_modes, gold)
+                    if diag is not None
+                    else False
+                ),
+                "suspected_cause": diag_causes,
+                "gold_cause": gold_cause,
+                "suspected_cause_exact_match": (
+                    suspected_cause_exact_match(diag_causes, gold_cause)
                     if diag is not None
                     else False
                 ),

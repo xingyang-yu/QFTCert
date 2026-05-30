@@ -30,6 +30,7 @@ from dualitycert.experiments.chains import (
     ChainConstructionError,
     DepthNotImplementedError,
     generate_mutation_chain,
+    unimplemented_depths,
 )
 from dualitycert.experiments.config import ExperimentConfig
 from dualitycert.experiments.manifest import (
@@ -52,11 +53,21 @@ from dualitycert.experiments.verifier import VerifierOutcome, run_verifier
 __all__ = [
     "GENERATOR_VERSION",
     "GenerationResult",
+    "IncompleteCellsError",
     "generate_fixtures",
 ]
 
 
 GENERATOR_VERSION = "qftcert-experiments/0.1"
+
+
+class IncompleteCellsError(ValueError):
+    """A strict run requested depths the mutation engine cannot build yet.
+
+    Raised by `generate_fixtures` during preflight when the config asks
+    for depth >= 2 and `allow_incomplete_cells` is False, so a paper run
+    cannot silently ship depth=1-only coverage labeled as depth 1-4.
+    """
 
 
 @dataclass
@@ -85,6 +96,7 @@ def generate_fixtures(
     seed_specs: list[SeedSpec] | None = None,
     generated_at: str | None = None,
     git_commit: str | None = None,
+    allow_incomplete_cells: bool | None = None,
     write: bool = True,
 ) -> GenerationResult:
     """Generate a verifier-gated manifest + attrition manifest.
@@ -92,7 +104,28 @@ def generate_fixtures(
     Theory JSONs are written under `<out_dir>/theories/`; manifest paths
     are stored relative to `out_dir`. Pass `generated_at` to pin the
     timestamp (tests) and `git_commit` to avoid shelling out to git.
+
+    Strict by default: if the config requests depths the mutation engine
+    cannot build (depth >= 2) and neither `allow_incomplete_cells` nor
+    `config.allow_incomplete_cells` is set, raises `IncompleteCellsError`
+    before generating anything (so a paper run cannot silently ship
+    partial depth coverage).
     """
+
+    allow_incomplete = (
+        config.allow_incomplete_cells
+        if allow_incomplete_cells is None
+        else allow_incomplete_cells
+    )
+    missing = unimplemented_depths(config.depths)
+    if missing and not allow_incomplete:
+        raise IncompleteCellsError(
+            f"config '{config.name}' requests depths {missing} that the "
+            "mutation engine cannot build yet (supports depth=1 only). "
+            "Pass allow_incomplete_cells=True (CLI: --allow-incomplete-cells) "
+            "to generate the implemented depths and route depth>=2 cells to "
+            "the attrition manifest."
+        )
 
     out_dir_path = Path(out_dir if out_dir is not None else config.output_dir)
     seed_specs = seed_specs if seed_specs is not None else default_seed_specs()

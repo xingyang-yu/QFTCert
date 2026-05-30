@@ -11,9 +11,13 @@ from dualitycert.experiments.chains import (
     DepthNotImplementedError,
     generate_mutation_chain,
 )
+from dualitycert.benchmark.fixtures import sanitize_for_prompt
+from dualitycert.benchmark.generators import attempt_positive, attempt_w_drop
 from dualitycert.experiments.config import ExperimentConfig, VerifierConfig
-from dualitycert.experiments.generation import generate_fixtures
+from dualitycert.experiments.generation import IncompleteCellsError, generate_fixtures
 from dualitycert.experiments.jsonpatch import apply_patches
+from dualitycert.experiments.perturbations import _edit_drop_w
+from dualitycert.experiments.verifier import run_verifier
 from dualitycert.experiments.manifest import manifest_record_to_dict
 from dualitycert.experiments.perturbations import (
     PerturbationError,
@@ -76,9 +80,19 @@ def test_generation_is_deterministic(tmp_path):
     assert [x.to_dict() for x in a.attrition] == [x.to_dict() for x in b.attrition]
 
 
-def test_depth_ge_2_routes_to_attrition_not_manifest(tmp_path):
+def test_strict_depth_preflight_raises(tmp_path):
+    # Strict by default: requesting depth>=2 fails before generating.
     cfg = _mvp_config(depths=(1, 2, 3))
-    res = generate_fixtures(cfg, out_dir=tmp_path, generated_at="t", git_commit="c")
+    with pytest.raises(IncompleteCellsError):
+        generate_fixtures(cfg, out_dir=tmp_path, generated_at="t", git_commit="c")
+
+
+def test_depth_ge_2_routes_to_attrition_when_allowed(tmp_path):
+    cfg = _mvp_config(depths=(1, 2, 3))
+    res = generate_fixtures(
+        cfg, out_dir=tmp_path, generated_at="t", git_commit="c",
+        allow_incomplete_cells=True,
+    )
     assert all(r.depth == 1 for r in res.manifest)
     reasons = {a.attrition_reason for a in res.attrition}
     assert "depth_not_implemented" in reasons
@@ -86,6 +100,46 @@ def test_depth_ge_2_routes_to_attrition_not_manifest(tmp_path):
     for a in res.attrition:
         if a.depth >= 2:
             assert a.attrition_reason == "depth_not_implemented"
+
+
+def test_decoupled_edit_matches_mvp_generator(tmp_path):
+    # Regression: the experiments drop-W edit must produce the same
+    # candidate as the locked MVP operator for the same positive + seed.
+    electric = dp0_electric(3)
+    positive, _ = attempt_positive(
+        electric_json=electric, node=0, N=3, source_name="dp0",
+        fixture_id="p", seed=0,
+    )
+    assert positive is not None
+    found = False
+    for seed in range(40):
+        mvp_fix, _ = attempt_w_drop(positive=positive, fixture_id="d", seed=seed)
+        if mvp_fix is None:
+            continue  # silent miss / discard at this seed
+        edited, _meta = _edit_drop_w(positive.candidate, random.Random(seed))
+        assert json.dumps(edited, sort_keys=True) == json.dumps(
+            mvp_fix.candidate, sort_keys=True
+        )
+        found = True
+        break
+    assert found, "expected at least one accepted MVP w_drop to compare against"
+
+
+def test_sanitize_is_verifier_invariant(tmp_path):
+    # The repair loop verifies sanitized theories; the verdict must match
+    # the raw theories' verdict (sanitize only neutralizes provenance).
+    cfg = _mvp_config(fixture_classes=("positive", "drop_w_term"))
+    res = generate_fixtures(cfg, out_dir=tmp_path, generated_at="t", git_commit="c")
+    for r in res.manifest[:6]:
+        e = json.loads((tmp_path / r.theory_a_path).read_text())
+        c = json.loads((tmp_path / r.theory_b_path).read_text())
+        raw = run_verifier(e, c, VerifierConfig())
+        san = run_verifier(
+            sanitize_for_prompt(e, theory_label="A"),
+            sanitize_for_prompt(c, theory_label="B"),
+            VerifierConfig(),
+        )
+        assert raw.status == san.status
 
 
 def test_silent_miss_routes_to_attrition(tmp_path):

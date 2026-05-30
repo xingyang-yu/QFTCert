@@ -195,6 +195,11 @@ class RepairResult:
     out_of_scope: bool
     verifier_calls: int
     edit_distance: int
+    # do-no-harm challenge fields (None unless force_model_on_certified
+    # and the candidate started consistent under the final verifier).
+    started_certified: bool | None = None
+    harmed: bool | None = None
+    unnecessary_edit: bool | None = None
     rounds: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -215,6 +220,9 @@ class RepairResult:
             "out_of_scope": self.out_of_scope,
             "verifier_calls": self.verifier_calls,
             "edit_distance": self.edit_distance,
+            "started_certified": self.started_certified,
+            "harmed": self.harmed,
+            "unnecessary_edit": self.unnecessary_edit,
             "rounds": self.rounds,
         }
 
@@ -471,6 +479,7 @@ def run_repair_loop(
     model: str | None = None,
     max_tokens: int | None = None,
     critic_client: LLMClient | None = None,
+    force_model_on_certified: bool | None = None,
 ) -> RepairResult:
     """Run the repair loop for one fixture and return a structured result."""
 
@@ -489,6 +498,11 @@ def run_repair_loop(
     detail = config.repair.feedback_detail
     feedback_vcfg = config.feedback_verifier()
     final_vcfg = config.final_eval_verifier()
+    force_certified = (
+        config.repair.force_model_on_certified
+        if force_model_on_certified is None
+        else force_model_on_certified
+    )
 
     electric = sanitize_for_prompt(
         _load_theory(theory_root, record.theory_a_path), theory_label="Theory A"
@@ -508,6 +522,17 @@ def run_repair_loop(
     invalid = False
     out_of_scope = False
     n_rounds = 0
+    harmed: bool | None = None
+    unnecessary_edit: bool | None = None
+
+    # Challenge mode: record whether the candidate starts consistent under
+    # the FINAL verifier, so harm / unnecessary edits are measurable.
+    started_certified: bool | None = None
+    if force_certified:
+        started_certified = run_verifier(electric, current, final_vcfg).is_certified
+        verifier_calls += 1
+        harmed = False
+        unnecessary_edit = False
 
     for r in range(1, rounds + 1):
         n_rounds = r
@@ -515,9 +540,11 @@ def run_repair_loop(
         fb_outcome = run_verifier(electric, current, feedback_vcfg)
         verifier_calls += 1
 
-        # Already consistent under the feedback verifier: judge by final
-        # eval and stop (this is also the do-no-harm short-circuit).
-        if fb_outcome.is_certified:
+        # Already consistent under the feedback verifier: in production
+        # mode, short-circuit (do-no-harm — never touch a passing
+        # candidate). In challenge mode, fall through and force the model
+        # to decide explicitly.
+        if fb_outcome.is_certified and not force_certified:
             final_outcome = run_verifier(electric, current, final_vcfg)
             verifier_calls += 1
             final_status = final_outcome.status
@@ -539,17 +566,23 @@ def run_repair_loop(
             )
             break
 
-        feedback_text = build_feedback(
-            arm=arm,
-            detail=detail,
-            electric=electric,
-            candidate=current,
-            outcome=fb_outcome,
-            feedback_verifier=feedback_vcfg,
-            critic_client=critic_client,
-            model=model,
-            max_tokens=max_tokens,
-        )
+        if fb_outcome.is_certified:
+            feedback_text = (
+                "The candidate currently PASSES verification. Decide whether "
+                "any edit is warranted; no_change is acceptable."
+            )
+        else:
+            feedback_text = build_feedback(
+                arm=arm,
+                detail=detail,
+                electric=electric,
+                candidate=current,
+                outcome=fb_outcome,
+                feedback_verifier=feedback_vcfg,
+                critic_client=critic_client,
+                model=model,
+                max_tokens=max_tokens,
+            )
         action, call_err = _call_repair(
             client,
             electric,
@@ -632,6 +665,20 @@ def run_repair_loop(
         new_fb = run_verifier(electric, new_candidate, feedback_vcfg)
         new_final = run_verifier(electric, new_candidate, final_vcfg)
         verifier_calls += 2
+
+        # Challenge accounting: if the candidate was passing at this
+        # round's start and the model changed it anyway, that is an
+        # unnecessary edit; if the change broke the final verifier, harm.
+        if force_certified and fb_outcome.is_certified:
+            changed = (
+                action.action == "edit_candidate"
+                and theory_edit_distance(current, new_candidate) > 0
+            )
+            if changed:
+                unnecessary_edit = True
+                if not new_final.is_certified:
+                    harmed = True
+
         current = new_candidate
 
         rounds_log.append(
@@ -678,6 +725,9 @@ def run_repair_loop(
         out_of_scope=out_of_scope,
         verifier_calls=verifier_calls,
         edit_distance=edit_distance,
+        started_certified=started_certified,
+        harmed=harmed,
+        unnecessary_edit=unnecessary_edit,
         rounds=[_round_to_dict(rl) for rl in rounds_log],
     )
 
@@ -709,6 +759,7 @@ def run_repair_experiment(
     max_tokens: int | None = None,
     critic_client: LLMClient | None = None,
     repairable_only: bool = True,
+    force_model_on_certified: bool | None = None,
     timestamp_override: str | None = None,
 ) -> RepairExperimentResult:
     """Run the repair loop over a manifest under `arm` and write artefacts."""
@@ -740,6 +791,7 @@ def run_repair_experiment(
             model=model,
             max_tokens=max_tokens,
             critic_client=critic_client,
+            force_model_on_certified=force_model_on_certified,
         )
         for rec in selected
     ]
@@ -827,6 +879,19 @@ def score_repair(
         else None
     )
 
+    # Challenge-mode metrics (only over fixtures that started consistent).
+    started = [r for r in results if getattr(r, "started_certified", None)]
+    harm_rate = (
+        sum(1 for r in started if getattr(r, "harmed", None)) / len(started)
+        if started
+        else None
+    )
+    unnecessary_edit_rate = (
+        sum(1 for r in started if getattr(r, "unnecessary_edit", None)) / len(started)
+        if started
+        else None
+    )
+
     summary: dict[str, Any] = {
         "n_fixtures": n,
         "n_success": n_success,
@@ -859,6 +924,9 @@ def score_repair(
         ),
         "generalization_to_final_check_gap": gen_gap,
         "do_no_harm_rate": do_no_harm_rate,
+        "n_started_certified": len(started),
+        "harm_rate": harm_rate,
+        "unnecessary_edit_rate": unnecessary_edit_rate,
         "mean_edit_distance": (
             sum(r.edit_distance for r in results) / n if n else 0.0
         ),

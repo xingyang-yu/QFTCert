@@ -14,13 +14,54 @@ from typing import Any, Iterable, Mapping, Sequence
 
 
 __all__ = [
+    "DIAGNOSIS_MACRO_LABELS",
     "detection_correct",
     "diagnosis_exact_match",
     "gold_categories",
+    "gold_cause_for_class",
     "macro_f1",
+    "suspected_cause_exact_match",
     "summarize_detection",
     "summarize_diagnosis",
 ]
+
+
+# Fixed macro-F1 label vocabulary for diagnosis: the verifier obligation
+# categories that can appear as ground truth. macro-F1 averages over
+# THESE (not just observed labels) so the metric is comparable across
+# runs even when a category never appears. "unknown" is excluded — it is
+# never a gold label (obligations map to concrete categories).
+DIAGNOSIS_MACRO_LABELS: tuple[str, ...] = (
+    "anomaly",
+    "superpotential",
+    "r_charge",
+    "chiral_ring",
+)
+
+
+# Map a perturbation_class to its ground-truth suspected-cause set (the
+# SECONDARY diagnosis target). Positives have no cause.
+_CLASS_TO_CAUSE = {
+    "positive": (),
+    "drop_w_term": ("drop_w_term",),
+    "flip_w_sign": ("flip_w_sign",),
+    "r_charge_perturb": ("r_charge_perturb",),
+    "rank_perturb": ("rank_perturb",),
+    "trivial_rank": ("rank_perturb",),  # alias
+    "wrong_pair": ("wrong_pair",),
+}
+
+
+def gold_cause_for_class(perturbation_class: str) -> tuple[str, ...]:
+    return _CLASS_TO_CAUSE.get(perturbation_class, ("unknown",))
+
+
+def suspected_cause_exact_match(
+    predicted: Sequence[str] | None, gold: Sequence[str]
+) -> bool:
+    if predicted is None:
+        return False
+    return set(predicted) == set(gold)
 
 
 def detection_correct(ground_truth_label: str, verdict: str | None) -> bool:
@@ -184,14 +225,27 @@ def summarize_diagnosis(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
         for r in rows
     ]
     gold_sets = [list(r["gold_categories"]) for r in rows]
-    macro, per_label = macro_f1(pred_sets, gold_sets)
+    macro, per_label = macro_f1(pred_sets, gold_sets, labels=DIAGNOSIS_MACRO_LABELS)
 
-    return {
+    summary = {
         "task": "diagnosis",
         "n_total": n,
         "exact_set_match": n_exact,
         "exact_set_match_rate": (n_exact / n) if n else 0.0,
         "macro_f1": macro,
+        "macro_f1_labels": list(DIAGNOSIS_MACRO_LABELS),
         "per_category": per_label,
         "invalid_rate": (n_invalid / n) if n else 0.0,
     }
+
+    # Secondary analysis: suspected-cause exact match (only if recorded).
+    cause_rows = [r for r in rows if "suspected_cause_exact_match" in r]
+    if cause_rows:
+        n_cause = len(cause_rows)
+        n_cause_match = sum(1 for r in cause_rows if r["suspected_cause_exact_match"])
+        summary["suspected_cause"] = {
+            "n_total": n_cause,
+            "exact_match": n_cause_match,
+            "exact_match_rate": (n_cause_match / n_cause) if n_cause else 0.0,
+        }
+    return summary

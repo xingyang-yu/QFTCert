@@ -141,13 +141,23 @@ intervals**.
 - **Detection**: accuracy (invalid output counted as wrong), balanced
   accuracy, always-`not_dual` / always-`dual` baselines, per-class,
   confusion matrix, separate `invalid_rate`.
-- **Diagnosis**: exact-set match, macro-F1 over the category labels,
-  per-category P/R/F1, `invalid_rate`.
+- **Diagnosis**: the model returns two fields — `failure_modes`
+  (PRIMARY: verifier obligation categories `anomaly` / `superpotential`
+  / `r_charge` / `chiral_ring` / `unknown`) and `suspected_cause`
+  (SECONDARY: the upstream perturbation `drop_w_term` / `flip_w_sign` /
+  `r_charge_perturb` / `rank_perturb` / `wrong_pair` / `unknown`).
+  Primary scoring uses `failure_modes`: exact-set match + macro-F1 over
+  a **fixed** label vocabulary (the four obligation categories, so the
+  metric is comparable across runs). `suspected_cause` is scored only as
+  secondary analysis. Note there is no `rank` obligation — a rank error
+  surfaces as an anomaly failure; `rank_perturb` lives in
+  `suspected_cause`.
 - **Repair**: `success@1/3/5` (judged by the **final** verifier),
   iterations-to-success, verifier-calls-per-success, invalid-JSON rate,
   out-of-scope rate, abstention rate, do-no-harm rate on positives,
   mean edit distance, `generalization_to_final_check` gap, per-depth /
-  per-class breakdowns.
+  per-class breakdowns. In `force_model_on_certified` challenge mode it
+  additionally reports `harm_rate` and `unnecessary_edit_rate`.
 
 ## Plugging in a real model provider
 
@@ -183,15 +193,25 @@ the feedback verifier but fails the final one, `success=False` and
 supplies verifier settings (they come only from config), and patches
 targeting verifier metadata are rejected.
 
-## depth ≥ 2 support status
+## depth ≥ 2 support status (strict by default)
 
 The single-node Seiberg engine (`dualitycert.qft.mutation_engine`)
-supports exactly one mutation step today, so
-`generate_mutation_chain(depth>=2)` raises `DepthNotImplementedError` and
-generation routes those cells to attrition with reason
-`depth_not_implemented`. **No deep chains are fabricated.** Configs may
-already request depths `[1,2,3,4]`; only the depth ≥ 2 branch in
-`experiments/chains.py` needs to change when multi-step mutation lands.
+supports exactly one mutation step today
+(`chains.MAX_IMPLEMENTED_DEPTH == 1`). Generation is **strict by
+default**: if a config requests depths the engine cannot build (≥ 2),
+`generate_fixtures` raises `IncompleteCellsError` during preflight — so
+a paper run cannot silently ship depth=1-only data while claiming depth
+1–4 coverage. The shipped `paper_*` configs intentionally keep depths
+`[1,2,3,4]` and therefore preflight-fail until depth ≥ 2 lands.
+
+To do a depth-1 run from a paper config (development / smoke), pass
+`--allow-incomplete-cells` (or `allow_incomplete_cells: true` in the
+config / `allow_incomplete_cells=True` to `generate_fixtures`). Then
+`generate_mutation_chain(depth>=2)` raises `DepthNotImplementedError`
+and those cells route to attrition with reason `depth_not_implemented`.
+**No deep chains are fabricated.** When multi-step mutation lands, only
+the depth ≥ 2 branch in `experiments/chains.py` (and
+`MAX_IMPLEMENTED_DEPTH`) needs to change.
 
 ### Known TODOs
 

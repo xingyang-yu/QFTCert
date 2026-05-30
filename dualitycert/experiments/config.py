@@ -145,6 +145,12 @@ class RepairConfig:
     feedback_detail: str = "medium"
     feedback_verifier: VerifierConfig | None = None
     final_eval_verifier: VerifierConfig | None = None
+    # Challenge mode (do-no-harm measurement): when True the repair loop
+    # does NOT short-circuit an already-consistent candidate — the model
+    # must explicitly choose no_change / abstain / edit, so harm rate and
+    # unnecessary-edit rate are observable. Default False (production
+    # guardrail: never touch a passing candidate).
+    force_model_on_certified: bool = False
 
     def __post_init__(self) -> None:
         if self.feedback_mode not in FEEDBACK_MODES:
@@ -167,6 +173,7 @@ class RepairConfig:
             "max_rounds": int(self.max_rounds),
             "feedback_mode": self.feedback_mode,
             "feedback_detail": self.feedback_detail,
+            "force_model_on_certified": bool(self.force_model_on_certified),
         }
         if self.feedback_verifier is not None:
             out["feedback_verifier"] = self.feedback_verifier.to_dict()
@@ -185,6 +192,9 @@ class RepairConfig:
             feedback_verifier=VerifierConfig.from_dict(fb) if fb is not None else None,
             final_eval_verifier=(
                 VerifierConfig.from_dict(fe) if fe is not None else None
+            ),
+            force_model_on_certified=bool(
+                data.get("force_model_on_certified", False)
             ),
         )
 
@@ -210,6 +220,12 @@ class ExperimentConfig:
     output_dir: str = "runs/experiments"
     split: str = "eval"
     notes: str = ""
+    # When False (default, "strict"), generation preflight-fails if any
+    # requested depth exceeds the mutation engine's capability — so a
+    # paper run cannot silently claim depth 1-4 coverage while only
+    # producing depth=1. Set True to allow depth>=2 cells to route to
+    # attrition (development / smoke mode).
+    allow_incomplete_cells: bool = False
 
     def __post_init__(self) -> None:
         for cls_name in self.fixture_classes:
@@ -245,6 +261,7 @@ class ExperimentConfig:
             "output_dir": self.output_dir,
             "split": self.split,
             "notes": self.notes,
+            "allow_incomplete_cells": bool(self.allow_incomplete_cells),
         }
 
     @classmethod
@@ -263,6 +280,7 @@ class ExperimentConfig:
             output_dir=str(data.get("output_dir", "runs/experiments")),
             split=str(data.get("split", "eval")),
             notes=str(data.get("notes", "")),
+            allow_incomplete_cells=bool(data.get("allow_incomplete_cells", False)),
         )
 
     @classmethod

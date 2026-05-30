@@ -39,10 +39,23 @@ from dualitycert.qft.r_repair import RRepairError, repair_r_charges
 __all__ = [
     "ChainConstructionError",
     "DepthNotImplementedError",
+    "MAX_IMPLEMENTED_DEPTH",
     "MutationChainResult",
     "canonical_theory_hash",
     "generate_mutation_chain",
+    "unimplemented_depths",
 ]
+
+
+# The single-node Seiberg engine supports exactly one mutation step.
+# Bump this when chains.py grows multi-step support.
+MAX_IMPLEMENTED_DEPTH = 1
+
+
+def unimplemented_depths(depths) -> list[int]:
+    """Return the requested depths the engine cannot build yet (sorted)."""
+
+    return sorted({int(d) for d in depths if int(d) > MAX_IMPLEMENTED_DEPTH})
 
 
 class DepthNotImplementedError(NotImplementedError):
