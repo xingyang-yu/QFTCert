@@ -33,7 +33,10 @@ __all__ = [
     "FIXTURE_CLASSES",
     "FEEDBACK_MODES",
     "FEEDBACK_DETAIL_LEVELS",
+    "PAIR_GENERATION_MODES",
+    "PAIR_ORIGINS",
     "ChainConfig",
+    "EndpointPoolConfig",
     "ModelConfig",
     "VerifierConfig",
     "RepairConfig",
@@ -63,6 +66,21 @@ FEEDBACK_MODES: tuple[str, ...] = (
 )
 
 FEEDBACK_DETAIL_LEVELS: tuple[str, ...] = ("coarse", "medium", "detailed")
+
+# How candidate (electric, candidate) pairs are formed (Phase 2d-ext).
+#   legacy_seed_endpoint : always (T0, T_K) — the original behavior.
+#   endpoint_pool        : sample blind (T_i, T_j) from an endpoint pool.
+PAIR_GENERATION_MODES: tuple[str, ...] = ("legacy_seed_endpoint", "endpoint_pool")
+
+# pair_origin taxonomy for endpoint-pool fixtures.
+PAIR_ORIGINS: tuple[str, ...] = (
+    "same_orbit_endpoint_pair",
+    "perturbed_endpoint_pair",
+    "cross_orbit_pair",
+    "size_matched_cross_pair",
+    "wrong_pair",
+    "positive_seed_endpoint_pair",  # legacy back-compat
+)
 
 
 @dataclass(frozen=True)
@@ -205,6 +223,87 @@ class ChainConfig:
 
 
 @dataclass(frozen=True)
+class EndpointPoolConfig:
+    """Controls for endpoint-pool pair sampling (Phase 2d-ext).
+
+    The mutation engine is treated purely as a benchmark generator: we
+    build a pool of endpoint theories at depths 0..`max_pool_depth` per
+    curated seed (orbit), then sample blind (T_i, T_j) pairs and
+    verifier-gate them. Provenance (seed/depth/path/orbit) is recorded in
+    the manifest but never shown to the model.
+    """
+
+    max_pool_depth: int = 1
+    max_endpoints_per_orbit: int = 16
+    max_pairs_per_theory: int = 6
+    max_pairs_per_orbit: int = 40
+    balance_pair_orientation: bool = True
+    balance_depth_pairs: bool = True
+    allow_same_theory_pair: bool = False
+    allow_same_hash_pair: bool = False
+    size_match_tolerance: int = 8
+    n_perturbed_per_certified: int = 1
+    pair_origins: tuple[str, ...] = (
+        "same_orbit_endpoint_pair",
+        "perturbed_endpoint_pair",
+        "cross_orbit_pair",
+        "size_matched_cross_pair",
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "max_pool_depth": int(self.max_pool_depth),
+            "max_endpoints_per_orbit": int(self.max_endpoints_per_orbit),
+            "max_pairs_per_theory": int(self.max_pairs_per_theory),
+            "max_pairs_per_orbit": int(self.max_pairs_per_orbit),
+            "balance_pair_orientation": bool(self.balance_pair_orientation),
+            "balance_depth_pairs": bool(self.balance_depth_pairs),
+            "allow_same_theory_pair": bool(self.allow_same_theory_pair),
+            "allow_same_hash_pair": bool(self.allow_same_hash_pair),
+            "size_match_tolerance": int(self.size_match_tolerance),
+            "n_perturbed_per_certified": int(self.n_perturbed_per_certified),
+            "pair_origins": list(self.pair_origins),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "EndpointPoolConfig":
+        d = cls()
+        return cls(
+            max_pool_depth=int(data.get("max_pool_depth", d.max_pool_depth)),
+            max_endpoints_per_orbit=int(
+                data.get("max_endpoints_per_orbit", d.max_endpoints_per_orbit)
+            ),
+            max_pairs_per_theory=int(
+                data.get("max_pairs_per_theory", d.max_pairs_per_theory)
+            ),
+            max_pairs_per_orbit=int(
+                data.get("max_pairs_per_orbit", d.max_pairs_per_orbit)
+            ),
+            balance_pair_orientation=bool(
+                data.get("balance_pair_orientation", d.balance_pair_orientation)
+            ),
+            balance_depth_pairs=bool(
+                data.get("balance_depth_pairs", d.balance_depth_pairs)
+            ),
+            allow_same_theory_pair=bool(
+                data.get("allow_same_theory_pair", d.allow_same_theory_pair)
+            ),
+            allow_same_hash_pair=bool(
+                data.get("allow_same_hash_pair", d.allow_same_hash_pair)
+            ),
+            size_match_tolerance=int(
+                data.get("size_match_tolerance", d.size_match_tolerance)
+            ),
+            n_perturbed_per_certified=int(
+                data.get("n_perturbed_per_certified", d.n_perturbed_per_certified)
+            ),
+            pair_origins=tuple(
+                str(p) for p in data.get("pair_origins", d.pair_origins)
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class RepairConfig:
     """Repair-loop knobs (Deliverable 6 + 7).
 
@@ -293,6 +392,9 @@ class ExperimentConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     repair: RepairConfig = field(default_factory=RepairConfig)
     chain: ChainConfig = field(default_factory=ChainConfig)
+    endpoint_pool: EndpointPoolConfig = field(default_factory=EndpointPoolConfig)
+    # "legacy_seed_endpoint" (default, original (T0,T_K)) or "endpoint_pool".
+    pair_generation_mode: str = "legacy_seed_endpoint"
     output_dir: str = "runs/experiments"
     split: str = "eval"
     notes: str = ""
@@ -313,6 +415,11 @@ class ExperimentConfig:
         for d in self.depths:
             if int(d) < 1:
                 raise ValueError(f"depths must be >= 1; got {d!r}")
+        if self.pair_generation_mode not in PAIR_GENERATION_MODES:
+            raise ValueError(
+                f"pair_generation_mode {self.pair_generation_mode!r} not in "
+                f"{PAIR_GENERATION_MODES!r}"
+            )
 
     # -- resolved verifier helpers (Deliverable 7) ----------------------
 
@@ -335,6 +442,8 @@ class ExperimentConfig:
             "model": self.model.to_dict(),
             "repair": self.repair.to_dict(),
             "chain": self.chain.to_dict(),
+            "endpoint_pool": self.endpoint_pool.to_dict(),
+            "pair_generation_mode": self.pair_generation_mode,
             "output_dir": self.output_dir,
             "split": self.split,
             "notes": self.notes,
@@ -355,6 +464,10 @@ class ExperimentConfig:
             model=ModelConfig.from_dict(data.get("model", {})),
             repair=RepairConfig.from_dict(data.get("repair", {})),
             chain=ChainConfig.from_dict(data.get("chain", {})),
+            endpoint_pool=EndpointPoolConfig.from_dict(data.get("endpoint_pool", {})),
+            pair_generation_mode=str(
+                data.get("pair_generation_mode", "legacy_seed_endpoint")
+            ),
             output_dir=str(data.get("output_dir", "runs/experiments")),
             split=str(data.get("split", "eval")),
             notes=str(data.get("notes", "")),

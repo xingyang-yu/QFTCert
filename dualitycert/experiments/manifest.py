@@ -190,6 +190,13 @@ class ManifestRecord:
     mutation_node_sequence: tuple[int, ...] = ()
     intermediate_hashes: tuple[str, ...] = ()
     final_theory_hash: str = ""
+    # Endpoint-pool pairing provenance (Phase 2d-ext). Holds the blind
+    # pair metadata: theory_id_a/b, seed_id_a/b, orbit_id_a/b,
+    # generation_depth_a/b, pair_generation_depth_{max,sum,delta},
+    # pair_origin, label_source, generation_history_shown_to_model,
+    # pair_swapped. Empty for legacy (T0, T_K) generation. None of these
+    # are ever exposed to the model prompt.
+    pair_metadata: dict[str, Any] = field(default_factory=dict)
     source: str = ""
     split: str = "eval"
 
@@ -235,6 +242,7 @@ def manifest_record_to_dict(record: ManifestRecord) -> dict[str, Any]:
         "mutation_node_sequence": list(record.mutation_node_sequence),
         "intermediate_hashes": list(record.intermediate_hashes),
         "final_theory_hash": record.final_theory_hash,
+        "pair_metadata": dict(record.pair_metadata),
         "source": record.source,
         "split": record.split,
     }
@@ -271,6 +279,7 @@ def manifest_record_from_dict(data: Mapping[str, Any]) -> ManifestRecord:
             str(h) for h in data.get("intermediate_hashes", [])
         ),
         final_theory_hash=str(data.get("final_theory_hash", "")),
+        pair_metadata=dict(data.get("pair_metadata", {})),
         source=str(data.get("source", "")),
         split=str(data.get("split", "eval")),
     )
@@ -424,6 +433,14 @@ _CSV_COLUMNS: tuple[str, ...] = (
     "split",
     "verifier_status",
     "verifier_config_hash",
+    "pair_origin",
+    "orbit_id_a",
+    "orbit_id_b",
+    "generation_depth_a",
+    "generation_depth_b",
+    "pair_generation_depth_max",
+    "pair_generation_depth_delta",
+    "pair_swapped",
     "failed_obligation_names",
     "failed_obligation_categories",
     "n_gauge_nodes",
@@ -472,6 +489,22 @@ def write_manifest_csv(
                     "split": r.split,
                     "verifier_status": r.verifier_status,
                     "verifier_config_hash": r.verifier_config_hash,
+                    "pair_origin": r.pair_metadata.get("pair_origin", ""),
+                    "orbit_id_a": r.pair_metadata.get("orbit_id_a", ""),
+                    "orbit_id_b": r.pair_metadata.get("orbit_id_b", ""),
+                    "generation_depth_a": r.pair_metadata.get("generation_depth_a", ""),
+                    "generation_depth_b": r.pair_metadata.get("generation_depth_b", ""),
+                    "pair_generation_depth_max": r.pair_metadata.get(
+                        "pair_generation_depth_max", ""
+                    ),
+                    "pair_generation_depth_delta": r.pair_metadata.get(
+                        "pair_generation_depth_delta", ""
+                    ),
+                    "pair_swapped": (
+                        int(bool(r.pair_metadata["pair_swapped"]))
+                        if "pair_swapped" in r.pair_metadata
+                        else ""
+                    ),
                     "failed_obligation_names": names,
                     "failed_obligation_categories": cats,
                     "n_gauge_nodes": sc.n_gauge_nodes,

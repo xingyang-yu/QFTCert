@@ -1,0 +1,52 @@
+{
+  "name": "paper_detection_endpoint_pool",
+  "notes": "Endpoint-pool pairing (Phase 2d-ext). Builds an endpoint pool at depths 0..max_pool_depth per curated seed (orbit) and samples blind (T_i, T_j) pairs instead of always (T0, T_K). Positives are same-orbit pairs the verifier CERTIFIES (often neither side is the seed); negatives are perturbed certified pairs or cross-orbit pairs. depth here is GENERATED chain length, not a minimal mutation distance; provenance is never shown to the model. allow_incomplete_cells=true (endpoint mode does not use the legacy per-cell completeness check).",
+  "depths": [1],
+  "fixture_classes": [
+    "positive",
+    "drop_w_term",
+    "flip_w_sign",
+    "r_charge_perturb",
+    "rank_perturb",
+    "wrong_pair"
+  ],
+  "n_per_cell": 1,
+  "seed": 20260602,
+  "split": "dev",
+  "output_dir": "runs/experiments/endpoint_pool",
+  "allow_incomplete_cells": true,
+  "pair_generation_mode": "endpoint_pool",
+  "verifier": {
+    "duality_profile": "phase2c_a_detection",
+    "chiral_ring_max_length": 3,
+    "require_r_graded": true
+  },
+  "endpoint_pool": {
+    "max_pool_depth": 1,
+    "max_endpoints_per_orbit": 16,
+    "max_pairs_per_theory": 6,
+    "max_pairs_per_orbit": 40,
+    "balance_pair_orientation": true,
+    "balance_depth_pairs": true,
+    "allow_same_theory_pair": false,
+    "allow_same_hash_pair": false,
+    "size_match_tolerance": 8,
+    "n_perturbed_per_certified": 1,
+    "pair_origins": [
+      "same_orbit_endpoint_pair",
+      "perturbed_endpoint_pair",
+      "cross_orbit_pair",
+      "size_matched_cross_pair"
+    ]
+  },
+  "model": {
+    "provider": "dryrun",
+    "model": "dryrun",
+    "max_tokens": 2048
+  },
+  "repair": {
+    "max_rounds": 5,
+    "feedback_mode": "verifier_feedback",
+    "feedback_detail": "medium"
+  }
+}

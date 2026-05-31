@@ -134,6 +134,29 @@ def generate_fixtures(
     }
 
     result = GenerationResult(out_dir=out_dir_path)
+
+    # Phase 2d-ext: endpoint-pool pairing is an additive alternative to the
+    # legacy (T0, T_K) generation below. Default stays legacy.
+    if config.pair_generation_mode == "endpoint_pool":
+        from dualitycert.experiments.endpoint_pool import (
+            generate_endpoint_pool_fixtures,
+        )
+
+        manifest, attrition = generate_endpoint_pool_fixtures(
+            config,
+            out_dir=out_dir_path,
+            seed_specs=seed_specs,
+            generated_at=generated_at,
+            git_commit=git_commit,
+            generator_version=GENERATOR_VERSION,
+            write=write,
+        )
+        result.manifest.extend(manifest)
+        result.attrition.extend(attrition)
+        if write:
+            _write_outputs(config, result, out_dir_path)
+        return result
+
     seen_pair_hash: dict[str, str] = {}
     theories_dir = out_dir_path / "theories"
 

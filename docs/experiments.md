@@ -282,6 +282,59 @@ attrition (`single_step_mutation_failed`).
 - "generated depth" is chain length only — **no** minimal-distance /
   shortest-path claim.
 
+## Endpoint-pool pairing (Phase 2d-ext)
+
+The mutation engine is a *benchmark generator*; the benchmark task is
+endpoint QFTCert verification, not path reconstruction. So fixtures need
+not always pair the seed `T0` with the chain end `T_K`. Set
+`pair_generation_mode: "endpoint_pool"` (default is
+`legacy_seed_endpoint`, which keeps the original `(T0, T_K)` behavior) to
+instead:
+
+1. **Build an endpoint pool** — for each curated seed (an *orbit*),
+   mechanically expand depths `0..endpoint_pool.max_pool_depth`,
+   collecting every reachable theory (deduped by canonical hash),
+   tagged with `theory_id / seed_id / orbit_id / generation_depth /
+   mutation_sequence / size`. No verifier runs during pool construction.
+2. **Sample blind pairs** `(T_i, T_j)` and verifier-gate each. `pair_origin`:
+   - `same_orbit_endpoint_pair` — same orbit → **positive iff CERTIFIED**
+     (often *neither* side is the seed, e.g. two depth-1 magnetic phases);
+   - `perturbed_endpoint_pair` — a certified pair with one side perturbed
+     → repairable **negative iff FAILED**;
+   - `cross_orbit_pair` / `size_matched_cross_pair` — different orbits
+     (the latter within `size_match_tolerance`) → **negative iff FAILED**;
+   - `wrong_pair` — legacy alias of cross-orbit.
+   UNKNOWN / NOT_APPLICABLE / OUT_OF_SCOPE and unexpected labels go to
+   attrition. `label_source` is always `endpoint_qftcert`.
+
+A/B orientation is **balanced** (the lower-depth / seed theory is not
+always side A); `pair_swapped` records the choice. Pairs are deduped by
+the unordered pair of canonical hashes (displayed order stays
+randomized). `perturbation_class` reuses the existing vocabulary
+(`positive` / the four repairable classes / `wrong_pair`) so existing
+scoring/diagnosis applies unchanged; the finer `pair_origin` taxonomy
+lives in `pair_metadata`.
+
+The manifest's `pair_metadata` records `theory_id_a/b`, `seed_id_a/b`,
+`orbit_id_a/b`, `generation_depth_a/b`,
+`pair_generation_depth_{max,sum,delta}`, `pair_origin`, `label_source`,
+`generation_history_shown_to_model=false`, and `pair_swapped` (the key
+ones are also flattened into `manifest.csv`). **None of this provenance
+is ever shown to the model** — the runner sanitizes the two theories at
+prompt time.
+
+```bash
+dualitycert generate-fixtures \
+    --config configs/paper_detection_endpoint_pool.json \
+    --out runs/endpoint_pool --allow-incomplete-cells
+```
+
+Sampling controls live under `endpoint_pool` in the config
+(`max_pool_depth`, `max_endpoints_per_orbit`, `max_pairs_per_theory`,
+`max_pairs_per_orbit`, `balance_pair_orientation`, `balance_depth_pairs`,
+`allow_same_theory_pair`, `allow_same_hash_pair`, `size_match_tolerance`,
+`n_perturbed_per_certified`, `pair_origins`).
+
 ### Known TODOs
 
 - **depth ≥ 2 mutation chains** — implement multi-step chains in
