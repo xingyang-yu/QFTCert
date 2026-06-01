@@ -15,6 +15,7 @@ from fractions import Fraction
 from typing import Any, Callable
 
 from dualitycert.core.objects import SuperpotentialTerm
+from dualitycert.experiments.seed_catalog import c3_z2z2_electric, dp1_electric
 from dualitycert.groups.u1 import u1_r
 from dualitycert.qft.pure_quiver_builder import (
     arrow_names,
@@ -118,7 +119,15 @@ class SeedSpec:
 
 
 def default_seed_specs() -> list[SeedSpec]:
-    """The locked MVP positive sources (two families, varied N / node)."""
+    """Positive sources for the paper dataset (four independent families).
+
+    The two locked MVP families (dP_0, F_0 phase II) plus two curated
+    catalog families that now certify through the real generation path:
+    C^3/(Z_2 x Z_2) (non-chiral; magnetic side carries gauge singlets, so
+    `run_verifier` auto-grades its chiral ring by R-charge) and dP_1
+    (irrational superconformal R; the depth-1 path picks the consistent R
+    representative so the magnetic R is the exact duality image).
+    """
 
     return [
         SeedSpec("dp0_toric", dp0_electric, node=0, N=3),
@@ -127,4 +136,8 @@ def default_seed_specs() -> list[SeedSpec]:
         SeedSpec("dp0_toric", dp0_electric, node=0, N=4),
         SeedSpec("f0_phase_ii", f0_phase_ii_electric, node=0, N=3),
         SeedSpec("f0_phase_ii", f0_phase_ii_electric, node=2, N=3),
+        SeedSpec("c3_z2z2", c3_z2z2_electric, node=0, N=2),
+        SeedSpec("c3_z2z2", c3_z2z2_electric, node=1, N=2),
+        SeedSpec("dp1", dp1_electric, node=0, N=2),
+        SeedSpec("dp1", dp1_electric, node=1, N=2),
     ]

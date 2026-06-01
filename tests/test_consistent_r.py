@@ -81,6 +81,35 @@ def test_generation_certifies_dp1_positive_via_consistent_path():
     assert positives[0].mutation_node_sequence == (0,)
 
 
+def test_default_seed_specs_cover_four_families_with_certified_positives():
+    """The paper dataset now spans four independent families: the two locked
+    MVP sources (dp0, f0) plus the curated catalog seeds (c3_z2z2 non-chiral,
+    dp1 irrational-R). Each must yield a CERTIFIED depth-1 positive through the
+    real generation path."""
+
+    from dualitycert.experiments.config import ExperimentConfig
+    from dualitycert.experiments.generation import generate_fixtures
+    from dualitycert.experiments.seeds import default_seed_specs
+
+    families = {s.source_name for s in default_seed_specs()}
+    assert {"dp0_toric", "f0_phase_ii", "c3_z2z2", "dp1"} <= families
+
+    config = ExperimentConfig(
+        name="default_seed_coverage",
+        seed=11,
+        depths=[1],
+        fixture_classes=("positive",),
+        n_per_cell=1,
+    )
+    result = generate_fixtures(config, allow_incomplete_cells=True, write=False)
+    certified_by_family = {
+        r.source
+        for r in result.manifest
+        if r.perturbation_class == "positive" and r.label == "CERTIFIED"
+    }
+    assert {"dp0_toric", "f0_phase_ii", "c3_z2z2", "dp1"} <= certified_by_family
+
+
 def test_consistent_r_is_noop_for_symmetric_seeds():
     """Seeds whose symmetric rational R is already consistent (dp0 chiral,
     C^3/(Z2xZ2) non-chiral) leave the electric R untouched — the solve falls
