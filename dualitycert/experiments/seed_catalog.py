@@ -32,6 +32,7 @@ __all__ = [
     "c3_z2z2_electric",
     "dp1_electric",
     "dp2_phase1_electric",
+    "spp_electric",
 ]
 
 
@@ -203,3 +204,58 @@ def dp2_phase1_electric(N: int = 2) -> dict[str, Any]:
         )
     )
     return _feasible_seed(theory, name=f"dP_2 phase I N={N}")
+
+
+# ----------------------------------------------------------------------
+# SPP — suspended pinch point  (arXiv:1702.03958 eq W_SPP)
+# 3 nodes, 7 fields incl. an ADJOINT X22 at node 2 (0-indexed node 1).
+# W = X12 X21 X22 - X22 X23 X32 + X13 X23 X31 X32 - X12 X13 X21 X31.
+# Field map (paper -> 0-indexed; X_{ij}=arrow i->j, paper node k->k-1):
+#   X12 -> X01[0]  X21 -> X10[0]  X22 -> Phi1[0] (adjoint @ node 1)
+#   X23 -> X12[0]  X32 -> X21[0]  X13 -> X02[0]  X31 -> X20[0]
+#
+# Only the adjoint-free nodes 0 and 2 are dualized (default_seed_specs):
+# dualizing node 1 would be a Kutasov-type move on its adjoint, not the
+# ordinary SQCD Seiberg duality this engine implements. SPP's quartic W
+# terms form "bouquets" that traverse the dualized node twice
+# (X12 X13 X21 X31 at node 0; X13 X23 X31 X32 at node 2), so the move needs
+# multi-meson premutation (`mutate_bare` collapses each pass independently).
+# The resulting dual is genuinely NON-TORIC: the diagonal mesons leave
+# gauge singlets (which no brane tiling carries) and relocate the adjoint
+# off node 1; it CERTIFIES with TrR^3 matching.
+# ----------------------------------------------------------------------
+
+
+def spp_electric(N: int = 2) -> dict[str, Any]:
+    p = Fraction(1, 2)  # placeholder R; projected to feasible by r_repair
+    arrows = {
+        (0, 1): [p],   # X12
+        (1, 0): [p],   # X21
+        (1, 1): [p],   # X22  (adjoint at node 1)
+        (1, 2): [p],   # X23
+        (2, 1): [p],   # X32
+        (0, 2): [p],   # X13
+        (2, 0): [p],   # X31
+    }
+
+    def t(factors, sign: int) -> SuperpotentialTerm:
+        return SuperpotentialTerm(
+            factors=tuple((f, 1) for f in factors), coefficient=Fraction(sign)
+        )
+
+    # Each term reordered into a single closed walk (the trace is cyclic):
+    W = (
+        t(["X01[0]", "Phi1[0]", "X10[0]"], +1),            # +X12 X22 X21
+        t(["Phi1[0]", "X12[0]", "X21[0]"], -1),            # -X22 X23 X32
+        t(["X02[0]", "X21[0]", "X12[0]", "X20[0]"], +1),   # +X13 X32 X23 X31
+        t(["X01[0]", "X10[0]", "X02[0]", "X20[0]"], -1),   # -X12 X21 X13 X31
+    )
+    theory = pure_quiver_to_json(
+        build_pure_quiver(
+            ranks=tuple([N] * 3),
+            arrows=arrows,
+            superpotential=W,
+            u1_globals=(u1_r(),),
+        )
+    )
+    return _feasible_seed(theory, name=f"SPP N={N}")

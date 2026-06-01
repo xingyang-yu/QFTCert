@@ -283,12 +283,18 @@ def _rewrite_term_through_node(
     relabel_map: dict[str, str],
     node: int,
 ) -> list[str]:
-    """Substitute the (in, out) adjacency at `node` with its meson label.
+    """Collapse every (in -> out) pass through `node` to its meson label.
 
-    Algorithm: rotate the cyclic factor tuple so an in-arrow at `node`
-    immediately precedes an out-arrow at `node`. The MVP requires this
-    pair to occur exactly once per W term. Returns the new factor list
-    in the rotated order with the (in, out) pair collapsed to the meson.
+    DWZ premutation: a W term is a cyclic word; each cyclically adjacent
+    pair (in-arrow at `node`, out-arrow at `node`) is one path
+    i -> node -> j and collapses to the meson M_{(in, out)} on edge (i, j)
+    (a diagonal pass i -> node -> i collapses to the adjoint meson at i).
+    A term may traverse `node` several times; each pass collapses
+    independently. Non-incident factors are relabeled via `relabel_map`.
+
+    For an adjoint-free `node` the in-/out-label sets are disjoint, so a
+    single factor is never both halves of a pass and passes never overlap;
+    the single-pass case is preserved byte-for-byte.
     """
 
     n = len(factors)
@@ -296,36 +302,36 @@ def _rewrite_term_through_node(
         # Length-1 W term cannot traverse `node` (no in/out pair).
         return [relabel_map.get(f, f) for f in factors]
 
-    # Build the node sequence: the "entered node" before factor i is the
-    # source of factor i, which equals the target of factor (i - 1) mod n.
-    # We need to find positions (i, i+1) such that factors[i] is an
-    # in-arrow at `node` and factors[i+1 mod n] is an out-arrow at `node`.
-    hit_positions: list[int] = []
-    for i in range(n):
-        if factors[i] in in_labels and factors[(i + 1) % n] in out_labels:
-            hit_positions.append(i)
-
-    if len(hit_positions) == 0:
+    # Pass = position i with factors[i] an in-arrow and factors[(i+1) % n] an
+    # out-arrow at `node` (cyclic). These are the i -> node -> j segments.
+    pass_starts = [
+        i
+        for i in range(n)
+        if factors[i] in in_labels and factors[(i + 1) % n] in out_labels
+    ]
+    if not pass_starts:
         # The W term doesn't traverse `node` — leave it alone (after
         # relabeling of any untouched factors).
         return [relabel_map.get(f, f) for f in factors]
 
-    if len(hit_positions) > 1:
-        raise MutationEngineError(
-            "MVP scope violation: W term "
-            f"{factors!r} traverses dualized node {node} multiple times; "
-            "needs general meson-substitution semantics"
-        )
+    # Rotate so the in-half of the first pass sits at index 0. Index 0 is
+    # then an in-arrow, so no pass straddles the wrap (a wrap pass would
+    # need an out-arrow at index 0) and one left-to-right scan suffices.
+    r = pass_starts[0]
+    rotated = factors[r:] + factors[:r]
+    in_half = {(i - r) % n for i in pass_starts}
 
-    pivot = hit_positions[0]
-    # Rotate so factors[pivot] is at index 0 and factors[pivot+1] at index 1.
-    rotated = factors[pivot:] + factors[:pivot]
-    in_label = rotated[0]
-    out_label = rotated[1]
-    meson_label = meson_label_for_pair[(in_label, out_label)]
-    # Replace the (in, out) pair with the meson; relabel the rest.
-    rest = [relabel_map.get(f, f) for f in rotated[2:]]
-    return [meson_label] + rest
+    out: list[str] = []
+    i = 0
+    while i < n:
+        if i in in_half:
+            meson_label = meson_label_for_pair[(rotated[i], rotated[i + 1])]
+            out.append(meson_label)
+            i += 2
+        else:
+            out.append(relabel_map.get(rotated[i], rotated[i]))
+            i += 1
+    return out
 
 
 # ----------------------------------------------------------------------

@@ -19,6 +19,7 @@ from dualitycert.experiments.seed_catalog import (
     c3_z2z2_electric,
     dp1_electric,
     dp2_phase1_electric,
+    spp_electric,
 )
 from dualitycert.groups.u1 import u1_r
 from dualitycert.qft.pure_quiver_builder import (
@@ -123,17 +124,19 @@ class SeedSpec:
 
 
 def default_seed_specs() -> list[SeedSpec]:
-    """Positive sources for the paper dataset (five independent families).
+    """Positive sources for the paper dataset (six independent families).
 
-    The two locked MVP families (dP_0, F_0 phase II) plus three curated
+    The two locked MVP families (dP_0, F_0 phase II) plus four curated
     catalog families that now certify through the real generation path:
     C^3/(Z_2 x Z_2) (non-chiral; magnetic side carries gauge singlets, so
     `run_verifier` auto-grades its chiral ring by R-charge), dP_1 and dP_2
     phase I (irrational superconformal R; the depth-1 path picks the
     consistent R representative so the magnetic R is the exact duality
-    image). The pinned dP_2 nodes (3, 4) certify under the default chiral-
-    ring grading; its other nodes are equally valid duals (TrR^3 matches)
-    but only certify under R-graded BCR, so they are left out here.
+    image), and SPP (an adjoint at node 1, so only the adjoint-free nodes
+    0/2 are dualized; the move uses multi-meson premutation and lands on a
+    non-toric phase). The pinned dP_2 nodes (3, 4) certify under the default
+    chiral-ring grading; its other nodes are equally valid duals (TrR^3
+    matches) but only certify under R-graded BCR, so they are left out here.
     """
 
     return [
@@ -149,4 +152,6 @@ def default_seed_specs() -> list[SeedSpec]:
         SeedSpec("dp1", dp1_electric, node=1, N=2),
         SeedSpec("dp2_phase1", dp2_phase1_electric, node=3, N=2),
         SeedSpec("dp2_phase1", dp2_phase1_electric, node=4, N=2),
+        SeedSpec("spp", spp_electric, node=0, N=2),
+        SeedSpec("spp", spp_electric, node=2, N=2),
     ]

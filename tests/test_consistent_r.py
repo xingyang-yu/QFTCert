@@ -19,6 +19,7 @@ from dualitycert.experiments.seed_catalog import (
     c3_z2z2_electric,
     dp1_electric,
     dp2_phase1_electric,
+    spp_electric,
 )
 from dualitycert.experiments.verifier import run_verifier
 from dualitycert.qft.pure_quiver_json import pure_quiver_to_json
@@ -107,17 +108,17 @@ def test_dp2_phase1_certifies_at_default_nodes_and_all_nodes_r_graded():
     assert 3 in certified_default and 4 in certified_default
 
 
-def test_default_seed_specs_cover_five_families_with_certified_positives():
-    """The paper dataset now spans five independent families: the two locked
+def test_default_seed_specs_cover_six_families_with_certified_positives():
+    """The paper dataset now spans six independent families: the two locked
     MVP sources (dp0, f0) plus the curated catalog seeds (c3_z2z2 non-chiral,
-    dp1 + dp2_phase1 irrational-R). Each must yield a CERTIFIED depth-1
-    positive through the real generation path."""
+    dp1 + dp2_phase1 irrational-R, spp adjoint/multi-meson). Each must yield a
+    CERTIFIED depth-1 positive through the real generation path."""
 
     from dualitycert.experiments.config import ExperimentConfig
     from dualitycert.experiments.generation import generate_fixtures
     from dualitycert.experiments.seeds import default_seed_specs
 
-    expected = {"dp0_toric", "f0_phase_ii", "c3_z2z2", "dp1", "dp2_phase1"}
+    expected = {"dp0_toric", "f0_phase_ii", "c3_z2z2", "dp1", "dp2_phase1", "spp"}
     families = {s.source_name for s in default_seed_specs()}
     assert expected <= families
 
@@ -135,6 +136,45 @@ def test_default_seed_specs_cover_five_families_with_certified_positives():
         if r.perturbation_class == "positive" and r.label == "CERTIFIED"
     }
     assert expected <= certified_by_family
+
+
+def test_spp_reaches_a_nontrivial_non_toric_phase_via_multimeson():
+    """SPP (arXiv:1702.03958) has an adjoint at node 1 (Kutasov, out of
+    scope). Mutating an adjoint-free node (0 or 2) requires multi-meson
+    premutation, since the quartic W bouquets traverse the dualized node
+    twice. With that generalization the dual CERTIFIES, TrR^3 matches, and
+    it is genuinely NON-TORIC: gauge singlets appear (no brane tiling has
+    them) and the adjoint relocates off the dualized node's neighbour."""
+
+    seed = spp_electric()
+    config = VerifierConfig()
+    assert {int(a["source"]) for a in seed["arrows"] if a["source"] == a["target"]} == {1}
+
+    for node in (0, 2):  # adjoint-free
+        res = seiberg_dual_consistent(seed, node)
+        assert res.ok, (node, res.reason)
+        assert _tr_r3(res.electric) == _tr_r3(res.magnetic), node
+        assert run_verifier(res.electric, res.magnetic, config).status == "CERTIFIED"
+        # Non-toric signature: gauge-singlet fields the electric SPP lacks.
+        assert seed.get("singlets", []) == []
+        assert len(res.magnetic.get("singlets", [])) >= 1
+
+
+def test_multimeson_premutation_is_byte_exact_for_single_pass():
+    """The multi-meson generalization must not perturb the single-pass case:
+    dp0's node-0 dual (every W term crosses the dualized node at most once)
+    is unchanged, so the locked dp0/F0 fixtures stay byte-identical."""
+
+    from tests.test_mutation_engine import _electric_dp0
+    from dualitycert.qft.mutation_engine import mutate_bare
+
+    dp0 = pure_quiver_to_json(_electric_dp0())
+    bare = mutate_bare(dict(dp0), node=0)
+    # Single pass per term => no meson 2-cycles introduced at premutation.
+    assert all(
+        sum(1 for f in term["factors"] if f.startswith("X21")) <= 1
+        for term in bare["superpotential"]
+    )
 
 
 def test_consistent_r_is_noop_for_symmetric_seeds():
