@@ -11,9 +11,15 @@ from __future__ import annotations
 
 from fractions import Fraction
 
+import dataclasses
+
 from dualitycert.experiments.chains import seiberg_dual_consistent
 from dualitycert.experiments.config import VerifierConfig
-from dualitycert.experiments.seed_catalog import c3_z2z2_electric, dp1_electric
+from dualitycert.experiments.seed_catalog import (
+    c3_z2z2_electric,
+    dp1_electric,
+    dp2_phase1_electric,
+)
 from dualitycert.experiments.verifier import run_verifier
 from dualitycert.qft.pure_quiver_json import pure_quiver_to_json
 
@@ -81,18 +87,39 @@ def test_generation_certifies_dp1_positive_via_consistent_path():
     assert positives[0].mutation_node_sequence == (0,)
 
 
-def test_default_seed_specs_cover_four_families_with_certified_positives():
-    """The paper dataset now spans four independent families: the two locked
+def test_dp2_phase1_certifies_at_default_nodes_and_all_nodes_r_graded():
+    """dP_2 phase I (irrational R, 5 nodes, 13 fields). TrR^3 matches on every
+    node, so the duality is real everywhere; nodes 3 and 4 certify under the
+    default chiral-ring grading, while nodes 0/1/2 (chiral duals) only certify
+    under R-graded BCR (length grading is duality-non-invariant there)."""
+
+    seed = dp2_phase1_electric()
+    default = VerifierConfig()
+    r_graded = dataclasses.replace(default, chiral_ring_grading="r_charge")
+    certified_default = []
+    for node in range(5):
+        res = seiberg_dual_consistent(seed, node)
+        assert res.ok, (node, res.reason)
+        assert _tr_r3(res.electric) == _tr_r3(res.magnetic), node
+        assert run_verifier(res.electric, res.magnetic, r_graded).status == "CERTIFIED"
+        if run_verifier(res.electric, res.magnetic, default).status == "CERTIFIED":
+            certified_default.append(node)
+    assert 3 in certified_default and 4 in certified_default
+
+
+def test_default_seed_specs_cover_five_families_with_certified_positives():
+    """The paper dataset now spans five independent families: the two locked
     MVP sources (dp0, f0) plus the curated catalog seeds (c3_z2z2 non-chiral,
-    dp1 irrational-R). Each must yield a CERTIFIED depth-1 positive through the
-    real generation path."""
+    dp1 + dp2_phase1 irrational-R). Each must yield a CERTIFIED depth-1
+    positive through the real generation path."""
 
     from dualitycert.experiments.config import ExperimentConfig
     from dualitycert.experiments.generation import generate_fixtures
     from dualitycert.experiments.seeds import default_seed_specs
 
+    expected = {"dp0_toric", "f0_phase_ii", "c3_z2z2", "dp1", "dp2_phase1"}
     families = {s.source_name for s in default_seed_specs()}
-    assert {"dp0_toric", "f0_phase_ii", "c3_z2z2", "dp1"} <= families
+    assert expected <= families
 
     config = ExperimentConfig(
         name="default_seed_coverage",
@@ -107,7 +134,7 @@ def test_default_seed_specs_cover_four_families_with_certified_positives():
         for r in result.manifest
         if r.perturbation_class == "positive" and r.label == "CERTIFIED"
     }
-    assert {"dp0_toric", "f0_phase_ii", "c3_z2z2", "dp1"} <= certified_by_family
+    assert expected <= certified_by_family
 
 
 def test_consistent_r_is_noop_for_symmetric_seeds():

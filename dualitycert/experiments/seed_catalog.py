@@ -11,12 +11,9 @@ gives the same duality verdicts — see docs/experiments.md).
 
 Sources (verify against the paper before trusting):
   - dP_1            : hep-th/0205144 ("Symmetries of Toric Duality") eq (4.7)
-  - dP_2 phase I    : hep-th/0205144 W_I (sec 4.5)
+  - dP_2 phase I    : hep-th/0205144 W_I (subsection "del Pezzo 2", Model I)
   - C^3/(Z_2 x Z_2) : arXiv:0704.0262 eq (3.1) + Fig 1
   - SPP             : arXiv:1702.03958 eq (2.3) + Fig 1  (has an adjoint)
-
-STATUS: under physics verification. Not yet wired into
-`default_seed_specs`; exercised by the seed health-check first.
 """
 
 from __future__ import annotations
@@ -34,6 +31,7 @@ from dualitycert.qft.r_repair import repair_r_charges
 __all__ = [
     "c3_z2z2_electric",
     "dp1_electric",
+    "dp2_phase1_electric",
 ]
 
 
@@ -149,3 +147,59 @@ def dp1_electric(N: int = 2) -> dict[str, Any]:
         )
     )
     return _feasible_seed(theory, name=f"dP_1 N={N}")
+
+
+# ----------------------------------------------------------------------
+# dP_2 phase I / Model I  (hep-th/0205144, subsection "del Pezzo 2")
+# 5 nodes, 13 bifundamentals; W_I = 6 cubic + 2 quartic terms.
+# Paper node k (1..5) -> index k-1; X_{ij} is an arrow node i -> node j.
+# Field map (paper -> 0-indexed label):
+#   X41 -> X30[0]   X42 -> X31[0]   X54 -> X43[0]   X34 -> X23[0]
+#   X31 -> X20[0]   X32 -> X21[0]
+#   (X15,Y15) -> X04[0,1]   (X25,Y25) -> X14[0,1]
+#   (X53,Y53,Z53) -> X42[0,1,2]
+# ----------------------------------------------------------------------
+
+
+def dp2_phase1_electric(N: int = 2) -> dict[str, Any]:
+    p = Fraction(1, 2)  # placeholder R; projected to feasible by r_repair
+    arrows = {
+        (3, 0): [p],          # X41
+        (3, 1): [p],          # X42
+        (0, 4): [p, p],       # X15, Y15
+        (1, 4): [p, p],       # X25, Y25
+        (4, 3): [p],          # X54
+        (4, 2): [p, p, p],    # X53, Y53, Z53
+        (2, 3): [p],          # X34
+        (2, 0): [p],          # X31
+        (2, 1): [p],          # X32
+    }
+
+    def t(factors, sign: int) -> SuperpotentialTerm:
+        return SuperpotentialTerm(
+            factors=tuple((f, 1) for f in factors), coefficient=Fraction(sign)
+        )
+
+    # W_I = [X41 X15 X54 - X42 X25 X54]
+    #       - [X41 Y15 X53 X34 - X42 Y25 Y53 X34]
+    #       - [X31 X15 Y53 - X32 X25 X53]
+    #       + [X31 Y15 Z53 - X32 Y25 Z53]
+    W = (
+        t(["X30[0]", "X04[0]", "X43[0]"], +1),                 # +X41 X15 X54
+        t(["X31[0]", "X14[0]", "X43[0]"], -1),                 # -X42 X25 X54
+        t(["X30[0]", "X04[1]", "X42[0]", "X23[0]"], -1),       # -X41 Y15 X53 X34
+        t(["X31[0]", "X14[1]", "X42[1]", "X23[0]"], +1),       # +X42 Y25 Y53 X34
+        t(["X20[0]", "X04[0]", "X42[1]"], -1),                 # -X31 X15 Y53
+        t(["X21[0]", "X14[0]", "X42[0]"], +1),                 # +X32 X25 X53
+        t(["X20[0]", "X04[1]", "X42[2]"], +1),                 # +X31 Y15 Z53
+        t(["X21[0]", "X14[1]", "X42[2]"], -1),                 # -X32 Y25 Z53
+    )
+    theory = pure_quiver_to_json(
+        build_pure_quiver(
+            ranks=tuple([N] * 5),
+            arrows=arrows,
+            superpotential=W,
+            u1_globals=(u1_r(),),
+        )
+    )
+    return _feasible_seed(theory, name=f"dP_2 phase I N={N}")
