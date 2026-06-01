@@ -167,19 +167,41 @@ def test_c3_certifies_on_every_node(node: int):
     )
 
 
-def test_c3_bounded_chiral_ring_is_not_yet_applicable():
-    """Stage-2 boundary marker: the chiral-ring machinery is arrow-only, so a
-    theory with gauge singlets currently SKIPS the bounded chiral-ring check
-    rather than verifying it. Flip this to CERTIFIED when Stage 2 lands."""
+def test_c3_bcr_length_not_applicable_but_r_graded_certifies():
+    """Length grading still rejects singlet theories (the locked default
+    SKIPS the chiral ring), but the duality-invariant R-charge grading
+    CERTIFIES the bounded chiral ring up to R=2 — the meson word-length
+    shift is what blocked the length-graded comparison."""
 
     electric = pure_quiver_from_json(c3_z2z2_electric())
     magnetic = pure_quiver_from_json(_magnetic(0))
-    claim = DualityClaim(
+
+    length_claim = DualityClaim(
         name="C3/(Z2xZ2) Seiberg node 0",
         electric_theory=electric,
         magnetic_theory=magnetic,
         metadata=_BCR_META,
     )
-    certificate = evaluate_claim(claim)
-    statuses = {r.name: r.status for r in certificate.obligation_results}
-    assert statuses["bounded chiral-ring consistency"] == Status.NOT_APPLICABLE
+    length_statuses = {
+        r.name: r.status for r in evaluate_claim(length_claim).obligation_results
+    }
+    assert length_statuses["bounded chiral-ring consistency"] == Status.NOT_APPLICABLE
+
+    r_claim = DualityClaim(
+        name="C3/(Z2xZ2) Seiberg node 0",
+        electric_theory=electric,
+        magnetic_theory=magnetic,
+        metadata={
+            "duality_profile": "singlet_support_test",
+            "bounded_chiral_ring": {
+                "max_length": 3,
+                "require_r_graded": True,
+                "grading": "r_charge",
+                "max_r_charge": "2",
+            },
+        },
+    )
+    r_statuses = {
+        r.name: r.status for r in evaluate_claim(r_claim).obligation_results
+    }
+    assert r_statuses["bounded chiral-ring consistency"] == Status.CERTIFIED

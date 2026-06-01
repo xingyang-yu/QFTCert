@@ -71,6 +71,12 @@ OBLIGATION_CATEGORY_MAP: dict[str, str] = {
 }
 
 
+def _is_gauge_singlet_field(field: Any) -> bool:
+    """True if a Field carries no nontrivial gauge charge (a pure singlet)."""
+
+    return all(rep.name == "singlet" for rep in field.gauge_reps.values())
+
+
 def categorize_obligation(name: str) -> str:
     """Map an obligation name onto a failure-mode category.
 
@@ -158,13 +164,25 @@ def run_verifier(
     except (PureQuiverJSONError, ValueError) as exc:
         return VerifierOutcome(status="ERROR", error=str(exc))
 
+    # Resolve the chiral-ring grading policy. Under "auto", a candidate with
+    # gauge singlets is a non-chiral (diagonal-meson) dual whose mesons shift
+    # word-length, so length grading is invalid → use the duality-invariant
+    # R-charge grading. Chiral duals (no singlets) keep the finer length mode.
+    grading = config.chiral_ring_grading
+    if grading == "auto":
+        has_singlets = any(
+            _is_gauge_singlet_field(f)
+            for f in (*electric_theory.fields, *candidate_theory.fields)
+        )
+        grading = "r_charge" if has_singlets else "length"
+
     claim = DualityClaim(
         name=claim_name,
         electric_theory=electric_theory,
         magnetic_theory=candidate_theory,
         metadata={
             "duality_profile": config.duality_profile,
-            "bounded_chiral_ring": config.bounded_chiral_ring_metadata(),
+            "bounded_chiral_ring": config.bounded_chiral_ring_metadata(grading=grading),
         },
     )
     try:

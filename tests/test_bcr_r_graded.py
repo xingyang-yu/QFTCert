@@ -135,6 +135,43 @@ def test_c3_r_graded_fails_on_broken_dual():
     assert result.status == Status.FAILED
 
 
+def test_verifier_config_metadata_resolves_grading():
+    from dualitycert.experiments.config import VerifierConfig
+
+    cfg = VerifierConfig()  # default grading="auto"
+    assert "grading" not in cfg.bounded_chiral_ring_metadata(grading="length")
+    r_meta = cfg.bounded_chiral_ring_metadata(grading="r_charge")
+    assert r_meta["grading"] == "r_charge"
+    assert r_meta["max_r_charge"] == "2"
+
+
+def test_run_verifier_auto_uses_r_graded_only_for_singlet_dual():
+    """The benchmark verifier auto-routes a non-chiral (singlet) dual to
+    R-charge grading — so its bounded chiral ring is verified, not skipped —
+    while a chiral dual (no singlets) stays length-graded."""
+
+    from dualitycert.experiments.chains import apply_single_seiberg_mutation
+    from dualitycert.experiments.config import VerifierConfig
+    from dualitycert.experiments.verifier import run_verifier
+
+    cfg = VerifierConfig()  # grading="auto"
+
+    # Non-chiral: C^3/(Z2xZ2) node 0 produces gauge singlets -> r_charge.
+    c3 = c3_z2z2_electric()
+    c3_dual = apply_single_seiberg_mutation(c3, 0).theory
+    assert c3_dual.get("singlets")
+    out_c3 = run_verifier(c3, c3_dual, cfg)
+    assert out_c3.status == "CERTIFIED"
+    assert "bounded chiral-ring consistency" not in out_c3.failed_obligation_names
+
+    # Chiral: dp0 has no singlets -> length grading, still CERTIFIED.
+    dp0 = pure_quiver_to_json(_electric_dp0())
+    dp0_dual = apply_single_seiberg_mutation(dp0, 0).theory
+    assert not dp0_dual.get("singlets")
+    out_dp0 = run_verifier(dp0, dp0_dual, cfg)
+    assert out_dp0.status == "CERTIFIED"
+
+
 def test_r_graded_too_high_r_hits_p6_cap():
     """max_r_charge requiring word-length > 8 returns UNKNOWN, not a partial
     (incomplete) comparison."""

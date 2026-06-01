@@ -120,12 +120,21 @@ class VerifierConfig:
     duality_profile: str = "phase2c_a_detection"
     chiral_ring_max_length: int = 3
     require_r_graded: bool = True
+    # Bounded chiral-ring grading axis: "length" (locked word-length blocks),
+    # "r_charge" (duality-invariant R-charge buckets, needed for non-chiral
+    # duals whose mesons shift word-length), or "auto" (use r_charge iff the
+    # candidate has gauge singlets, i.e. a diagonal-meson / non-chiral dual).
+    chiral_ring_grading: str = "auto"
+    # R-charge cutoff for r_charge grading (string-encoded Fraction).
+    chiral_ring_max_r_charge: str = "2"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "duality_profile": self.duality_profile,
             "chiral_ring_max_length": int(self.chiral_ring_max_length),
             "require_r_graded": bool(self.require_r_graded),
+            "chiral_ring_grading": str(self.chiral_ring_grading),
+            "chiral_ring_max_r_charge": str(self.chiral_ring_max_r_charge),
         }
 
     @classmethod
@@ -134,15 +143,31 @@ class VerifierConfig:
             duality_profile=str(data.get("duality_profile", "phase2c_a_detection")),
             chiral_ring_max_length=int(data.get("chiral_ring_max_length", 3)),
             require_r_graded=bool(data.get("require_r_graded", True)),
+            chiral_ring_grading=str(data.get("chiral_ring_grading", "auto")),
+            chiral_ring_max_r_charge=str(data.get("chiral_ring_max_r_charge", "2")),
         )
 
-    def bounded_chiral_ring_metadata(self) -> dict[str, Any]:
-        """The `claim.metadata["bounded_chiral_ring"]` payload."""
+    def bounded_chiral_ring_metadata(
+        self, *, grading: str | None = None
+    ) -> dict[str, Any]:
+        """The `claim.metadata["bounded_chiral_ring"]` payload.
 
-        return {
+        `grading` is the resolved comparison axis ("length" / "r_charge");
+        when omitted, the config's own value is used (an unresolved "auto"
+        falls back to length so a theory-blind caller keeps locked behavior).
+        Only "r_charge" adds the `grading` / `max_r_charge` keys, so the
+        length-graded payload is byte-for-byte unchanged.
+        """
+
+        payload: dict[str, Any] = {
             "max_length": int(self.chiral_ring_max_length),
             "require_r_graded": bool(self.require_r_graded),
         }
+        resolved = grading if grading is not None else self.chiral_ring_grading
+        if resolved == "r_charge":
+            payload["grading"] = "r_charge"
+            payload["max_r_charge"] = str(self.chiral_ring_max_r_charge)
+        return payload
 
     def config_hash(self) -> str:
         return _hash_obj(self.to_dict())
