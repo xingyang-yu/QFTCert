@@ -22,6 +22,7 @@ Conventions (locked in design doc §2):
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from dataclasses import dataclass
 from fractions import Fraction
@@ -593,6 +594,13 @@ def bounded_chiral_ring_consistency_check(
     raw_metadata = claim.metadata.get("bounded_chiral_ring", {})
     max_length = int(raw_metadata.get("max_length", _BOUNDED_CHIRAL_RING_DEFAULT_MAX_LENGTH))
     require_r_graded = bool(raw_metadata.get("require_r_graded", True))
+    # `grading` selects the comparison axis. "length" (default) is the locked
+    # word-length-graded comparison. "r_charge" is the duality-invariant
+    # R-charge-graded comparison (opt-in): word-length is NOT preserved by
+    # Seiberg duality (a magnetic meson M of length 1 is the electric
+    # composite Q̃Q of length 2), so non-chiral duals (diagonal mesons →
+    # adjoints) only match under R-charge grading. See _r_graded_comparison.
+    grading = str(raw_metadata.get("grading", "length"))
 
     base_details: dict = {
         "cutoff_L": max_length,
@@ -615,9 +623,19 @@ def bounded_chiral_ring_consistency_check(
         "limitations": list(_BOUNDED_CHIRAL_RING_LIMITATIONS),
     }
 
+    # In r_charge grading the single-trace ARROW sector is compared; gauge
+    # singlets (and the W couplings referencing them) belong to the deferred
+    # multi-trace sector, so strip them up front so arrow extraction does not
+    # reject the theory. In length mode these are the unmodified claim theories.
+    electric_theory = claim.electric_theory
+    magnetic_theory = claim.magnetic_theory
+    if grading == "r_charge":
+        electric_theory = _strip_gauge_singlets(electric_theory)
+        magnetic_theory = _strip_gauge_singlets(magnetic_theory)
+
     # --- P1: both sides must be pure_quiver --------------------------------
-    e_kind = infer_theory_kind(claim.electric_theory)
-    m_kind = infer_theory_kind(claim.magnetic_theory)
+    e_kind = infer_theory_kind(electric_theory)
+    m_kind = infer_theory_kind(magnetic_theory)
     if e_kind != PURE_QUIVER or m_kind != PURE_QUIVER:
         return CheckResult(
             status=Status.NOT_APPLICABLE,
@@ -645,8 +663,8 @@ def bounded_chiral_ring_consistency_check(
 
     # --- P5: extract arrows and validate W on each side ---------------------
     try:
-        electric_arrows = extract_arrows(claim.electric_theory)
-        validate_w_terms(electric_arrows, claim.electric_theory.superpotential_terms)
+        electric_arrows = extract_arrows(electric_theory)
+        validate_w_terms(electric_arrows, electric_theory.superpotential_terms)
     except (PureQuiverShapeError, WTermShapeError) as exc:
         return CheckResult(
             status=Status.NOT_APPLICABLE,
@@ -658,8 +676,8 @@ def bounded_chiral_ring_consistency_check(
             },
         )
     try:
-        magnetic_arrows = extract_arrows(claim.magnetic_theory)
-        validate_w_terms(magnetic_arrows, claim.magnetic_theory.superpotential_terms)
+        magnetic_arrows = extract_arrows(magnetic_theory)
+        validate_w_terms(magnetic_arrows, magnetic_theory.superpotential_terms)
     except (PureQuiverShapeError, WTermShapeError) as exc:
         return CheckResult(
             status=Status.NOT_APPLICABLE,
@@ -679,10 +697,10 @@ def bounded_chiral_ring_consistency_check(
     # theory.field_map() would falsely report "unknown field 'X[0]'" on any
     # multi-arrow fixture.
     p3_failures = _check_p3_w_term_r_charges(
-        claim.electric_theory, electric_arrows, "electric"
+        electric_theory, electric_arrows, "electric"
     )
     p3_failures += _check_p3_w_term_r_charges(
-        claim.magnetic_theory, magnetic_arrows, "magnetic"
+        magnetic_theory, magnetic_arrows, "magnetic"
     )
 
     # --- P4: upstream anomaly obligations passed on both sides --------------
@@ -738,6 +756,23 @@ def bounded_chiral_ring_consistency_check(
                 "p3_failures": p3_failures,
                 "p4_failures": p4_failures,
             },
+        )
+
+    # --- R-charge-graded mode (opt-in) -------------------------------------
+    # Reuses every precondition gate above (P1/P5/P6/P3/P4); branches into a
+    # self-contained comparison so the locked length-graded path below is
+    # byte-for-byte unchanged.
+    if grading == "r_charge":
+        return _r_graded_comparison(
+            electric_theory,
+            magnetic_theory,
+            electric_arrows,
+            magnetic_arrows,
+            raw_metadata,
+            base_details,
+            r_graded_blocked_by,
+            p3_failures,
+            p4_failures,
         )
 
     # --- Compute quotient dimensions on each side --------------------------
@@ -857,6 +892,200 @@ def bounded_chiral_ring_consistency_check(
         ),
         details=details,
         warnings=tuple(warnings),
+    )
+
+
+def _strip_gauge_singlets(theory: Theory) -> Theory:
+    """Return a copy of `theory` with gauge-singlet fields — and every W term
+    that references one — removed (the single-trace ARROW sector).
+
+    Used by the R-graded comparison: the gauge-singlet trace part S_u of a
+    diagonal meson M_uu = adjoint ⊕ singlet belongs to the deferred
+    multi-trace sector. Dropping it is exact up to the R-charge where finite-N
+    trace identities bite — the omitted S_u (at R = R_in+R_out) is offset by
+    the free-trace single-trace count of the adjoint Φ_u at the same R.
+    """
+
+    singlet_names = {
+        field.name
+        for field in theory.fields
+        if all(rep.name == "singlet" for rep in field.gauge_reps.values())
+    }
+    if not singlet_names:
+        return theory
+    fields = tuple(f for f in theory.fields if f.name not in singlet_names)
+    terms = tuple(
+        t
+        for t in theory.superpotential_terms
+        if not any(name in singlet_names for name in t.field_names)
+    )
+    return Theory(
+        name=theory.name,
+        gauge_nodes=theory.gauge_nodes,
+        fields=fields,
+        superpotential_terms=terms,
+        global_symmetries=theory.global_symmetries,
+    )
+
+
+def _r_graded_comparison(
+    electric_theory: Theory,
+    magnetic_theory: Theory,
+    electric_arrows: tuple[Arrow, ...],
+    magnetic_arrows: tuple[Arrow, ...],
+    raw_metadata: Mapping,
+    base_details: dict,
+    r_graded_blocked_by: list[str],
+    p3_failures: list[str],
+    p4_failures: list[str],
+) -> CheckResult:
+    """R-charge-graded bounded chiral-ring comparison (opt-in).
+
+    R-charge is the duality-invariant grading; word-length is not (a meson
+    M of magnetic length 1 is the electric composite Q̃Q of length 2, so
+    integrating out a node shifts lengths). We enumerate each side up to its
+    OWN cutoff ``L_side = ceil(max_r_charge / min_field_R_side)`` so every
+    R-bucket up to ``max_r_charge`` is complete on both sides, then compare
+    the per-R-charge quotient dimensions (summed over length, since the
+    F-relations are block-diagonal in length).
+
+    Scope: still the single-trace sector with free traces — so this verifies
+    the chiral ring up to ``max_r_charge`` but does not yet impose multi-trace
+    or finite-N (Casimir / tracelessness) identities. For C^3/(Z_2 x Z_2) the
+    electric and magnetic single-trace rings agree up to R=2 under this mode.
+    """
+
+    preconditions = {
+        "P1": "pass",
+        "P3": "pass" if not p3_failures else "fail",
+        "P4": "pass" if not p4_failures else "fail",
+        "P5_electric": "pass",
+        "P5_magnetic": "pass",
+        "P6": "pass",
+    }
+    common = {**base_details, "grading": "r_charge", "preconditions": preconditions}
+
+    # R-grading needs a physically meaningful U(1)_R (P3 + P4 both pass).
+    if r_graded_blocked_by:
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=(
+                "r_charge grading requires P3 (every W term has R=2) and P4 "
+                f"(upstream anomalies pass); blocked by {', '.join(r_graded_blocked_by)}."
+            ),
+            details={
+                **common,
+                "r_graded_blocked_by": r_graded_blocked_by,
+                "p3_failures": p3_failures,
+                "p4_failures": p4_failures,
+            },
+        )
+
+    max_r = Fraction(str(raw_metadata.get("max_r_charge", 2)))
+
+    def min_field_r(arrows: tuple[Arrow, ...]) -> Fraction | None:
+        positives = [a.r_charge for a in arrows if a.r_charge > 0]
+        return min(positives) if positives else None
+
+    min_e = min_field_r(electric_arrows)
+    min_m = min_field_r(magnetic_arrows)
+    if min_e is None or min_m is None:
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=(
+                "r_charge grading needs at least one R>0 field per side to "
+                "bound word-length from R-charge."
+            ),
+            details=common,
+        )
+
+    l_e = math.ceil(max_r / min_e)
+    l_m = math.ceil(max_r / min_m)
+    if max(l_e, l_m) > _BOUNDED_CHIRAL_RING_MAX_SUPPORTED:
+        return CheckResult(
+            status=Status.UNKNOWN,
+            message=(
+                f"max_r_charge={max_r} requires word-length up to {max(l_e, l_m)} "
+                f"> P6 cap {_BOUNDED_CHIRAL_RING_MAX_SUPPORTED}; lower max_r_charge."
+            ),
+            details={**common, "per_side_cutoff": {"electric_L": l_e, "magnetic_L": l_m}},
+        )
+
+    try:
+        e_dims = quotient_dimensions(
+            electric_arrows,
+            electric_theory.superpotential_terms,
+            l_e,
+            r_graded=True,
+        )
+        m_dims = quotient_dimensions(
+            magnetic_arrows,
+            magnetic_theory.superpotential_terms,
+            l_m,
+            r_graded=True,
+        )
+    except (ValueError, RuntimeError) as exc:
+        return CheckResult(
+            status=Status.UNKNOWN,
+            message=f"Quotient-dimension computation failed: {exc}",
+            details={**common, "compute_error": str(exc)},
+        )
+
+    def buckets(dims: dict) -> dict[Fraction, int]:
+        out: dict[Fraction, int] = defaultdict(int)
+        for (length, r), dim in dims.items():
+            if r is not None and r <= max_r:
+                out[r] += dim
+        return out
+
+    eb = buckets(e_dims)
+    mb = buckets(m_dims)
+    tested: list[dict] = []
+    failed: list[dict] = []
+    for r in sorted(set(eb) | set(mb)):
+        e = eb.get(r, 0)
+        m = mb.get(r, 0)
+        record = {"r_charge": str(r), "electric_dim": e, "magnetic_dim": m}
+        tested.append(record)
+        if e != m:
+            failed.append(record)
+
+    details = {
+        **common,
+        "r_graded": True,
+        "max_r_charge": str(max_r),
+        "per_side_cutoff": {"electric_L": l_e, "magnetic_L": l_m},
+        "tested_r_buckets": tested,
+        "failed_r_buckets": failed,
+        "arrow_machine_labels_electric": sorted(a.label for a in electric_arrows),
+        "arrow_machine_labels_magnetic": sorted(a.label for a in magnetic_arrows),
+    }
+    warnings = (
+        "PASS means per-R-charge single-trace dimension agreement up to "
+        "max_r_charge — NOT full chiral-ring equivalence (multi-trace and "
+        "finite-N Casimir/tracelessness identities are not imposed).",
+    )
+
+    if failed:
+        first = failed[0]
+        return CheckResult(
+            status=Status.FAILED,
+            message=(
+                f"FAILED_AT_R_BUCKET r_charge={first['r_charge']}: electric dim "
+                f"{first['electric_dim']} != magnetic dim {first['magnetic_dim']} "
+                f"({len(failed)} of {len(tested)} R-buckets differ)."
+            ),
+            details=details,
+            warnings=warnings,
+        )
+    return CheckResult(
+        status=Status.CERTIFIED,
+        message=(
+            f"PASSED_BOUNDED_CHIRAL_RING_CONSISTENCY (R-graded) up to "
+            f"R={max_r} ({len(tested)} R-buckets, electric L={l_e}, magnetic L={l_m})."
+        ),
+        details=details,
+        warnings=warnings,
     )
 
 
