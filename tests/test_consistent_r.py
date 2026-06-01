@@ -54,6 +54,33 @@ def test_dp1_trR3_matches_under_consistent_r():
     assert _tr_r3(res.electric) == _tr_r3(res.magnetic)
 
 
+def test_generation_certifies_dp1_positive_via_consistent_path():
+    """End-to-end: generate_fixtures produces a CERTIFIED dP_1 positive through
+    the depth-1 consistent-R path (the seed's irrational R is shifted so the
+    magnetic R is its exact image)."""
+
+    from dualitycert.experiments.config import ExperimentConfig
+    from dualitycert.experiments.generation import generate_fixtures
+    from dualitycert.experiments.seeds import SeedSpec
+
+    specs = [SeedSpec("dp1", dp1_electric, node=0, N=2)]
+    config = ExperimentConfig(
+        name="dp1_consistent_gen",
+        seed=7,
+        depths=[1],
+        fixture_classes=("positive",),
+        n_per_cell=1,
+    )
+    result = generate_fixtures(
+        config, seed_specs=specs, allow_incomplete_cells=True, write=False
+    )
+    positives = [r for r in result.manifest if r.perturbation_class == "positive"]
+    assert len(positives) == 1
+    assert positives[0].label == "CERTIFIED"
+    assert positives[0].source == "dp1"
+    assert positives[0].mutation_node_sequence == (0,)
+
+
 def test_consistent_r_is_noop_for_symmetric_seeds():
     """Seeds whose symmetric rational R is already consistent (dp0 chiral,
     C^3/(Z2xZ2) non-chiral) leave the electric R untouched — the solve falls

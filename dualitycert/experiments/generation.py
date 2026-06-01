@@ -28,8 +28,10 @@ from typing import Any, Mapping
 from dualitycert.benchmark.fixtures import sanitize_for_prompt
 from dualitycert.experiments.chains import (
     MutationChainResult,
+    _chain_id,
     canonical_theory_hash,
     generate_mutation_chain,
+    seiberg_dual_consistent,
 )
 from dualitycert.experiments.config import ExperimentConfig
 from dualitycert.experiments.manifest import (
@@ -278,40 +280,72 @@ def generate_fixtures(
             electric = spec.electric()
             base_id = f"{spec.source_name}_N{spec.N}_d{depth}_node{spec.node}"
 
-            chain = _attempt_chain(electric, depth, spec, si)
-            if chain is None or not chain.success:
-                reason = (
-                    chain.attrition_reason if chain is not None else "max_attempts_exceeded"
-                ) or "no_valid_mutation_nodes"
-                result.attrition.append(
-                    AttritionRecord(
-                        fixture_id=f"{base_id}_positive",
-                        seed_id=(chain.seed_id if chain is not None else 0) or 0,
-                        depth=depth,
-                        perturbation_class="positive",
-                        attrition_reason=reason,
-                        detail=(
-                            f"depth-{depth} chain failed: {reason} "
-                            f"(realized {chain.depth_realized if chain else 0})"
-                        ),
-                        verifier_status=(
-                            chain.verifier_status_seed_to_final if chain else None
-                        ),
-                        generation_metadata=_gen_meta(
-                            (chain.seed_id if chain is not None else 0) or 0
-                        ),
-                        mutation_chain_id=chain.chain_id if chain is not None else None,
-                        source=spec.source_name,
-                    )
+            # Depth-1 positives whose seed has an irrational superconformal R
+            # (dP_1 / Y^{p,q}): pick the consistent R rep so the magnetic R is
+            # the exact duality image (TrR^3 / central charge match). Symmetric-R
+            # seeds (dp0 / F_0 / C^3) are NOT shifted, so they fall through to the
+            # locked chain path below byte-for-byte.
+            consistent = (
+                seiberg_dual_consistent(electric, spec.node) if depth == 1 else None
+            )
+            if (
+                consistent is not None
+                and consistent.ok
+                and consistent.metadata.get("electric_r_shifted")
+            ):
+                chain_seed = _stable_seed(config.seed, depth, si, "chain")
+                electric = consistent.electric
+                positive_candidate = consistent.magnetic
+                final_hash = canonical_theory_hash(positive_candidate)
+                node_sequence: tuple[int, ...] = (int(spec.node),)
+                depth_realized = 1
+                intermediate_hashes = (canonical_theory_hash(electric), final_hash)
+                chain_id = _chain_id(
+                    spec.source_name, chain_seed, list(node_sequence), final_hash, 1
                 )
-                continue
+                chain_seed_id: int = chain_seed
+            else:
+                chain = _attempt_chain(electric, depth, spec, si)
+                if chain is None or not chain.success:
+                    reason = (
+                        chain.attrition_reason if chain is not None else "max_attempts_exceeded"
+                    ) or "no_valid_mutation_nodes"
+                    result.attrition.append(
+                        AttritionRecord(
+                            fixture_id=f"{base_id}_positive",
+                            seed_id=(chain.seed_id if chain is not None else 0) or 0,
+                            depth=depth,
+                            perturbation_class="positive",
+                            attrition_reason=reason,
+                            detail=(
+                                f"depth-{depth} chain failed: {reason} "
+                                f"(realized {chain.depth_realized if chain else 0})"
+                            ),
+                            verifier_status=(
+                                chain.verifier_status_seed_to_final if chain else None
+                            ),
+                            generation_metadata=_gen_meta(
+                                (chain.seed_id if chain is not None else 0) or 0
+                            ),
+                            mutation_chain_id=chain.chain_id if chain is not None else None,
+                            source=spec.source_name,
+                        )
+                    )
+                    continue
 
-            positive_candidate = chain.final_theory
+                positive_candidate = chain.final_theory
+                node_sequence = chain.node_sequence
+                depth_realized = chain.depth_realized
+                intermediate_hashes = chain.intermediate_hashes
+                final_hash = chain.final_theory_hash
+                chain_id = chain.chain_id
+                chain_seed_id = chain.seed_id
+
             chain_fields = dict(
-                chain_depth=chain.depth_realized,
-                mutation_node_sequence=chain.node_sequence,
-                intermediate_hashes=chain.intermediate_hashes,
-                final_theory_hash=chain.final_theory_hash,
+                chain_depth=depth_realized,
+                mutation_node_sequence=node_sequence,
+                intermediate_hashes=intermediate_hashes,
+                final_theory_hash=final_hash,
             )
             pos_outcome = run_verifier(
                 electric, positive_candidate, config.verifier, claim_name=base_id
@@ -325,7 +359,7 @@ def generate_fixtures(
                 result.attrition.append(
                     AttritionRecord(
                         fixture_id=f"{base_id}_positive",
-                        seed_id=chain.seed_id or 0,
+                        seed_id=chain_seed_id or 0,
                         depth=depth,
                         perturbation_class="positive",
                         attrition_reason=reason,
@@ -334,8 +368,8 @@ def generate_fixtures(
                             or f"positive expected CERTIFIED, got {pos_outcome.status}"
                         ),
                         verifier_status=pos_outcome.status,
-                        generation_metadata=_gen_meta(chain.seed_id or 0),
-                        mutation_chain_id=chain.chain_id,
+                        generation_metadata=_gen_meta(chain_seed_id or 0),
+                        mutation_chain_id=chain_id,
                         source=spec.source_name,
                     )
                 )
@@ -355,10 +389,10 @@ def generate_fixtures(
                     seed_id=_stable_seed(config.seed, depth, si, "positive", 0),
                     depth=depth,
                     source=spec.source_name,
-                    chain_id=chain.chain_id,
+                    chain_id=chain_id,
                     perturbation_metadata={
-                        "mutation_node_sequence": list(chain.node_sequence),
-                        "mutation_depth": chain.depth_realized,
+                        "mutation_node_sequence": list(node_sequence),
+                        "mutation_depth": depth_realized,
                         "N": spec.N,
                     },
                     **chain_fields,
@@ -384,7 +418,7 @@ def generate_fixtures(
                                 detail=str(exc),
                                 verifier_status=None,
                                 generation_metadata=_gen_meta(seed_i),
-                                mutation_chain_id=chain.chain_id,
+                                mutation_chain_id=chain_id,
                                 source=spec.source_name,
                             )
                         )
@@ -407,7 +441,7 @@ def generate_fixtures(
                                 ),
                                 verifier_status=outcome.status,
                                 generation_metadata=_gen_meta(seed_i),
-                                mutation_chain_id=chain.chain_id,
+                                mutation_chain_id=chain_id,
                                 source=spec.source_name,
                             )
                         )
@@ -426,7 +460,7 @@ def generate_fixtures(
                                 ),
                                 verifier_status=outcome.status,
                                 generation_metadata=_gen_meta(seed_i),
-                                mutation_chain_id=chain.chain_id,
+                                mutation_chain_id=chain_id,
                                 source=spec.source_name,
                             )
                         )
@@ -441,7 +475,7 @@ def generate_fixtures(
                         seed_id=seed_i,
                         depth=depth,
                         source=spec.source_name,
-                        chain_id=chain.chain_id,
+                        chain_id=chain_id,
                         perturbation_metadata=meta,
                         **chain_fields,
                     )
