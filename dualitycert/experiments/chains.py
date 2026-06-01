@@ -23,6 +23,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
+from fractions import Fraction
 from random import Random
 from typing import Any, Mapping
 
@@ -43,6 +44,7 @@ from dualitycert.qft.r_repair import RRepairError, repair_r_charges
 
 __all__ = [
     "ChainConstructionError",
+    "ConsistentDualResult",
     "DepthNotImplementedError",
     "MutationChainResult",
     "MutationStep",
@@ -51,6 +53,7 @@ __all__ = [
     "canonical_theory_hash",
     "generate_mutation_chain",
     "legal_mutation_nodes",
+    "seiberg_dual_consistent",
     "theory_size",
 ]
 
@@ -132,6 +135,186 @@ def apply_single_seiberg_mutation(
         "r_repair_status": repaired.get("status"),
     }
     return SingleMutationResult(ok=True, node=node, theory=final, metadata=metadata)
+
+
+@dataclass(frozen=True)
+class ConsistentDualResult:
+    """A single-node Seiberg dual carrying a CONSISTENT R-symmetry on both
+    sides (`electric` is the R-adjusted electric, `magnetic` its exact
+    duality image)."""
+
+    ok: bool
+    node: int
+    electric: dict[str, Any] | None = None
+    magnetic: dict[str, Any] | None = None
+    reason: str | None = None
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+def seiberg_dual_consistent(
+    theory: Mapping[str, Any], node: int
+) -> ConsistentDualResult:
+    """Single-node Seiberg dual with one consistent R-symmetry on both sides.
+
+    The locked pipeline R-repairs the magnetic side *independently*, which
+    lands on a different rational representative of the (generically
+    irrational) superconformal R and breaks 't Hooft / central-charge
+    matching for seeds like dP_1 / Y^{p,q}. Instead, choose the electric R
+    representative — within the electric anomaly-free affine R-space — whose
+    DUAL PROPAGATION is anomaly-free on the magnetic side too, then propagate
+    it via the Seiberg rules (no magnetic repair). The magnetic R is then the
+    exact duality image of the electric R, so TrR^3 / central charge match
+    for free, with rational arithmetic (no a-maximization).
+
+    The per-node gauge-global U(1)_R anomaly residual is affine-linear in the
+    electric R (the integrate-out topology is R-independent), so we sample the
+    feasible space's particular point + each kernel direction and solve the
+    resulting linear system exactly over Q.
+
+    Returns the R-adjusted electric and the propagated magnetic. ok=False on
+    engine refusal, infeasible electric R, or no consistent rational R.
+    """
+
+    theory = dict(theory)
+    try:
+        repaired = repair_r_charges(theory)
+    except RRepairError as exc:
+        return ConsistentDualResult(
+            ok=False, node=node, reason="single_step_mutation_failed", error=str(exc)
+        )
+    if repaired["status"] == "infeasible":
+        return ConsistentDualResult(
+            ok=False,
+            node=node,
+            reason="single_step_mutation_failed",
+            error=str(repaired.get("failure_reason")),
+        )
+
+    feasible = repaired["feasible_space"]
+    labels = [a["label"] for a in theory["arrows"]]
+    particular = {k: Fraction(v) for k, v in feasible["particular_solution"].items()}
+    kernel = [
+        {k: Fraction(v) for k, v in vec.items()}
+        for vec in feasible["homogeneous_basis"]
+    ]
+
+    def with_r(rmap: Mapping[str, Fraction]) -> dict[str, Any]:
+        return {
+            **theory,
+            "arrows": [
+                {**a, "r_charge": str(rmap[a["label"]])} for a in theory["arrows"]
+            ],
+        }
+
+    def magnetic_residual(rmap: Mapping[str, Fraction]) -> list[Fraction]:
+        mag = integrate_fields(mutate_bare(with_r(rmap), node=node))
+        return _gauge_global_r_residual(mag)
+
+    try:
+        base = magnetic_residual(particular)
+        deltas: list[list[Fraction]] = []
+        for vec in kernel:
+            perturbed = {l: particular[l] + vec.get(l, Fraction(0)) for l in labels}
+            row = magnetic_residual(perturbed)
+            deltas.append([row[v] - base[v] for v in range(len(base))])
+    except MutationEngineError as exc:
+        return ConsistentDualResult(
+            ok=False, node=node, reason="single_step_mutation_failed", error=str(exc)
+        )
+
+    # Residuals sum to zero (gravitational-mixed cancellation), so component 0
+    # is dependent: solve over components 1..n-1.
+    n = len(base)
+    rows = [[deltas[i][c] for i in range(len(kernel))] for c in range(1, n)]
+    rhs = [-base[c] for c in range(1, n)]
+    coeffs = _solve_linear_fractions(rows, rhs)
+    if coeffs is None:
+        return ConsistentDualResult(
+            ok=False, node=node, reason="no_consistent_r_symmetry"
+        )
+
+    rmap = {
+        l: particular[l]
+        + sum(coeffs[i] * kernel[i].get(l, Fraction(0)) for i in range(len(kernel)))
+        for l in labels
+    }
+    electric_consistent = with_r(rmap)
+    magnetic = integrate_fields(mutate_bare(dict(electric_consistent), node=node))
+    metadata = {
+        "node": int(node),
+        "magnetic_rank": int(magnetic["ranks"][node]),
+        "r_consistency": "propagated",
+        "electric_r_shifted": rmap != particular,
+    }
+    return ConsistentDualResult(
+        ok=True,
+        node=node,
+        electric=electric_consistent,
+        magnetic=magnetic,
+        metadata=metadata,
+    )
+
+
+def _gauge_global_r_residual(theory_json: Mapping[str, Any]) -> list[Fraction]:
+    """Per-node U(1)_R - SU(N)^2 anomaly residual A_v = Σ_f a_vf (R_f-1) + N_v.
+
+    Zero on every node iff the encoded R is a valid (anomaly-free)
+    R-symmetry. Singlets carry no gauge charge → no contribution.
+    """
+
+    ranks = [int(r) for r in theory_json["ranks"]]
+    a_sum = [Fraction(0)] * len(ranks)
+    for arrow in theory_json["arrows"]:
+        s, t = int(arrow["source"]), int(arrow["target"])
+        r = Fraction(arrow["r_charge"])
+        if s == t:  # adjoint: T(adj) = N_v, spectator dim 1
+            a_sum[s] += Fraction(ranks[s]) * (r - 1)
+        else:  # bifundamental: T = 1/2, spectator = the other rank
+            a_sum[s] += Fraction(1, 2) * ranks[t] * (r - 1)
+            a_sum[t] += Fraction(1, 2) * ranks[s] * (r - 1)
+    return [a_sum[v] + Fraction(ranks[v]) for v in range(len(ranks))]
+
+
+def _solve_linear_fractions(
+    rows: list[list[Fraction]], rhs: list[Fraction]
+) -> list[Fraction] | None:
+    """Solve `rows · t = rhs` over Q. Return one particular solution (free
+    variables 0), or None if the system is inconsistent."""
+
+    matrix = [list(r) for r in rows]
+    b = list(rhs)
+    n_rows = len(matrix)
+    n_cols = len(matrix[0]) if matrix else 0
+    pivot_row_for_col: dict[int, int] = {}
+    current = 0
+    for col in range(n_cols):
+        pivot = next(
+            (i for i in range(current, n_rows) if matrix[i][col] != 0), None
+        )
+        if pivot is None:
+            continue
+        matrix[current], matrix[pivot] = matrix[pivot], matrix[current]
+        b[current], b[pivot] = b[pivot], b[current]
+        scale = matrix[current][col]
+        matrix[current] = [x / scale for x in matrix[current]]
+        b[current] = b[current] / scale
+        for i in range(n_rows):
+            if i != current and matrix[i][col] != 0:
+                factor = matrix[i][col]
+                matrix[i] = [
+                    x - factor * y for x, y in zip(matrix[i], matrix[current])
+                ]
+                b[i] = b[i] - factor * b[current]
+        pivot_row_for_col[col] = current
+        current += 1
+    for i in range(n_rows):
+        if all(matrix[i][c] == 0 for c in range(n_cols)) and b[i] != 0:
+            return None
+    solution = [Fraction(0)] * n_cols
+    for col, row_index in pivot_row_for_col.items():
+        solution[col] = b[row_index]
+    return solution
 
 
 def legal_mutation_nodes(theory: Mapping[str, Any]) -> list[int]:
