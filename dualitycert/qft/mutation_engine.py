@@ -34,8 +34,17 @@ from dualitycert.qft.pure_quiver_builder import _arrow_base_name
 __all__ = [
     "mutate_bare",
     "integrate_linear_fields",
+    "integrate_fields",
     "MutationEngineError",
 ]
+
+
+# Safety bounds for the general quadratic reduction (Stage 3). The
+# physical reduction terminates (DWZ Splitting Theorem); these guard
+# against a transcription bug / out-of-scope input looping or blowing up
+# the W degree instead of raising an informative error.
+_MAX_REDUCTION_STEPS = 1000
+_MAX_W_DEGREE = 16
 
 
 class MutationEngineError(ValueError):
@@ -170,9 +179,15 @@ def mutate_bare(theory_json: Mapping[str, Any], *, node: int) -> dict[str, Any]:
         relabel_map[a["label"]] = new_label
 
     # 3d. Bypass mesons: for each (in_arrow, out_arrow) pair, add a meson
-    # on edge (source(in), target(out)) with R = R(in) + R(out).
+    # on edge (source(in), target(out)) with R = R(in) + R(out). A DIAGONAL
+    # meson (source(in) == target(out) = u) is M_uu = Q̃_u Q_u, which under
+    # SU(N_u) decomposes as adjoint ⊕ singlet; the arrow carries the adjoint,
+    # so we also emit a gauge-singlet field S_u for the trace part.
     meson_label_for_pair: dict[tuple[str, str], str] = {}
     meson_label_set: set[str] = set()
+    singlet_for_pair: dict[tuple[str, str], str] = {}
+    singlets_payload: list[dict[str, str]] = []
+    singlet_counts: dict[int, int] = {}
     for in_a in in_arrows:
         u = int(in_a["source"])
         r_in = Fraction(in_a["r_charge"])
@@ -183,6 +198,14 @@ def mutate_bare(theory_json: Mapping[str, Any], *, node: int) -> dict[str, Any]:
             label = _add_arrow(edge_key, r_in + r_out)
             meson_label_for_pair[(in_a["label"], out_a["label"])] = label
             meson_label_set.add(label)
+            if u == w:
+                k = singlet_counts.get(u, 0)
+                singlet_counts[u] = k + 1
+                s_label = f"S{u}[{k}]"
+                singlets_payload.append(
+                    {"label": s_label, "r_charge": str(r_in + r_out)}
+                )
+                singlet_for_pair[(in_a["label"], out_a["label"])] = s_label
 
     # ------------------------------------------------------------------
     # 4. Flatten new_arrows_by_edge into the JSON list, ordered by edge.
@@ -228,8 +251,17 @@ def mutate_bare(theory_json: Mapping[str, Any], *, node: int) -> dict[str, Any]:
                     "coefficient": "1",
                 }
             )
+            # Singlet half of a diagonal meson: S_u · (q q̃ trace part).
+            s_label = singlet_for_pair.get((in_a["label"], out_a["label"]))
+            if s_label is not None:
+                new_W.append(
+                    {
+                        "factors": [s_label, q_label, qtilde_label],
+                        "coefficient": "1",
+                    }
+                )
 
-    return {
+    result = {
         "name": f"{name} (Seiberg-mutated at node {node}, bare)",
         "node_labels": new_node_labels,
         "ranks": new_ranks,
@@ -237,6 +269,9 @@ def mutate_bare(theory_json: Mapping[str, Any], *, node: int) -> dict[str, Any]:
         "arrows": new_arrows,
         "superpotential": new_W,
     }
+    if singlets_payload:
+        result["singlets"] = singlets_payload
+    return result
 
 
 def _rewrite_term_through_node(
@@ -311,6 +346,7 @@ def integrate_linear_fields(theory_json: Mapping[str, Any]) -> dict[str, Any]:
     ranks = list(theory_json["ranks"])
     node_labels = list(theory_json["node_labels"])
     u1_globals = list(theory_json.get("u1_globals", []))
+    singlets = [dict(s) for s in theory_json.get("singlets", [])]
     name = theory_json["name"]
     superpotential = [
         {"factors": list(t["factors"]), "coefficient": Fraction(t["coefficient"])}
@@ -332,7 +368,7 @@ def integrate_linear_fields(theory_json: Mapping[str, Any]) -> dict[str, Any]:
     # `X{i}{j}[k]` builder convention.
     final_arrows, final_W = _recanonicalize_labels(arrows, superpotential)
 
-    return {
+    result: dict[str, Any] = {
         "name": f"{name} (integrated)",
         "node_labels": node_labels,
         "ranks": ranks,
@@ -343,6 +379,9 @@ def integrate_linear_fields(theory_json: Mapping[str, Any]) -> dict[str, Any]:
             for t in final_W
         ],
     }
+    if singlets:
+        result["singlets"] = singlets
+    return result
 
 
 def _integration_pass(
@@ -494,10 +533,13 @@ def _find_linear_field(
                 multi_appearances.add(f)
             appearances[f] = appearances.get(f, 0) + 1
 
-    # Pick the linear field with the lowest label (deterministic).
+    # Pick the linear field with the lowest label (deterministic). Only
+    # genuine arrow fields are integrable; gauge singlets that appear in W
+    # are never selected (they carry no edge / sibling structure).
+    arrow_labels = {a["label"] for a in arrows}
     candidates = sorted(
         f for f in appearances
-        if f not in multi_appearances and appearances[f] >= 1
+        if f not in multi_appearances and appearances[f] >= 1 and f in arrow_labels
     )
     if not candidates:
         return None
@@ -641,3 +683,195 @@ def _recanonicalize_labels(
         )
 
     return new_arrows, new_W
+
+
+# ----------------------------------------------------------------------
+# Stage 3: general quadratic reduction (DWZ reduction / mesonic
+# integrate-out). Removes the mass terms the linear pass cannot reach,
+# i.e. 2-cycles c·a·b whose F-equations involve paths of length >= 2.
+# ----------------------------------------------------------------------
+
+
+def integrate_fields(theory_json: Mapping[str, Any]) -> dict[str, Any]:
+    """Full F-term integration: linear pass, then general DWZ reduction.
+
+    Runs `integrate_linear_fields` first (the cheap, single-field-
+    identification pass that reproduces the dp0/F_0 MVP byte-for-byte),
+    then iteratively integrates out any remaining 2-cycle mass terms via
+    their equations of motion (the step the linear pass cannot do because
+    the F-equation `∂_F W` contains paths of length >= 2).
+
+    For theories whose magnetic dual has no leftover quadratic terms
+    (dp0, F_0) the second stage is a no-op, so the output is identical to
+    `integrate_linear_fields`. For the more-connected seeds (C^3/Z2xZ2,
+    dP_1, ...) it eliminates the spurious massive fields that otherwise
+    break 't Hooft anomaly / central-charge / bounded-chiral-ring
+    matching.
+    """
+
+    linear = integrate_linear_fields(theory_json)
+
+    arrows = [dict(a) for a in linear["arrows"]]
+    arrow_by_label: dict[str, dict[str, Any]] = {a["label"]: a for a in arrows}
+    superpotential = [
+        {"factors": list(t["factors"]), "coefficient": Fraction(t["coefficient"])}
+        for t in linear["superpotential"]
+    ]
+
+    steps = 0
+    while _reduce_one_quadratic(
+        arrows=arrows,
+        arrow_by_label=arrow_by_label,
+        superpotential=superpotential,
+        arrow_labels={a["label"] for a in arrows},
+    ):
+        steps += 1
+        if steps > _MAX_REDUCTION_STEPS:
+            raise MutationEngineError(
+                "general quadratic reduction did not terminate after "
+                f"{_MAX_REDUCTION_STEPS} steps; likely an out-of-scope "
+                "coupled mass structure or a transcription bug"
+            )
+        max_deg = max((len(t["factors"]) for t in superpotential), default=0)
+        if max_deg > _MAX_W_DEGREE:
+            raise MutationEngineError(
+                f"reduced W reached degree {max_deg} > cap {_MAX_W_DEGREE}; "
+                "the integrate-out is blowing up (out-of-scope input)"
+            )
+
+    final_arrows, final_W = _recanonicalize_labels(arrows, superpotential)
+
+    result: dict[str, Any] = {
+        "name": linear["name"],
+        "node_labels": list(linear["node_labels"]),
+        "ranks": list(linear["ranks"]),
+        "u1_globals": list(linear.get("u1_globals", [])),
+        "arrows": final_arrows,
+        "superpotential": [
+            {"factors": list(t["factors"]), "coefficient": str(Fraction(t["coefficient"]))}
+            for t in final_W
+        ],
+    }
+    singlets = linear.get("singlets", [])
+    if singlets:
+        result["singlets"] = [dict(s) for s in singlets]
+    return result
+
+
+def _reduce_one_quadratic(
+    *,
+    arrows: list[dict[str, Any]],
+    arrow_by_label: dict[str, dict[str, Any]],
+    superpotential: list[dict[str, Any]],
+    arrow_labels: set[str],
+) -> bool:
+    """Integrate out one 2-cycle mass term via its equations of motion.
+
+    Picks the first length-2 W term ``c·a·b`` (a: i->j, b: j->i), solves
+    the EOMs ``b = -P_a/c`` and ``a = -P_b/c`` where ``P_a`` / ``P_b`` are
+    the residual paths from the *other* W terms, and rewrites
+
+        W  ->  U  -  (1/c)·(P_a · P_b)
+
+    with ``U`` the terms containing neither a nor b. Drops the arrows a, b
+    and re-collects cyclically equal monomials. Mutates inputs in place.
+    Returns True iff a mass term was found and reduced.
+    """
+
+    # A mass term is an arrow-arrow 2-cycle; a length-2 term containing a
+    # gauge singlet is not a 2-cycle and must not be integrated out here.
+    mass_idx = next(
+        (
+            i
+            for i, t in enumerate(superpotential)
+            if len(t["factors"]) == 2 and all(f in arrow_labels for f in t["factors"])
+        ),
+        None,
+    )
+    if mass_idx is None:
+        return False
+
+    mass = superpotential[mass_idx]
+    c = Fraction(mass["coefficient"])
+    a, b = mass["factors"][0], mass["factors"][1]
+    if a == b:
+        raise MutationEngineError(
+            f"degenerate 2-cycle on a single field {a!r}; not a mass term"
+        )
+
+    others = [t for i, t in enumerate(superpotential) if i != mass_idx]
+    p_a = _partial_derivative(others, a)  # paths j->i (replace b)
+    p_b = _partial_derivative(others, b)  # paths i->j (replace a)
+
+    # Scope guard: a clean integrate-out needs the EOM residuals to be
+    # free of the integrated fields themselves. Self-reference means a
+    # coupled mass matrix that the per-2-cycle recipe cannot diagonalize.
+    for _coeff, factors in p_a + p_b:
+        if a in factors or b in factors:
+            raise MutationEngineError(
+                f"mass term {a!r}·{b!r} is coupled (its F-equation still "
+                "references the integrated fields); general mass-matrix "
+                "diagonalization is out of current scope"
+            )
+
+    new_terms: list[dict[str, Any]] = [
+        {"factors": list(t["factors"]), "coefficient": Fraction(t["coefficient"])}
+        for t in others
+        if a not in t["factors"] and b not in t["factors"]
+    ]
+    # Correction  -(1/c)·P_a·P_b : cyclic concatenation of every residual
+    # path j->i (from P_a) with every residual path i->j (from P_b).
+    for coeff_a, factors_a in p_a:
+        for coeff_b, factors_b in p_b:
+            new_terms.append(
+                {
+                    "factors": list(factors_a) + list(factors_b),
+                    "coefficient": -(coeff_a * coeff_b) / c,
+                }
+            )
+
+    collected = _collect_cyclic_terms(new_terms)
+
+    dropped = {a, b}
+    surviving = [ar for ar in arrows if ar["label"] not in dropped]
+    arrows[:] = surviving
+    arrow_by_label.clear()
+    arrow_by_label.update({ar["label"]: ar for ar in surviving})
+    superpotential[:] = collected
+    return True
+
+
+def _cyclic_canonical(factors: tuple[str, ...]) -> tuple[str, ...]:
+    """Lexicographically minimal rotation — a canonical key for the cyclic
+    word, so equal closed loops collect regardless of where they start."""
+
+    n = len(factors)
+    if n <= 1:
+        return tuple(factors)
+    return min(tuple(factors[i:] + factors[:i]) for i in range(n))
+
+
+def _collect_cyclic_terms(
+    terms: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Sum coefficients of cyclically-equal monomials; drop zero terms.
+
+    Preserves first-seen order and the first-seen factor rotation as the
+    representative (cyclic order is physically irrelevant in W)."""
+
+    bucket: dict[tuple[str, ...], list[Any]] = {}
+    order: list[tuple[str, ...]] = []
+    for term in terms:
+        factors = tuple(term["factors"])
+        key = _cyclic_canonical(factors)
+        if key not in bucket:
+            bucket[key] = [list(factors), Fraction(0)]
+            order.append(key)
+        bucket[key][1] += Fraction(term["coefficient"])
+
+    out: list[dict[str, Any]] = []
+    for key in order:
+        rep_factors, coeff = bucket[key]
+        if coeff != 0:
+            out.append({"factors": rep_factors, "coefficient": coeff})
+    return out

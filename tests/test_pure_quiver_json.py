@@ -112,7 +112,7 @@ def test_arrow_labels_grouped_by_edge_in_canonical_order():
 def test_from_json_rejects_unknown_arrow_in_W():
     payload = pure_quiver_to_json(build_dp0_magnetic_effective(N=3))
     payload["superpotential"][0]["factors"][0] = "X02[99]"
-    with pytest.raises(PureQuiverJSONError, match="unknown arrow label"):
+    with pytest.raises(PureQuiverJSONError, match="unknown field label"):
         pure_quiver_from_json(payload)
 
 

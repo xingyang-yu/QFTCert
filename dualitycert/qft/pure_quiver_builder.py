@@ -38,6 +38,7 @@ def build_pure_quiver(
     superpotential: tuple[SuperpotentialTerm, ...] = (),
     node_labels: tuple[str, ...] | None = None,
     u1_globals: tuple[GlobalSymmetry, ...] = (),
+    singlets: tuple[tuple[str, Fraction], ...] = (),
 ) -> Theory:
     """Build a pure-quiver Theory from a rank vector and arrow dictionary.
 
@@ -50,10 +51,15 @@ def build_pure_quiver(
             look up the generated names).
         node_labels: display labels for gauge nodes; defaults to "SU({N})_{i}".
         u1_globals: global U(1) symmetries to attach (e.g. (u1_r(),) for ABJ check).
+        singlets: gauge-singlet chiral fields as (name, r_charge) pairs. These
+            carry no gauge charge (e.g. the trace part of a diagonal meson
+            Q Q̃ = adjoint ⊕ singlet under SU(N)); they contribute to global
+            't Hooft anomalies / central charge but not to gauge anomalies.
 
     Returns:
         Theory with one SU(N) gauge node per rank and one chiral-multiplet Field
-        per arrow copy. All Fields have multiplicity=1.
+        per arrow copy (plus any gauge-singlet fields). All Fields have
+        multiplicity=1.
     """
     n_nodes = len(ranks)
     if node_labels is None:
@@ -91,6 +97,17 @@ def build_pure_quiver(
                     multiplicity=1,
                 )
             )
+
+    for name, r_charge in singlets:
+        fields.append(
+            Field(
+                name=name,
+                field_type="chiral multiplet",
+                gauge_reps={},
+                r_charge=r_charge,
+                multiplicity=1,
+            )
+        )
 
     return Theory(
         name=f"{n_nodes}-node pure quiver",

@@ -24,9 +24,15 @@ def superpotential_invariance(theory: Theory) -> CheckResult:
             continue
 
         gauge_ok = True
+        # A term whose ordered factors form ONE closed quiver walk is the
+        # trace of a single loop, hence gauge invariant even when a node is
+        # visited multiple times (e.g. 3 fund + 3 antifund). The per-node
+        # multiset test `_contains_singlet` is too coarse to certify that,
+        # so accept single-trace closed loops directly.
+        single_trace_loop = _is_single_closed_loop(expanded_fields)
         for node in theory.gauge_nodes:
             node_reps = [field.rep_for_node(node.label) for field in expanded_fields]
-            if not _contains_singlet(node_reps):
+            if not (_contains_singlet(node_reps) or single_trace_loop):
                 gauge_ok = False
                 failures.append(
                     f"{term.display_name} is not a gauge singlet under {node.label}"
@@ -156,3 +162,46 @@ def _contains_singlet(reps: list[Representation]) -> bool:
     if len(funds) == 1 and len(antifunds) == 1 and len(adjs) == len(nontrivial) - 2:
         return True
     return False
+
+
+def _field_endpoints(field: Field) -> tuple[str | None, str | None]:
+    """Return (source, target) gauge-node labels for a bifundamental/adjoint.
+
+    Convention (pure_quiver_builder): antifundamental at the source node,
+    fundamental at the target; adjoint => source == target. Returns
+    (None, None) when the field is not a single bifundamental/adjoint
+    (e.g. a flavor with several nontrivial gauge reps).
+    """
+
+    src: str | None = None
+    tgt: str | None = None
+    for node_label, rep in field.gauge_reps.items():
+        if rep.is_singlet:
+            continue
+        if rep.name == "adjoint":
+            return node_label, node_label
+        if rep.name == "antifundamental":
+            src = node_label
+        elif rep.name == "fundamental":
+            tgt = node_label
+        else:
+            return None, None
+    return src, tgt
+
+
+def _is_single_closed_loop(fields: list[Field]) -> bool:
+    """True iff the ordered fields compose into one closed quiver walk.
+
+    Such a term is the trace of a single loop, so it is gauge invariant
+    even when a node is visited multiple times. Checks the given cyclic
+    order (W terms are stored in closed-walk order); a genuine multi-trace
+    (product of disjoint loops) fails the consecutive-composability test.
+    """
+
+    if len(fields) < 2:
+        return False
+    endpoints = [_field_endpoints(f) for f in fields]
+    if any(src is None or tgt is None for src, tgt in endpoints):
+        return False
+    n = len(endpoints)
+    return all(endpoints[i][1] == endpoints[(i + 1) % n][0] for i in range(n))

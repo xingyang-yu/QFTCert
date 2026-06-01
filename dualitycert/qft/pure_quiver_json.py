@@ -68,6 +68,7 @@ def pure_quiver_to_json(theory: Theory) -> dict[str, Any]:
     ranks = [node.N for node in theory.gauge_nodes]
 
     arrows_payload: list[dict[str, Any]] = []
+    singlets_payload: list[dict[str, Any]] = []
     # Group arrows by (source, target) so the JSON order is deterministic
     # and matches the builder's sorted-edges expansion.
     by_edge: dict[tuple[int, int], list[tuple[str, Fraction]]] = {}
@@ -77,6 +78,11 @@ def pure_quiver_to_json(theory: Theory) -> dict[str, Any]:
                 f"Field {f.name!r} has multiplicity {f.multiplicity}; "
                 "pure_quiver_to_json requires the multiplicity-1 builder convention"
             )
+        if _is_singlet_field(f):
+            singlets_payload.append(
+                {"label": f.name, "r_charge": str(f.r_charge)}
+            )
+            continue
         source_idx, target_idx = _edge_indices(f, node_labels)
         by_edge.setdefault((source_idx, target_idx), []).append((f.name, f.r_charge))
 
@@ -109,7 +115,7 @@ def pure_quiver_to_json(theory: Theory) -> dict[str, Any]:
                 f"(supported: {sorted(SUPPORTED_U1_GLOBALS)})"
             )
 
-    return {
+    payload: dict[str, Any] = {
         "name": theory.name,
         "node_labels": list(node_labels),
         "ranks": ranks,
@@ -117,6 +123,9 @@ def pure_quiver_to_json(theory: Theory) -> dict[str, Any]:
         "arrows": arrows_payload,
         "superpotential": superpotential_payload,
     }
+    if singlets_payload:
+        payload["singlets"] = singlets_payload
+    return payload
 
 
 def pure_quiver_from_json(data: Mapping[str, Any]) -> Theory:
@@ -179,15 +188,26 @@ def pure_quiver_from_json(data: Mapping[str, Any]) -> Theory:
                 f"JSON aligns with build_pure_quiver"
             )
 
+    singlets: list[tuple[str, Fraction]] = []
+    singlet_labels_seen: set[str] = set()
+    for entry in data.get("singlets", []):
+        _require_keys(entry, {"label", "r_charge"})
+        label = entry["label"]
+        if label in arrow_labels_seen or label in singlet_labels_seen:
+            raise PureQuiverJSONError(f"duplicate field label {label!r}")
+        singlet_labels_seen.add(label)
+        singlets.append((label, Fraction(entry["r_charge"])))
+
+    known_labels = set(arrow_labels_seen) | singlet_labels_seen
     superpotential_terms: list[SuperpotentialTerm] = []
     for entry in data["superpotential"]:
         _require_keys(entry, {"factors", "coefficient"})
         factors_list = list(entry["factors"])
         for f_label in factors_list:
-            if f_label not in arrow_labels_seen:
+            if f_label not in known_labels:
                 raise PureQuiverJSONError(
-                    f"W term references unknown arrow label {f_label!r}; "
-                    f"known labels: {sorted(arrow_labels_seen)}"
+                    f"W term references unknown field label {f_label!r}; "
+                    f"known labels: {sorted(known_labels)}"
                 )
         # Compact into (label, power) factor tuples, preserving order of
         # first appearance so closed-walk validation downstream sees the
@@ -217,6 +237,7 @@ def pure_quiver_from_json(data: Mapping[str, Any]) -> Theory:
         superpotential=tuple(superpotential_terms),
         node_labels=node_labels,
         u1_globals=u1_globals,
+        singlets=tuple(singlets),
     )
     # build_pure_quiver names the Theory generically; restore the JSON
     # `name` so round-trips compose to the identity.
@@ -227,6 +248,12 @@ def pure_quiver_from_json(data: Mapping[str, Any]) -> Theory:
         superpotential_terms=theory.superpotential_terms,
         global_symmetries=theory.global_symmetries,
     )
+
+
+def _is_singlet_field(field: Field) -> bool:
+    """True if the field carries no nontrivial gauge charge (a pure singlet)."""
+
+    return all(rep.name == "singlet" for rep in field.gauge_reps.values())
 
 
 def _edge_indices(field: Field, node_labels: tuple[str, ...]) -> tuple[int, int]:

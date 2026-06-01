@@ -31,7 +31,7 @@ from dualitycert.experiments.config import ChainConfig, VerifierConfig
 from dualitycert.experiments.verifier import run_verifier
 from dualitycert.qft.mutation_engine import (
     MutationEngineError,
-    integrate_linear_fields,
+    integrate_fields,
     mutate_bare,
 )
 from dualitycert.qft.pure_quiver_json import (
@@ -94,7 +94,7 @@ def apply_single_seiberg_mutation(
     """Apply one single-node Seiberg duality move at `node`.
 
     Pipeline (identical to the locked depth-1 positive generation):
-    `mutate_bare` -> `integrate_linear_fields` -> `repair_r_charges`,
+    `mutate_bare` -> `integrate_fields` -> `repair_r_charges`,
     returning the L2-nearest feasible representative. Deterministic given
     `(theory, node)`; `rng` / `options` are accepted for interface
     stability and currently unused.
@@ -106,7 +106,7 @@ def apply_single_seiberg_mutation(
 
     try:
         bare = mutate_bare(dict(theory), node=node)
-        integrated = integrate_linear_fields(bare)
+        integrated = integrate_fields(bare)
         repaired = repair_r_charges(integrated)
     except (MutationEngineError, RRepairError) as exc:
         return SingleMutationResult(

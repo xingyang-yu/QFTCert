@@ -59,12 +59,17 @@ def repair_r_charges(
             "(only 'l2_nearest_trial' is implemented)"
         )
 
-    field_labels = [a["label"] for a in theory_json["arrows"]]
+    singlets = list(theory_json.get("singlets", []))
+    field_labels = [a["label"] for a in theory_json["arrows"]] + [
+        s["label"] for s in singlets
+    ]
     n = len(field_labels)
     if n == 0:
         raise RRepairError("theory has no Fields; nothing to repair")
 
-    trial_r = [Fraction(a["r_charge"]) for a in theory_json["arrows"]]
+    trial_r = [Fraction(a["r_charge"]) for a in theory_json["arrows"]] + [
+        Fraction(s["r_charge"]) for s in singlets
+    ]
 
     A, b = _build_constraint_system(theory_json, field_labels)
 
@@ -453,7 +458,7 @@ def _build_representative_json(
         if is_noop
         else f"{theory_json['name']} (R-repaired)"
     )
-    return {
+    result: dict[str, Any] = {
         "name": name,
         "node_labels": list(theory_json["node_labels"]),
         "ranks": [int(r) for r in theory_json["ranks"]],
@@ -464,3 +469,10 @@ def _build_representative_json(
             for t in theory_json["superpotential"]
         ],
     }
+    singlets = theory_json.get("singlets", [])
+    if singlets:
+        result["singlets"] = [
+            {"label": s["label"], "r_charge": str(r_by_label[s["label"]])}
+            for s in singlets
+        ]
+    return result
