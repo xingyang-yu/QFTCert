@@ -19,6 +19,7 @@ from dualitycert.experiments.seed_catalog import (
     c3_z2z2_electric,
     dp1_electric,
     dp2_phase1_electric,
+    dp3_phase4_electric,
     spp_electric,
 )
 from dualitycert.experiments.verifier import run_verifier
@@ -108,11 +109,33 @@ def test_dp2_phase1_certifies_at_default_nodes_and_all_nodes_r_graded():
     assert 3 in certified_default and 4 in certified_default
 
 
+def test_dp3_phase4_is_a_real_dual_under_explicit_r_graded_bcr():
+    """dP_3 phase IV (all-cubic, 6 nodes, 18 fields, irrational R) is a genuine
+    dual: TrR^3 matches on the 2N_c nodes 0/1/2 and they certify under
+    *explicit* R-graded BCR.
+
+    It is deliberately NOT in default_seed_specs (catalog-only): the default
+    chiral-ring grading must stay "auto"/length, because R-graded grading
+    false-POSITIVES some negatives (drop_w_term / flip_w_sign certify under
+    r_charge — see the session notes), which would corrupt the benchmark
+    ground truth. dP_3 waits until the chiral-ring check is sound on both axes.
+    """
+
+    seed = dp3_phase4_electric()
+    config = dataclasses.replace(VerifierConfig(), chiral_ring_grading="r_charge")
+    for node in (0, 1, 2):
+        res = seiberg_dual_consistent(seed, node)
+        assert res.ok, (node, res.reason)
+        assert _tr_r3(res.electric) == _tr_r3(res.magnetic), node
+        assert run_verifier(res.electric, res.magnetic, config).status == "CERTIFIED"
+
+
 def test_default_seed_specs_cover_six_families_with_certified_positives():
-    """The paper dataset now spans six independent families: the two locked
-    MVP sources (dp0, f0) plus the curated catalog seeds (c3_z2z2 non-chiral,
+    """The paper dataset spans six independent families: the two locked MVP
+    sources (dp0, f0) plus the curated catalog seeds (c3_z2z2 non-chiral,
     dp1 + dp2_phase1 irrational-R, spp adjoint/multi-meson). Each must yield a
-    CERTIFIED depth-1 positive through the real generation path."""
+    CERTIFIED depth-1 positive through the real generation path. (dP_3 is
+    catalog-only — see test_dp3_phase4_is_a_real_dual_under_explicit_r_graded_bcr.)"""
 
     from dualitycert.experiments.config import ExperimentConfig
     from dualitycert.experiments.generation import generate_fixtures

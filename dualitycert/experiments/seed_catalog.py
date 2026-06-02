@@ -12,6 +12,7 @@ gives the same duality verdicts — see docs/experiments.md).
 Sources (verify against the paper before trusting):
   - dP_1            : hep-th/0205144 ("Symmetries of Toric Duality") eq (4.7)
   - dP_2 phase I    : hep-th/0205144 W_I (subsection "del Pezzo 2", Model I)
+  - dP_3 phase IV   : hep-th/0209228 W_IV ("The Four Phases of dP3")
   - C^3/(Z_2 x Z_2) : arXiv:0704.0262 eq (3.1) + Fig 1
   - SPP             : arXiv:1702.03958 eq (2.3) + Fig 1  (has an adjoint)
 """
@@ -32,6 +33,7 @@ __all__ = [
     "c3_z2z2_electric",
     "dp1_electric",
     "dp2_phase1_electric",
+    "dp3_phase4_electric",
     "spp_electric",
 ]
 
@@ -204,6 +206,69 @@ def dp2_phase1_electric(N: int = 2) -> dict[str, Any]:
         )
     )
     return _feasible_seed(theory, name=f"dP_2 phase I N={N}")
+
+
+# ----------------------------------------------------------------------
+# dP_3 phase IV  (hep-th/0209228 eq W_IV, "The Four Phases of dP3")
+# Complex cone over del Pezzo 3. Of the four toric phases (W_I sextic,
+# W_II quintic, W_III quartic, W_IV all-cubic) we take phase IV: 6 nodes,
+# 18 bifundamentals, 12 purely-cubic W terms (the cleanest phase).
+# Irrational superconformal R -> consistent-R path. The 2N_c nodes 0/1/2
+# are genuine duals (TrR^3 matches) that certify ONLY under R-graded BCR.
+# CATALOG-ONLY (deliberately NOT in default_seed_specs): R-graded grading
+# cannot be the verifier default because it false-POSITIVES some negatives
+# (drop_w_term / flip_w_sign certify under r_charge), which would corrupt the
+# benchmark ground truth. Nodes 3/4 give rank-changing duals whose bounded
+# chiral ring FAILS even R-graded (a genuine multi-trace gap), excluded too.
+# Paper node k (1..6) -> index k-1; X_{ij} is an arrow node i -> node j.
+# Field map (paper -> 0-indexed label):
+#   X41->X30[0] X42->X31[0] X43->X32[0]  X51->X40[0] X52->X41[0] X53->X42[0]
+#   (X16,Y16)->X05[0,1]  (X26,Y26)->X15[0,1]  (X36,Y36)->X25[0,1]
+#   (X64,Y64,Z64)->X53[0,1,2]  (X65,Y65,Z65)->X54[0,1,2]
+# ----------------------------------------------------------------------
+
+
+def dp3_phase4_electric(N: int = 2) -> dict[str, Any]:
+    p = Fraction(1, 2)  # placeholder R; projected to feasible by r_repair
+    arrows = {
+        (3, 0): [p], (3, 1): [p], (3, 2): [p],     # X41, X42, X43
+        (0, 5): [p, p], (1, 5): [p, p], (2, 5): [p, p],   # X16/Y16, X26/Y26, X36/Y36
+        (5, 3): [p, p, p], (5, 4): [p, p, p],       # X64/Y64/Z64, X65/Y65/Z65
+        (4, 0): [p], (4, 1): [p], (4, 2): [p],      # X51, X52, X53
+    }
+
+    def t(factors, sign: int) -> SuperpotentialTerm:
+        return SuperpotentialTerm(
+            factors=tuple((f, 1) for f in factors), coefficient=Fraction(sign)
+        )
+
+    # W_IV = [X41 X16 X64 + X43 X36 Y64 + X42 X26 Z64]
+    #      - [X41 Y16 Y64 + X43 Y36 Z64 + X42 Y26 X64]
+    #      + [X51 Y16 X65 + X53 Y36 Y65 + X52 Y26 Z65]
+    #      - [X51 X16 Y65 + X53 X36 Z65 + X52 X26 X65]
+    W = (
+        t(["X30[0]", "X05[0]", "X53[0]"], +1),
+        t(["X32[0]", "X25[0]", "X53[1]"], +1),
+        t(["X31[0]", "X15[0]", "X53[2]"], +1),
+        t(["X30[0]", "X05[1]", "X53[1]"], -1),
+        t(["X32[0]", "X25[1]", "X53[2]"], -1),
+        t(["X31[0]", "X15[1]", "X53[0]"], -1),
+        t(["X40[0]", "X05[1]", "X54[0]"], +1),
+        t(["X42[0]", "X25[1]", "X54[1]"], +1),
+        t(["X41[0]", "X15[1]", "X54[2]"], +1),
+        t(["X40[0]", "X05[0]", "X54[1]"], -1),
+        t(["X42[0]", "X25[0]", "X54[2]"], -1),
+        t(["X41[0]", "X15[0]", "X54[0]"], -1),
+    )
+    theory = pure_quiver_to_json(
+        build_pure_quiver(
+            ranks=tuple([N] * 6),
+            arrows=arrows,
+            superpotential=W,
+            u1_globals=(u1_r(),),
+        )
+    )
+    return _feasible_seed(theory, name=f"dP_3 phase IV N={N}")
 
 
 # ----------------------------------------------------------------------
