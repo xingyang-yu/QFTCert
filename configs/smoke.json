@@ -1,0 +1,34 @@
+{
+  "name": "smoke_allseed_depth1",
+  "notes": "All-seed depth=1 smoke. Exercises every default_seed_specs family (dp0, f0_phase_ii, c3_z2z2, dp1, dp2_phase1, spp) across all seven fixture classes. Irrational-R seeds (dp1, dp2) certify through the consistent-R generation path. Smoke mode: n_per_cell=1, allow_incomplete_cells=true. Set model.provider to a real provider to run live.",
+  "depths": [1],
+  "fixture_classes": [
+    "positive",
+    "drop_w_term",
+    "flip_w_sign",
+    "r_charge_perturb",
+    "rank_perturb",
+    "trivial_rank",
+    "wrong_pair"
+  ],
+  "n_per_cell": 1,
+  "seed": 20260602,
+  "split": "smoke",
+  "output_dir": "runs/experiments/smoke",
+  "allow_incomplete_cells": true,
+  "verifier": {
+    "duality_profile": "phase2c_a_detection",
+    "chiral_ring_max_length": 3,
+    "require_r_graded": true
+  },
+  "model": {
+    "provider": "dryrun",
+    "model": "dryrun",
+    "max_tokens": 2048
+  },
+  "repair": {
+    "max_rounds": 5,
+    "feedback_mode": "verifier_feedback",
+    "feedback_detail": "medium"
+  }
+}
