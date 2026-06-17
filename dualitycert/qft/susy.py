@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 
-from dualitycert.core.objects import CheckResult, Field, Representation, SINGLET, SuperpotentialTerm, Theory
+from dualitycert.core.objects import CheckResult, Field, Representation, SINGLET, SuperpotentialTerm, Theory, r_charge_equal
 from dualitycert.core.status import Status
 
 
@@ -94,7 +94,7 @@ def superpotential_R_charge_equals_2(theory: Theory) -> CheckResult:
             continue
         total = sum(field.r_charge for field in expanded_fields)
         details[term.display_name] = total
-        if total != 2:
+        if not r_charge_equal(total, 2):
             failures.append(f"{term.display_name} has R-charge {total}, expected 2")
 
     if failures:

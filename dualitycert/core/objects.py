@@ -24,6 +24,58 @@ def as_fraction(value: NumberLike) -> Fraction:
     return Fraction(value)
 
 
+def as_r_charge(value: Any) -> Any:
+    """Normalize an R-charge: exact rational when possible, else an exact
+    algebraic number (sympy).
+
+    Rational inputs (int / Fraction / rational string / float) stay
+    ``Fraction`` so the rational pipeline is byte-for-byte unchanged AND
+    sympy-free. sympy is imported lazily, only for a genuinely irrational
+    R such as ``"-3 + sqrt(13)"`` (the a-maximization / superconformal-R
+    regime). A sympy value that is in fact rational is folded back to a
+    ``Fraction`` so serialization stays canonical.
+    """
+
+    if isinstance(value, (Fraction, int)):
+        return as_fraction(value)
+    if isinstance(value, float):
+        return Fraction(value).limit_denominator()
+    if isinstance(value, str):
+        try:
+            return Fraction(value)
+        except ValueError:
+            import sympy
+
+            return _fold_rational(sympy.sympify(value))
+    # Already a sympy (or other algebraic) object.
+    return _fold_rational(value)
+
+
+def _fold_rational(value: Any) -> Any:
+    """Return a Fraction if a sympy number is rational, else the value."""
+
+    is_rational = getattr(value, "is_rational", None)
+    if is_rational:
+        return Fraction(int(value.p), int(value.q))
+    return value
+
+
+def r_charge_equal(a: Any, b: Any) -> bool:
+    """Exact equality for R-charges that may be Fraction or sympy-algebraic.
+
+    Plain rationals compare directly; if either side is a sympy expression
+    (an irrational superconformal R), compare by sympy simplification --
+    sympy's structural ``!=`` is NOT mathematical equality, so an
+    unsimplified algebraic sum that equals the target would be missed.
+    """
+
+    if isinstance(a, (Fraction, int)) and isinstance(b, (Fraction, int)):
+        return Fraction(a) == Fraction(b)
+    import sympy
+
+    return sympy.simplify(sympy.sympify(a) - sympy.sympify(b)) == 0
+
+
 @dataclass(frozen=True)
 class GaugeGroup:
     """A gauge group. The first prototype supports SU(N)."""
@@ -161,7 +213,7 @@ class Field:
             "u1_charges",
             {label: as_fraction(charge) for label, charge in self.u1_charges.items()},
         )
-        object.__setattr__(self, "r_charge", as_fraction(self.r_charge))
+        object.__setattr__(self, "r_charge", as_r_charge(self.r_charge))
 
     @property
     def is_chiral(self) -> bool:

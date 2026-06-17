@@ -42,6 +42,7 @@ __all__ = [
     "UNITARITY_R_BOUND",
     "superconformal_central_charges",
     "central_charges_match",
+    "audit_superconformal_r",
 ]
 
 
@@ -111,23 +112,30 @@ def _field_dim(arrow: Mapping[str, Any], ranks: Sequence[int]) -> int:
 # ----------------------------------------------------------------------
 
 
-def _homogeneous_rows(
+def _constraint_system(
     theory_json: Mapping[str, Any], field_labels: Sequence[str]
-) -> list[list[Fraction]]:
-    """Homogeneous {R(W)=0, gauge-anomaly=0} rows (mirrors r_repair)."""
+) -> tuple[list[list[Fraction]], list[Fraction]]:
+    """Build (A, b) for the R-feasibility system A R = b (mirrors r_repair).
+
+    Rows: one per W term (R-sum = 2), then one per gauge node
+    (SU(N)^2 U(1)_R anomaly-free). Columns follow `field_labels`.
+    """
 
     col = {label: i for i, label in enumerate(field_labels)}
     n = len(field_labels)
     ranks = [int(r) for r in theory_json["ranks"]]
     arrows = list(theory_json["arrows"])
-    rows: list[list[Fraction]] = []
+    A: list[list[Fraction]] = []
+    b: list[Fraction] = []
     for term in theory_json["superpotential"]:
         row = [Fraction(0)] * n
         for f in term["factors"]:
             row[col[f]] += Fraction(1)
-        rows.append(row)
+        A.append(row)
+        b.append(Fraction(2))
     for v in range(len(ranks)):
         row = [Fraction(0)] * n
+        sum_a = Fraction(0)
         for arrow in arrows:
             s, t = int(arrow["source"]), int(arrow["target"])
             if s == v and t == v:
@@ -139,8 +147,18 @@ def _homogeneous_rows(
             else:
                 continue
             row[col[arrow["label"]]] += a_vf
-        rows.append(row)
-    return rows
+            sum_a += a_vf
+        A.append(row)
+        b.append(sum_a - Fraction(ranks[v]))
+    return A, b
+
+
+def _homogeneous_rows(
+    theory_json: Mapping[str, Any], field_labels: Sequence[str]
+) -> list[list[Fraction]]:
+    """Homogeneous {R(W)=0, gauge-anomaly=0} rows (the A of the system)."""
+
+    return _constraint_system(theory_json, field_labels)[0]
 
 
 def _validate_flavor_basis(
@@ -246,25 +264,52 @@ def superconformal_central_charges(
 
     subs, exact = _maximize(sp, a_expr, svars)
 
-    a_val = a_expr.subs(subs)
-    c_val = c_expr.subs(subs)
-    a_float = float(sp.N(a_val, 40))
-    c_float = float(sp.N(c_val, 40))
+    # Upgrade a NUMERIC maximizer to an EXACT one by identifying each flavor
+    # coordinate s_i (only `dim` numbers, far more robust than identifying
+    # every field's R). Because every kernel vector has W-charge 0 and is
+    # gauge-anomaly-free, R = R0 + sum s_i F_i satisfies W=2 + anomaly-free
+    # for ANY s — so an exact `subs` yields per-field R that is exact AND
+    # constraint-satisfying. Identify `a` first; if it lives in Q(sqrt d),
+    # reuse d as a hint so every s_i is found in the same quadratic field.
+    if not exact and svars:
+        a_guess = _identify(sp, a_expr.subs(subs))
+        hint = _radicand(sp, a_guess)
+        exact_subs: dict[Any, Any] = {}
+        ok = True
+        for s in svars:
+            si = _identify(sp, subs[s], hint_radicand=hint)
+            if si is None:
+                ok = False
+                break
+            exact_subs[s] = si
+        if ok:
+            subs, exact = exact_subs, True
+
+    a_raw = a_expr.subs(subs)
+    c_raw = c_expr.subs(subs)
+    a_float = float(sp.N(a_raw, 40))
+    c_float = float(sp.N(c_raw, 40))
 
     if exact:
-        a_out, c_out = sp.nsimplify(a_val), sp.nsimplify(c_val)
         recovered = True
+        a_out = sp.radsimp(sp.simplify(a_raw))
+        c_out = sp.radsimp(sp.simplify(c_raw))
+        r_charges = {
+            label: sp.radsimp(sp.simplify(trial_R(label).subs(subs)))
+            for label in field_labels
+        }
     else:
-        a_id, c_id = _identify(sp, a_val), _identify(sp, c_val)
+        a_id, c_id = _identify(sp, a_raw), _identify(sp, c_raw)
         recovered = a_id is not None and c_id is not None
-        a_out = a_id if a_id is not None else sp.Float(a_val, 40)
-        c_out = c_id if c_id is not None else sp.Float(c_val, 40)
-
-    r_charges: dict[str, Any] = {}
-    for label in field_labels:
-        rv = trial_R(label).subs(subs)
-        ident = _identify(sp, rv) if not exact else sp.nsimplify(rv)
-        r_charges[label] = ident if ident is not None else sp.Float(rv, 40)
+        a_out = a_id if a_id is not None else sp.Float(a_float, 40)
+        c_out = c_id if c_id is not None else sp.Float(c_float, 40)
+        r_charges = {}
+        for label in field_labels:
+            rv = trial_R(label).subs(subs)
+            ident = _identify(sp, rv)
+            r_charges[label] = (
+                ident if ident is not None else sp.Float(float(sp.N(rv, 40)), 40)
+            )
 
     unit_ok, unit_warn = _unitarity_singlet_scope(singlets, r_charges, sp)
 
@@ -329,13 +374,29 @@ def _negative_definite(sp, hess, n) -> bool:
     return True
 
 
-def _identify(sp, value, *, max_coeff: int = 10 ** 12, max_denom: int = 10 ** 6):
+def _radicand(sp, expr):
+    """If `expr` is p + q*sqrt(d) (d a squarefree int), return d, else None."""
+
+    if expr is None:
+        return None
+    for atom in expr.atoms(sp.Pow):
+        base, exp = atom.as_base_exp()
+        if exp == sp.Rational(1, 2) and getattr(base, "is_Integer", False):
+            return int(base)
+    return None
+
+
+def _identify(
+    sp, value, *, max_coeff: int = 10 ** 12, max_denom: int = 10 ** 6, hint_radicand=None
+):
     """Recover an exact algebraic number from its value, else None.
 
-    Strategy: rational (small denominator) first, then the minimal
-    polynomial via PSLQ on the power basis [1, v, v^2, ..., v^deg] for
-    ascending degree; the value is the polynomial root nearest `value`
-    (radicals for degree <= 4, an exact ``CRootOf`` otherwise).
+    Strategy: rational (small denominator) first; then, if `hint_radicand`
+    d is given, the targeted quadratic p/q + r/s*sqrt(d) (robust when many
+    quantities share one field Q(sqrt d), e.g. all the flavor coordinates
+    of a single a-maximization); then the minimal polynomial via PSLQ on
+    the power basis [1, v, ..., v^deg] for ascending degree (radicals for
+    degree <= 4, an exact ``CRootOf`` otherwise).
 
     Verification is at HIGH precision (mpmath, 60 digits) -- a float
     comparison is far too weak (it would accept the decimal expansion of
@@ -350,6 +411,11 @@ def _identify(sp, value, *, max_coeff: int = 10 ** 12, max_denom: int = 10 ** 6)
         v = mpmath.mpf(str(sp.N(value, 70)))
         eps = mpmath.mpf(10) ** (-40)
 
+        # Exact zero (e.g. a baryonic flavor coordinate that decouples at the
+        # maximum) -- short-circuit before PSLQ, which rejects a zero entry.
+        if mpmath.fabs(v) < eps:
+            return sp.Integer(0)
+
         def _close(expr) -> bool:
             return mpmath.fabs(mpmath.mpf(str(sp.N(expr, 60))) - v) < eps
 
@@ -357,6 +423,19 @@ def _identify(sp, value, *, max_coeff: int = 10 ** 12, max_denom: int = 10 ** 6)
         rat = sp.Rational(sp.nsimplify(sp.N(value, 60), rational=True))
         if rat.q <= max_denom and _close(rat):
             return rat
+
+        # Targeted quadratic in a known field Q(sqrt d): PSLQ on [1, sqrt d, v].
+        if hint_radicand:
+            rel = mpmath.pslq(
+                [mpmath.mpf(1), mpmath.sqrt(hint_radicand), v],
+                maxcoeff=max_coeff,
+                maxsteps=4 * 10 ** 5,
+            )
+            if rel and rel[2] != 0:
+                A, B, C = rel
+                cand = sp.Rational(-A, C) + sp.Rational(-B, C) * sp.sqrt(hint_radicand)
+                if _close(cand):
+                    return cand
 
         x = sp.Symbol("x")
         vf = float(v)
@@ -436,3 +515,103 @@ def central_charges_match(
     a_ok = abs(float(sp.N(electric.a - magnetic.a, 40))) < tol
     c_ok = abs(float(sp.N(electric.c - magnetic.c, 40))) < tol
     return bool(a_ok), bool(c_ok)
+
+
+# ----------------------------------------------------------------------
+# Superconformal-R audit (judge ②a) + rational-feasible proxy.
+# ----------------------------------------------------------------------
+
+
+_R_PLACEHOLDER = "1/2"
+
+
+def _placeholder_json(theory_json: Mapping[str, Any]) -> dict[str, Any]:
+    """Copy of `theory_json` with every R-charge set to a rational placeholder.
+
+    The feasible R-space depends only on the structure (W terms, ranks,
+    arrows), so this lets r_repair / a-maximization run even when the
+    encoded R is irrational (which would otherwise crash Fraction parsing).
+    """
+
+    out = dict(theory_json)
+    out["arrows"] = [dict(a, r_charge=_R_PLACEHOLDER) for a in theory_json["arrows"]]
+    if theory_json.get("singlets"):
+        out["singlets"] = [
+            dict(s, r_charge=_R_PLACEHOLDER) for s in theory_json["singlets"]
+        ]
+    return out
+
+
+def audit_superconformal_r(theory_json: Mapping[str, Any]) -> dict[str, Any]:
+    """Audit whether `theory_json`'s encoded R IS the superconformal R.
+
+    Status:
+      - "superconformal"    : encoded R is consistent AND equals the a-max R;
+      - "inconsistent"      : encoded R violates R(W)=2 or gauge-anomaly;
+      - "non_superconformal": consistent but != the a-max superconformal R;
+      - "out_of_scope"      : a-maximization cannot resolve this theory.
+    """
+
+    sp = _require_sympy()
+
+    claimed: dict[str, Any] = {}
+    for arrow in theory_json["arrows"]:
+        claimed[arrow["label"]] = sp.sympify(arrow["r_charge"])
+    for singlet in theory_json.get("singlets", []):
+        claimed[singlet["label"]] = sp.sympify(singlet["r_charge"])
+    field_labels = list(claimed)
+
+    # Stage 0: encoded R is feasible (R(W)=2 + gauge-anomaly-free).
+    A, b = _constraint_system(theory_json, field_labels)
+    for row, rhs in zip(A, b):
+        lhs = sum(
+            (
+                sp.Rational(row[i].numerator, row[i].denominator) * claimed[label]
+                for i, label in enumerate(field_labels)
+                if row[i] != 0
+            ),
+            sp.Integer(0),
+        )
+        if sp.simplify(lhs - sp.Rational(rhs.numerator, rhs.denominator)) != 0:
+            return {
+                "status": "inconsistent",
+                "detail": "encoded R violates R(W)=2 / gauge-anomaly cancellation",
+                "claimed": {k: str(v) for k, v in claimed.items()},
+                "computed": {},
+            }
+
+    # Compute the superconformal R from the structure (placeholder R so the
+    # rational r_repair / a-max pipeline is unaffected by the encoded R).
+    try:
+        computed = superconformal_central_charges(_placeholder_json(theory_json)).r_charges
+    except AMaxError as exc:
+        return {
+            "status": "out_of_scope",
+            "detail": str(exc),
+            "claimed": {k: str(v) for k, v in claimed.items()},
+            "computed": {},
+        }
+
+    # Stage 1: encoded R must equal the superconformal R, field by field.
+    mismatches = [
+        label
+        for label in field_labels
+        if sp.simplify(claimed[label] - computed[label]) != 0
+    ]
+    computed_str = {k: str(v) for k, v in computed.items()}
+    if mismatches:
+        return {
+            "status": "non_superconformal",
+            "detail": (
+                "encoded R is feasible but not the superconformal R; "
+                f"fields off: {mismatches}"
+            ),
+            "claimed": {k: str(v) for k, v in claimed.items()},
+            "computed": computed_str,
+        }
+    return {
+        "status": "superconformal",
+        "detail": "encoded R is the superconformal R",
+        "claimed": {k: str(v) for k, v in claimed.items()},
+        "computed": computed_str,
+    }

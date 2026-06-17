@@ -34,6 +34,8 @@ from dualitycert.core.objects import (
     Field,
     SuperpotentialTerm,
     Theory,
+    as_r_charge,
+    r_charge_equal,
 )
 from dualitycert.core.obligations import ObligationResult
 from dualitycert.core.status import Status
@@ -983,9 +985,11 @@ def _r_graded_comparison(
 
     max_r = Fraction(str(raw_metadata.get("max_r_charge", 2)))
 
-    def min_field_r(arrows: tuple[Arrow, ...]) -> Fraction | None:
-        positives = [a.r_charge for a in arrows if a.r_charge > 0]
-        return min(positives) if positives else None
+    def min_field_r(arrows: tuple[Arrow, ...]):
+        # float() ordering is robust for Fraction OR algebraic (sympy) R; it
+        # only bounds enumeration depth, never the (exact) verdict.
+        positives = [a.r_charge for a in arrows if float(a.r_charge) > 0]
+        return min(positives, key=float) if positives else None
 
     min_e = min_field_r(electric_arrows)
     min_m = min_field_r(magnetic_arrows)
@@ -999,8 +1003,8 @@ def _r_graded_comparison(
             details=common,
         )
 
-    l_e = math.ceil(max_r / min_e)
-    l_m = math.ceil(max_r / min_m)
+    l_e = math.ceil(float(max_r) / float(min_e))
+    l_m = math.ceil(float(max_r) / float(min_m))
     if max(l_e, l_m) > _BOUNDED_CHIRAL_RING_MAX_SUPPORTED:
         return CheckResult(
             status=Status.UNKNOWN,
@@ -1034,7 +1038,7 @@ def _r_graded_comparison(
     def buckets(dims: dict) -> dict[Fraction, int]:
         out: dict[Fraction, int] = defaultdict(int)
         for (length, r), dim in dims.items():
-            if r is not None and r <= max_r:
+            if r is not None and float(r) <= float(max_r):
                 out[r] += dim
         return out
 
@@ -1121,7 +1125,7 @@ def _check_p3_w_term_r_charges(
                 f"label {missing_label!r}"
             )
             continue
-        if total != Fraction(2):
+        if not r_charge_equal(total, 2):
             failures.append(
                 f"{side} term {term.display_name!r} has total R-charge {total}, expected 2"
             )
@@ -1165,7 +1169,7 @@ def _collect_sample_operators(
     for record in failed_blocks:
         length = record["length"]
         r_charge_str = record["r_charge"]
-        r_charge = Fraction(r_charge_str) if r_charge_str is not None else None
+        r_charge = as_r_charge(r_charge_str) if r_charge_str is not None else None
         block: Block = (length, r_charge)
         block_label = f"length={length},r={r_charge_str}"
         result[block_label] = {

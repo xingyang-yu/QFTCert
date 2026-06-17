@@ -42,6 +42,7 @@ from dualitycert.core.objects import (
     Field,
     SuperpotentialTerm,
     Theory,
+    as_r_charge,
 )
 from dualitycert.groups.u1 import u1_r
 from dualitycert.qft.pure_quiver_builder import arrow_names, build_pure_quiver
@@ -175,7 +176,7 @@ def pure_quiver_from_json(data: Mapping[str, Any]) -> Theory:
                 f"duplicate arrow label {label!r}"
             )
         arrow_labels_seen[label] = (i, j)
-        arrows_by_edge.setdefault((i, j), []).append(Fraction(entry["r_charge"]))
+        arrows_by_edge.setdefault((i, j), []).append(as_r_charge(entry["r_charge"]))
         pending_labels.setdefault((i, j), []).append(label)
 
     # Validate labels against build_pure_quiver's naming convention.
@@ -196,7 +197,7 @@ def pure_quiver_from_json(data: Mapping[str, Any]) -> Theory:
         if label in arrow_labels_seen or label in singlet_labels_seen:
             raise PureQuiverJSONError(f"duplicate field label {label!r}")
         singlet_labels_seen.add(label)
-        singlets.append((label, Fraction(entry["r_charge"])))
+        singlets.append((label, as_r_charge(entry["r_charge"])))
 
     known_labels = set(arrow_labels_seen) | singlet_labels_seen
     superpotential_terms: list[SuperpotentialTerm] = []

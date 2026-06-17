@@ -67,6 +67,7 @@ OBLIGATION_CATEGORY_MAP: dict[str, str] = {
     "superpotential R-charge balance": "superpotential",
     "central charge matching from encoded R-symmetry": "r_charge",
     "a-maximization central charge matching": "r_charge",
+    "superconformal R-charge audit": "r_charge",
     "R-charge balance": "r_charge",
     "bounded chiral-ring consistency": "chiral_ring",
 }
@@ -177,14 +178,21 @@ def run_verifier(
         )
         grading = "r_charge" if has_singlets else "length"
 
+    metadata: dict[str, Any] = {
+        "duality_profile": config.duality_profile,
+        "bounded_chiral_ring": config.bounded_chiral_ring_metadata(grading=grading),
+    }
+    # Judge ②a: enable the a-max superconformal R-charge gate. The claim must
+    # then carry the superconformal R; the audit kills a wrong-R claim before
+    # the duality comparison. Default policy ("given") leaves this off.
+    if config.r_charge_policy == "superconformal":
+        metadata["run_superconformal_audit"] = True
+
     claim = DualityClaim(
         name=claim_name,
         electric_theory=electric_theory,
         magnetic_theory=candidate_theory,
-        metadata={
-            "duality_profile": config.duality_profile,
-            "bounded_chiral_ring": config.bounded_chiral_ring_metadata(grading=grading),
-        },
+        metadata=metadata,
     )
     try:
         cert = evaluate_claim(claim)

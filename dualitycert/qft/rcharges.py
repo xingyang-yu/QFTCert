@@ -5,11 +5,12 @@ from __future__ import annotations
 from fractions import Fraction
 from typing import Iterable
 
-from dualitycert.core.objects import CheckResult, DualityClaim, Field, SINGLET, Theory
+from dualitycert.core.objects import CheckResult, DualityClaim, Field, SINGLET, Theory, r_charge_equal
 from dualitycert.core.status import Status
 from dualitycert.groups.su import dimension
 from dualitycert.qft.a_maximization import (
     AMaxError,
+    audit_superconformal_r,
     central_charges_match,
     superconformal_central_charges,
 )
@@ -22,6 +23,81 @@ from dualitycert.qft.pure_quiver_json import (
 UNITARITY_R_BOUND = Fraction(2, 3)
 
 A_MAXIMIZATION_OBLIGATION = "a-maximization central charge matching"
+SUPERCONFORMAL_AUDIT_OBLIGATION = "superconformal R-charge audit"
+
+
+def superconformal_r_audit_check(claim: DualityClaim) -> CheckResult:
+    """Audit that each theory's CLAIMED R is the superconformal R (judge ②a).
+
+    This is the a-max gatekeeper for the superconformal-R policy: a claim
+    whose R is inconsistent (violates R(W)=2 / gauge-anomaly) or merely
+    feasible-but-not-superconformal is killed BEFORE the duality
+    comparison (an ill-specified theory does not merit a duality verdict).
+
+    OPT-IN via ``claim.metadata['run_superconformal_audit']`` -> otherwise
+    NOT_APPLICABLE, so existing flows / committed ground truth are
+    untouched. Requires the optional ``[amax]`` extra (sympy).
+    """
+
+    if not claim.metadata.get("run_superconformal_audit"):
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=(
+                "superconformal R-charge audit is opt-in; set "
+                "metadata['run_superconformal_audit']=True to enable it."
+            ),
+        )
+
+    try:
+        sides = {
+            "electric": pure_quiver_to_json(claim.electric_theory),
+            "magnetic": pure_quiver_to_json(claim.magnetic_theory),
+        }
+    except PureQuiverJSONError as exc:
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=f"superconformal audit requires pure-quiver theories: {exc}",
+        )
+
+    results: dict[str, dict] = {}
+    for side, theory_json in sides.items():
+        try:
+            results[side] = audit_superconformal_r(theory_json)
+        except AMaxError as exc:
+            status = Status.UNKNOWN if "sympy" in str(exc) else Status.NOT_APPLICABLE
+            return CheckResult(
+                status=status, message=f"superconformal audit could not run ({side}): {exc}"
+            )
+
+    details = {
+        side: {"status": r["status"], "detail": r["detail"]}
+        for side, r in results.items()
+    }
+
+    for side, r in results.items():
+        if r["status"] == "out_of_scope":
+            return CheckResult(
+                status=Status.NOT_APPLICABLE,
+                message=f"{side} theory is out of a-maximization scope: {r['detail']}",
+                details=details,
+            )
+
+    bad = [(side, r) for side, r in results.items() if r["status"] != "superconformal"]
+    if bad:
+        return CheckResult(
+            status=Status.FAILED,
+            message=(
+                "claimed R is not the superconformal R -- "
+                + "; ".join(f"{side}: {r['detail']}" for side, r in bad)
+            ),
+            details=details,
+        )
+
+    return CheckResult(
+        status=Status.CERTIFIED,
+        message="Both theories' claimed R is the superconformal (a-maximized) R.",
+        details=details,
+    )
 
 
 def central_charge_matching(claim: DualityClaim) -> CheckResult:
@@ -48,7 +124,9 @@ def central_charge_matching(claim: DualityClaim) -> CheckResult:
     electric = r_symmetry_observables(claim.electric_theory)
     magnetic = r_symmetry_observables(claim.magnetic_theory)
     mismatches = [
-        key for key in ("TrR", "TrR3", "a", "c") if electric[key] != magnetic[key]
+        key
+        for key in ("TrR", "TrR3", "a", "c")
+        if not r_charge_equal(electric[key], magnetic[key])
     ]
     details = {
         "electric": electric,

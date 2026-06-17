@@ -15,6 +15,7 @@ from dualitycert.core.objects import (
     SINGLET,
     SymmetryMap,
     Theory,
+    r_charge_equal,
 )
 from dualitycert.core.status import Status
 from dualitycert.groups.su import cubic_anomaly, dimension, dynkin_index
@@ -105,7 +106,7 @@ def gauge_global_mixed_anomaly_cancellation(theory: Theory) -> CheckResult:
                 total += per_field["gaugino"]
             totals[symmetry.label] = total
             field_contributions[symmetry.label] = per_field
-            if total != 0:
+            if not r_charge_equal(total, 0):
                 failures.append(f"{node.display_name}^2 {symmetry.label}={total}")
 
         node_results[node.label] = {
@@ -190,7 +191,7 @@ def compare_anomaly_tables(
     for electric_key, electric_value in sorted(electric_table.items(), key=lambda item: item[0]):
         magnetic_key = _map_key_to_magnetic(electric_key, symmetry_map)
         magnetic_value = magnetic_table.get(magnetic_key, Fraction(0, 1))
-        if electric_value != magnetic_value:
+        if not r_charge_equal(electric_value, magnetic_value):
             mismatches.append(
                 {
                     "key": _format_key(electric_key),
@@ -202,7 +203,9 @@ def compare_anomaly_tables(
 
     unexpected = []
     for magnetic_key, magnetic_value in sorted(magnetic_table.items(), key=lambda item: item[0]):
-        if magnetic_key not in expected_magnetic_keys and magnetic_value != 0:
+        if magnetic_key not in expected_magnetic_keys and not r_charge_equal(
+            magnetic_value, 0
+        ):
             unexpected.append(
                 {
                     "magnetic_key": _format_key(magnetic_key),

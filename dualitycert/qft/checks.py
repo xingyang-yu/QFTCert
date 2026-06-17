@@ -27,6 +27,7 @@ from dualitycert.qft.rcharges import (
     a_maximization_matching,
     central_charge_matching,
     operator_unitarity_bound_check,
+    superconformal_r_audit_check,
 )
 from dualitycert.qft.scaffolds import (
     chiral_ring_metadata_check,
@@ -167,6 +168,25 @@ def build_default_registry() -> CheckRegistry:
                     description="Compare Tr R, Tr R^3, a, and c from the encoded R-symmetry.",
                     checker=lambda: central_charge_matching(claim),
                     checker_name="central_charge_matching",
+                ),
+            ),
+            CheckSpec(
+                key="superconformal_r_audit",
+                name="superconformal R-charge audit",
+                description=(
+                    "Audit that each pure_quiver theory's claimed R is the "
+                    "a-maximized superconformal R (opt-in via "
+                    "metadata['run_superconformal_audit']; the judge-②a gate)."
+                ),
+                applicable_kinds=frozenset({"pure_quiver"}),
+                factory=lambda claim: Obligation(
+                    name="superconformal R-charge audit",
+                    description=(
+                        "Audit that each theory's claimed R is the a-maximized "
+                        "superconformal R."
+                    ),
+                    checker=lambda: superconformal_r_audit_check(claim),
+                    checker_name="superconformal_r_audit_check",
                 ),
             ),
             CheckSpec(

@@ -127,15 +127,27 @@ class VerifierConfig:
     chiral_ring_grading: str = "auto"
     # R-charge cutoff for r_charge grading (string-encoded Fraction).
     chiral_ring_max_r_charge: str = "2"
+    # How the claim's R-charge is treated (judge ① vs ②a):
+    #   "given"         : trust the claimed R (only consistency is checked) — the
+    #                     locked default; the structural checks use it directly.
+    #   "superconformal": the claim must provide the SUPERCONFORMAL R; a-max
+    #                     audits it (kill before duality if wrong) and the
+    #                     structural checks run on a rational-feasible proxy.
+    r_charge_policy: str = "given"
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "duality_profile": self.duality_profile,
             "chiral_ring_max_length": int(self.chiral_ring_max_length),
             "require_r_graded": bool(self.require_r_graded),
             "chiral_ring_grading": str(self.chiral_ring_grading),
             "chiral_ring_max_r_charge": str(self.chiral_ring_max_r_charge),
         }
+        # Only serialize when non-default so existing ("given") configs keep a
+        # byte-for-byte identical dict and config_hash.
+        if self.r_charge_policy != "given":
+            payload["r_charge_policy"] = str(self.r_charge_policy)
+        return payload
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "VerifierConfig":
@@ -145,6 +157,7 @@ class VerifierConfig:
             require_r_graded=bool(data.get("require_r_graded", True)),
             chiral_ring_grading=str(data.get("chiral_ring_grading", "auto")),
             chiral_ring_max_r_charge=str(data.get("chiral_ring_max_r_charge", "2")),
+            r_charge_policy=str(data.get("r_charge_policy", "given")),
         )
 
     def bounded_chiral_ring_metadata(
