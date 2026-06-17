@@ -66,6 +66,7 @@ OBLIGATION_CATEGORY_MAP: dict[str, str] = {
     "magnetic superpotential consistency": "superpotential",
     "superpotential R-charge balance": "superpotential",
     "central charge matching from encoded R-symmetry": "r_charge",
+    "a-maximization central charge matching": "r_charge",
     "R-charge balance": "r_charge",
     "bounded chiral-ring consistency": "chiral_ring",
 }

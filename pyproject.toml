@@ -19,6 +19,7 @@ dualitycert = "dualitycert.cli:main"
 [project.optional-dependencies]
 test = ["pytest>=7"]
 llm = ["anthropic>=0.40"]
+amax = ["sympy>=1.12"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

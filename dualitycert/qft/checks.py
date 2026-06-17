@@ -24,6 +24,7 @@ from dualitycert.qft.quiver_chiral_ring import (
     bounded_chiral_ring_consistency_check,
 )
 from dualitycert.qft.rcharges import (
+    a_maximization_matching,
     central_charge_matching,
     operator_unitarity_bound_check,
 )
@@ -166,6 +167,25 @@ def build_default_registry() -> CheckRegistry:
                     description="Compare Tr R, Tr R^3, a, and c from the encoded R-symmetry.",
                     checker=lambda: central_charge_matching(claim),
                     checker_name="central_charge_matching",
+                ),
+            ),
+            CheckSpec(
+                key="a_maximization_matching",
+                name="a-maximization central charge matching",
+                description=(
+                    "Independently a-maximize both pure_quiver theories and "
+                    "compare the superconformal central charges a, c (opt-in via "
+                    "metadata['run_a_maximization']; requires the [amax] extra)."
+                ),
+                applicable_kinds=frozenset({"pure_quiver"}),
+                factory=lambda claim: Obligation(
+                    name="a-maximization central charge matching",
+                    description=(
+                        "Independently a-maximize both pure_quiver theories and "
+                        "compare the superconformal central charges a, c."
+                    ),
+                    checker=lambda: a_maximization_matching(claim),
+                    checker_name="a_maximization_matching",
                 ),
             ),
             CheckSpec(

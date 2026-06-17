@@ -8,9 +8,20 @@ from typing import Iterable
 from dualitycert.core.objects import CheckResult, DualityClaim, Field, SINGLET, Theory
 from dualitycert.core.status import Status
 from dualitycert.groups.su import dimension
+from dualitycert.qft.a_maximization import (
+    AMaxError,
+    central_charges_match,
+    superconformal_central_charges,
+)
+from dualitycert.qft.pure_quiver_json import (
+    PureQuiverJSONError,
+    pure_quiver_to_json,
+)
 
 
 UNITARITY_R_BOUND = Fraction(2, 3)
+
+A_MAXIMIZATION_OBLIGATION = "a-maximization central charge matching"
 
 
 def central_charge_matching(claim: DualityClaim) -> CheckResult:
@@ -62,6 +73,106 @@ def central_charge_matching(claim: DualityClaim) -> CheckResult:
         warnings=(
             "This validates the encoded R-symmetry data; it does not run full a-maximization.",
         ),
+    )
+
+
+def a_maximization_matching(claim: DualityClaim) -> CheckResult:
+    """Independently a-maximize both theories and compare the central charges.
+
+    Stronger than `central_charge_matching`: it recomputes the
+    superconformal R on each side (no reference to the encoded R or to the
+    other theory), so genuine Seiberg duals match even when their encoded
+    R is merely rational-feasible (the irrational-R families).
+
+    OPT-IN: runs only when ``claim.metadata['run_a_maximization']`` is
+    truthy, returning NOT_APPLICABLE otherwise. NOT_APPLICABLE is
+    non-blocking and never enters `failed_obligations`, so registering
+    this obligation does not perturb any committed certificate / benchmark
+    ground truth until a caller explicitly opts in. A claim may also pass
+    ``flavor_u1_basis_electric`` / ``flavor_u1_basis_magnetic`` (Lean-style
+    declared flavor bases); when absent the verifier-derived kernel is used.
+    """
+
+    if not claim.metadata.get("run_a_maximization"):
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=(
+                "a-maximization is opt-in; set "
+                "metadata['run_a_maximization']=True to enable it."
+            ),
+        )
+
+    try:
+        electric_json = pure_quiver_to_json(claim.electric_theory)
+        magnetic_json = pure_quiver_to_json(claim.magnetic_theory)
+    except PureQuiverJSONError as exc:
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=f"a-maximization requires pure-quiver theories: {exc}",
+        )
+
+    meta = claim.metadata
+    try:
+        electric = superconformal_central_charges(
+            electric_json, flavor_basis=meta.get("flavor_u1_basis_electric")
+        )
+        magnetic = superconformal_central_charges(
+            magnetic_json, flavor_basis=meta.get("flavor_u1_basis_magnetic")
+        )
+    except AMaxError as exc:
+        status = Status.UNKNOWN if "sympy" in str(exc) else Status.NOT_APPLICABLE
+        return CheckResult(status=status, message=f"a-maximization could not run: {exc}")
+
+    details = {
+        "electric": {
+            "a": str(electric.a), "c": str(electric.c),
+            "flavor_dim": electric.flavor_dim, "exact": electric.exact,
+        },
+        "magnetic": {
+            "a": str(magnetic.a), "c": str(magnetic.c),
+            "flavor_dim": magnetic.flavor_dim, "exact": magnetic.exact,
+        },
+    }
+    warnings = electric.unitarity_warnings + magnetic.unitarity_warnings
+
+    if not (electric.unitarity_ok and magnetic.unitarity_ok):
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=(
+                "a-maximization out of scope: a gauge-singlet chiral operator "
+                "violates the unitarity bound (R < 2/3), so a free field "
+                "decouples; v1 does not perform the decoupling correction."
+            ),
+            details=details,
+            warnings=warnings,
+        )
+
+    a_ok, c_ok = central_charges_match(electric, magnetic)
+    if a_ok and c_ok:
+        return CheckResult(
+            status=Status.CERTIFIED,
+            message=(
+                f"Independent a-maximization: a = {electric.a} and "
+                f"c = {electric.c} match across the duality."
+            ),
+            details=details,
+            warnings=warnings
+            + (
+                "Assumes the trial flavor space is complete and no operators "
+                "decouple below the unitarity bound.",
+            ),
+        )
+
+    mismatches = []
+    if not a_ok:
+        mismatches.append(f"a: {electric.a} vs {magnetic.a}")
+    if not c_ok:
+        mismatches.append(f"c: {electric.c} vs {magnetic.c}")
+    return CheckResult(
+        status=Status.FAILED,
+        message="Independent a-maximization mismatch -- " + "; ".join(mismatches),
+        details=details,
+        warnings=warnings,
     )
 
 
