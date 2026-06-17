@@ -239,6 +239,40 @@ scope; every f0 depth-2 adjacent pair fails) → honest attrition. With
 CERTIFIED duals whose intermediate theory is mechanical scaffolding (not
 itself required to be a dual). No depth-2 examples are ever fabricated.
 
+### R-charge policy: judge ① (given) vs judge ②a (superconformal)
+
+`VerifierConfig.r_charge_policy` selects how a claim's R-charge is judged:
+
+- **`"given"`** (default — judge ①): the claim's R is trusted and only
+  checked for consistency (`R(W)=2`, anomaly-freedom) and duality
+  matching. This is the locked behavior; it is **not serialized when
+  default**, so existing config hashes are byte-stable.
+- **`"superconformal"`** (judge ②a): the claim must carry **the**
+  superconformal (a-maximized) R. The a-maximization audit
+  (`superconformal R-charge audit`) recomputes the superconformal R from
+  the structure and kills a wrong-R claim *before* the duality
+  comparison — an ill-specified theory does not merit a duality verdict.
+  Requires the optional `[amax]` extra (sympy).
+
+Under `"superconformal"`, `generate_fixtures` substitutes the
+superconformal R into both sides of every positive (via
+`qft.a_maximization.with_superconformal_r`) before gating — rational for
+the symmetric families (dp0 / f0 / c3_z2z2), an exact algebraic number
+for the irrational-R families (dp1 / dp2 / spp, e.g. `sqrt(97)` on SPP).
+The mutation chain's *internal* verification still runs under judge ①
+(the engine emits a rational-feasible R; the ②a audit applies only to the
+final substituted claim), so a family whose electric R is symmetric but
+whose superconformal R is irrational (SPP) is not killed before
+substitution. a-max failure on a positive routes it to attrition
+(`OUT_OF_SCOPE`), never a fabricated claim. The substitution is fully
+gated on the flag, so judge-① generation is byte-for-byte unchanged.
+
+The audit is a **strictly stronger gate**: it catches negatives judge ①
+silently misses (e.g. `drop_w_term` on the non-chiral c3_z2z2 / spp
+duals, whose dropped term shifts the superconformal R). The smoke config
+`configs/smoke_superconformal.json` is the all-seed depth-1 dataset under
+this policy.
+
 ### Strict completeness (replaces the old depth preflight)
 
 Generation is **strict by default**: after generating, if any requested

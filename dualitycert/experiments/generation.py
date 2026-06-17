@@ -18,7 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from itertools import combinations
 from pathlib import Path
@@ -47,6 +47,7 @@ from dualitycert.experiments.perturbations import (
     PerturbationError,
     apply_single_positive_edit,
 )
+from dualitycert.qft.a_maximization import AMaxError, with_superconformal_r
 from dualitycert.experiments.seeds import SeedSpec, default_seed_specs
 from dualitycert.experiments.verifier import VerifierOutcome, run_verifier
 
@@ -162,6 +163,20 @@ def generate_fixtures(
     seen_pair_hash: dict[str, str] = {}
     theories_dir = out_dir_path / "theories"
 
+    # The mutation chain operates on rational-R theories (the engine emits a
+    # rational-feasible R). Its internal adjacent / seed-to-final verification
+    # must therefore run under judge ① -- the ②a superconformal audit applies
+    # only to the FINAL claim, after `with_superconformal_r` substitutes the
+    # (possibly irrational) superconformal R. Without this, a family whose
+    # superconformal R is irrational but whose electric R is symmetric (SPP)
+    # would have its rational-R chain candidate killed by the audit before the
+    # substitution ever happens. Identity for the default policy (byte-stable).
+    structural_vc = (
+        config.verifier
+        if config.verifier.r_charge_policy == "given"
+        else replace(config.verifier, r_charge_policy="given")
+    )
+
     def _gen_meta(seed_id: int) -> dict[str, Any]:
         return {"rng_seed": int(seed_id), **gen_meta_base}
 
@@ -249,7 +264,7 @@ def generate_fixtures(
             chain_seed = _stable_seed(config.seed, depth, si, "chain")
             return generate_mutation_chain(
                 electric, 1, Random(chain_seed), config.chain,
-                verifier_config=config.verifier, source_name=spec.source_name,
+                verifier_config=structural_vc, source_name=spec.source_name,
                 node=spec.node, seed_id=chain_seed,
             )
         last: MutationChainResult | None = None
@@ -257,7 +272,7 @@ def generate_fixtures(
             attempt_seed = _stable_seed(config.seed, depth, si, "chain", attempt)
             chain = generate_mutation_chain(
                 electric, depth, Random(attempt_seed), config.chain,
-                verifier_config=config.verifier, source_name=spec.source_name,
+                verifier_config=structural_vc, source_name=spec.source_name,
                 node=None, seed_id=attempt_seed,
             )
             if chain.success:
@@ -340,6 +355,39 @@ def generate_fixtures(
                 final_hash = chain.final_theory_hash
                 chain_id = chain.chain_id
                 chain_seed_id = chain.seed_id
+
+            # Judge ②a: under the "superconformal" R-charge policy the claim
+            # must carry THE superconformal (a-maximized) R. Substitute it into
+            # both sides; the Seiberg-dual STRUCTURE is unchanged, only the
+            # field R-charges become the exact superconformal values (irrational
+            # for dP_1 / dP_2 / SPP). a-max failure -> attrition (the engine
+            # never fabricates an unresolved claim). Fully gated: the default
+            # "given" policy leaves `electric` / `positive_candidate` untouched,
+            # so judge-① generation is byte-for-byte identical.
+            if config.verifier.r_charge_policy == "superconformal":
+                try:
+                    electric = with_superconformal_r(electric)
+                    positive_candidate = with_superconformal_r(positive_candidate)
+                except AMaxError as exc:
+                    result.attrition.append(
+                        AttritionRecord(
+                            fixture_id=f"{base_id}_positive",
+                            seed_id=chain_seed_id or 0,
+                            depth=depth,
+                            perturbation_class="positive",
+                            attrition_reason="OUT_OF_SCOPE",
+                            detail=f"superconformal-R substitution failed: {exc}",
+                            verifier_status=None,
+                            generation_metadata=_gen_meta(chain_seed_id or 0),
+                            mutation_chain_id=chain_id,
+                            source=spec.source_name,
+                        )
+                    )
+                    continue
+                # The written final theory now carries the superconformal R, so
+                # its provenance hash must reflect that (the intermediate_hashes
+                # remain the rational-R generation trail).
+                final_hash = canonical_theory_hash(positive_candidate)
 
             chain_fields = dict(
                 chain_depth=depth_realized,

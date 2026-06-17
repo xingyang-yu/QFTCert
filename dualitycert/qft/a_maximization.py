@@ -43,6 +43,7 @@ __all__ = [
     "superconformal_central_charges",
     "central_charges_match",
     "audit_superconformal_r",
+    "with_superconformal_r",
 ]
 
 
@@ -615,3 +616,31 @@ def audit_superconformal_r(theory_json: Mapping[str, Any]) -> dict[str, Any]:
         "claimed": {k: str(v) for k, v in claimed.items()},
         "computed": computed_str,
     }
+
+
+def with_superconformal_r(theory_json: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a copy of `theory_json` carrying THE superconformal (a-max) R.
+
+    This is the judge-②a substitution: the structure (ranks, arrows, W) is
+    untouched, but every field's R-charge is replaced by its a-maximized
+    superconformal value (rational for the symmetric families, an exact
+    algebraic number for the irrational-R families). The result is what a
+    claim must carry under the "superconformal" R-charge policy so the
+    audit (`audit_superconformal_r`) certifies it.
+
+    The superconformal R is computed from the structure alone (the encoded
+    R is ignored), so this works on a theory whose stored R is only
+    rational-feasible. Raises `AMaxError` if a-maximization cannot resolve
+    the theory (the caller routes that to attrition).
+    """
+
+    r = superconformal_central_charges(theory_json).r_charges
+    out = dict(theory_json)
+    out["arrows"] = [
+        dict(a, r_charge=str(r[a["label"]])) for a in theory_json["arrows"]
+    ]
+    if theory_json.get("singlets"):
+        out["singlets"] = [
+            dict(s, r_charge=str(r[s["label"]])) for s in theory_json["singlets"]
+        ]
+    return out

@@ -28,7 +28,7 @@ from dualitycert.experiments.seeds import dp0_electric  # noqa: E402
 from dualitycert.experiments.verifier import run_verifier  # noqa: E402
 from dualitycert.qft.a_maximization import (  # noqa: E402
     audit_superconformal_r,
-    superconformal_central_charges,
+    with_superconformal_r,
 )
 from dualitycert.qft.pure_quiver_json import pure_quiver_from_json  # noqa: E402
 from dualitycert.qft.rcharges import superconformal_r_audit_check  # noqa: E402
@@ -37,14 +37,7 @@ from dualitycert.qft.rcharges import superconformal_r_audit_check  # noqa: E402
 def _superconformal(theory_json):
     """A copy of `theory_json` with the a-max superconformal R substituted in."""
 
-    r = superconformal_central_charges(theory_json).r_charges
-    out = copy.deepcopy(theory_json)
-    out["arrows"] = [dict(a, r_charge=str(r[a["label"]])) for a in theory_json["arrows"]]
-    if theory_json.get("singlets"):
-        out["singlets"] = [
-            dict(s, r_charge=str(r[s["label"]])) for s in theory_json["singlets"]
-        ]
-    return out
+    return with_superconformal_r(copy.deepcopy(theory_json))
 
 
 def _claim(electric_json, magnetic_json, **metadata):

@@ -172,17 +172,35 @@ def _edit_r_charge(
         raise PerturbationError("cannot_r_perturb: candidate has no arrows")
     idx = rng.randrange(len(arrows))
     arrow = arrows[idx]
-    old_r = Fraction(arrow["r_charge"])
     delta = rng.choice(_R_NAIVE_DELTAS)
-    new_r = old_r + delta
-    arrow["r_charge"] = str(new_r)
+    old_str, new_str = _shift_r_charge(arrow["r_charge"], delta)
+    arrow["r_charge"] = new_str
     meta = {
         "perturbed_field": arrow["label"],
         "delta": str(delta),
-        "old_r": str(old_r),
-        "new_r": str(new_r),
+        "old_r": old_str,
+        "new_r": new_str,
     }
     return cand, meta
+
+
+def _shift_r_charge(r_charge: str, delta: Fraction) -> tuple[str, str]:
+    """Return (canonical old R, R + delta) as strings.
+
+    The rational path (Fraction arithmetic) is byte-for-byte identical to
+    the original code so judge-① fixtures stay stable. An algebraic R (the
+    irrational superconformal R the judge-②a families carry) is not a valid
+    Fraction literal, so it falls back to sympy."""
+
+    try:
+        old_r = Fraction(r_charge)
+    except ValueError:
+        import sympy as sp
+
+        old_r = sp.sympify(r_charge)
+        new_r = old_r + sp.Rational(delta.numerator, delta.denominator)
+        return str(old_r), str(new_r)
+    return str(old_r), str(old_r + delta)
 
 
 def _edit_rank(
