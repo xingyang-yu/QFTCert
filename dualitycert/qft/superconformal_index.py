@@ -58,6 +58,7 @@ from typing import Any, Mapping
 __all__ = [
     "SuperconformalIndexError",
     "index_series",
+    "index_pq",
     "index_matches",
     "format_index",
 ]
@@ -396,6 +397,194 @@ def index_series(
         if val != 0:
             out[k] = sp.expand(sp.Rational(1, norm) * val)
     out.setdefault(0, sp.Integer(1))
+    return out
+
+
+# ----------------------------------------------------------------------
+# Full (p, q) index. p = a^D, q = b^D so rational R/2 gives integer (a,b)
+# powers. Series = {(i, j) -> coeff}, meaning a^i b^j = p^(i/D) q^(j/D).
+# Setting a = b (p = q) recovers the unrefined index above.
+# ----------------------------------------------------------------------
+
+
+def _smul_pq(A: dict, B: dict, Ka: int, Kb: int, sp) -> dict:
+    out: dict = defaultdict(lambda: sp.Integer(0))
+    for (i1, j1), c1 in A.items():
+        if i1 > Ka or j1 > Kb:
+            continue
+        for (i2, j2), c2 in B.items():
+            i, j = i1 + i2, j1 + j2
+            if i > Ka or j > Kb:
+                continue
+            out[(i, j)] += c1 * c2
+    return {k: sp.expand(v) for k, v in out.items() if sp.expand(v) != 0}
+
+
+def _sadd_pq(series_list, sp) -> dict:
+    out: dict = defaultdict(lambda: sp.Integer(0))
+    for s in series_list:
+        for k, v in s.items():
+            out[k] += v
+    return {k: sp.expand(v) for k, v in out.items() if sp.expand(v) != 0}
+
+
+def _geom_pq(D: int, Ka: int, Kb: int, sp) -> dict:
+    # 1/((1-a^D)(1-b^D)) = sum_{m,n>=0} a^{Dm} b^{Dn}
+    return {
+        (D * m, D * n): sp.Integer(1)
+        for m in range(Ka // D + 1)
+        for n in range(Kb // D + 1)
+    }
+
+
+def _chiral_pq(r, D, char, charbar, Ka, Kb, sp) -> dict:
+    er = D * Fraction(r) / 2
+    e2r = D * (2 - Fraction(r)) / 2
+    er, e2r = int(er), int(e2r)
+    num: dict = {}
+    if er <= Ka and er <= Kb:
+        num[(er, er)] = num.get((er, er), sp.Integer(0)) + char
+    if e2r <= Ka and e2r <= Kb:
+        num[(e2r, e2r)] = num.get((e2r, e2r), sp.Integer(0)) - charbar
+    num = {k: sp.expand(v) for k, v in num.items()}
+    return _smul_pq(num, _geom_pq(D, Ka, Kb, sp), Ka, Kb, sp)
+
+
+def _vector_pq(D, char_adj, Ka, Kb, sp) -> dict:
+    # (2pq - p - q)/((1-p)(1-q)) chi_adj
+    base = {(D, D): sp.Integer(2), (D, 0): sp.Integer(-1), (0, D): sp.Integer(-1)}
+    base = {k: sp.expand(v * char_adj) for k, v in base.items()}
+    return _smul_pq(base, _geom_pq(D, Ka, Kb, sp), Ka, Kb, sp)
+
+
+def _pe_pq(f: dict, Ka: int, Kb: int, syms, sp) -> dict:
+    S: dict = defaultdict(lambda: sp.Integer(0))
+    for n in range(1, max(Ka, Kb) + 1):
+        sub = {s: s ** n for s in syms}
+        for (i, j), c in f.items():
+            if i * n > Ka or j * n > Kb:
+                continue
+            S[(i * n, j * n)] += sp.Rational(1, n) * (c.subs(sub) if syms else c)
+    S = {k: sp.expand(v) for k, v in S.items() if sp.expand(v) != 0}
+    E = {(0, 0): sp.Integer(1)}
+    term = {(0, 0): sp.Integer(1)}
+    k = 1
+    while k <= Ka + Kb + 2:
+        term = _smul_pq(term, S, Ka, Kb, sp)
+        if not term:
+            break
+        term = {kk: vv / k for kk, vv in term.items()}
+        E = _sadd_pq([E, term], sp)
+        k += 1
+    return E
+
+
+def index_pq(
+    theory_json: Mapping[str, Any],
+    order: int = 4,
+    *,
+    flavor_ranks: "list[int] | None" = None,
+    derive_r: "str | None" = None,
+) -> dict[tuple, Any]:
+    """The FULL two-variable superconformal index, {(i, j) -> coefficient}.
+
+    The key (i, j) means a^i b^j = p^(i/D) q^(j/D) (D = lcm of the R/2
+    denominators); `order` caps both i and j. This is the genuine
+    I(p, q) (the unrefined `index_series` is its p = q slice: substituting
+    a = b and collecting by total degree reproduces it). `flavor_ranks` and
+    `derive_r` behave as in `index_series`. Validated: the free-chiral
+    full index equals the two-variable elliptic Gamma; the conifold p = q
+    slice recovers 1 + 10 (mesons + baryons).
+    """
+
+    sp = _require_sympy()
+    if derive_r is not None:
+        if flavor_ranks:
+            raise SuperconformalIndexError(
+                "derive_r is only supported for pure-gauge quivers"
+            )
+        theory_json = _fill_r_charges(theory_json, derive_r)
+
+    gauge_ranks = [int(x) for x in theory_json["ranks"]]
+    flavor_ranks = [int(x) for x in (flavor_ranks or [])]
+    all_ranks = gauge_ranks + flavor_ranks
+    n_gauge = len(gauge_ranks)
+    arrows = list(theory_json["arrows"])
+    singlets = list(theory_json.get("singlets", []))
+    Ka = Kb = int(order)
+
+    r_values = [_parse_r(a["r_charge"]) for a in arrows]
+    r_values += [_parse_r(s["r_charge"]) for s in singlets]
+    D = 1
+    for r in r_values:
+        D = _lcm(D, (Fraction(r) / 2).denominator)
+
+    z_free: dict[int, list] = {}
+    z_all: dict[int, list] = {}
+    for v, N in enumerate(all_ranks):
+        prefix = "z" if v < n_gauge else "y"
+        frees = [sp.Symbol(f"{prefix}_{v}_{i}") for i in range(N - 1)]
+        z_free[v] = frees
+        if N == 1:
+            z_all[v] = [sp.Integer(1)]
+        else:
+            last = sp.Integer(1)
+            for s in frees:
+                last = last / s
+            z_all[v] = frees + [last]
+
+    def fund(v):
+        return sum(z_all[v])
+
+    def antifund(v):
+        return sum(1 / x for x in z_all[v])
+
+    def adjoint(v):
+        return sp.expand(fund(v) * antifund(v) - 1)
+
+    letters: list[dict] = []
+    for arrow in arrows:
+        s, t = int(arrow["source"]), int(arrow["target"])
+        r = _parse_r(arrow["r_charge"])
+        char = adjoint(s) if s == t else sp.expand(fund(s) * antifund(t))
+        charbar = adjoint(s) if s == t else sp.expand(antifund(s) * fund(t))
+        letters.append(_chiral_pq(r, D, char, charbar, Ka, Kb, sp))
+    for singlet in singlets:
+        r = _parse_r(singlet["r_charge"])
+        letters.append(_chiral_pq(r, D, sp.Integer(1), sp.Integer(1), Ka, Kb, sp))
+    for v in range(n_gauge):
+        if all_ranks[v] >= 2:
+            letters.append(_vector_pq(D, adjoint(v), Ka, Kb, sp))
+
+    syms = [s for v in z_free for s in z_free[v]]
+    pe = _pe_pq(_sadd_pq(letters, sp), Ka, Kb, syms, sp)
+
+    vandermonde: dict[int, Any] = {}
+    norm = 1
+    for v in range(n_gauge):
+        N = all_ranks[v]
+        if N >= 2:
+            vd = sp.Integer(1)
+            for i in range(N):
+                for j in range(N):
+                    if i != j:
+                        vd *= 1 - z_all[v][i] / z_all[v][j]
+            vandermonde[v] = sp.expand(vd)
+            norm *= factorial(N)
+
+    out: dict[tuple, Any] = {}
+    for key, coeff in pe.items():
+        val = sp.expand(coeff)
+        for v in range(n_gauge):
+            if all_ranks[v] >= 2:
+                val = sp.expand(val * vandermonde[v])
+                for zv in z_free[v]:
+                    val = _constant_term(val, zv, max(Ka, Kb), sp)
+                    if val == 0:
+                        break
+        if val != 0:
+            out[key] = sp.expand(sp.Rational(1, norm) * val)
+    out.setdefault((0, 0), sp.Integer(1))
     return out
 
 

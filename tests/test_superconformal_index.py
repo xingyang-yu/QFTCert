@@ -24,6 +24,7 @@ from dualitycert.qft.rcharges import index_matching_check  # noqa: E402
 from dualitycert.qft.superconformal_index import (  # noqa: E402
     SuperconformalIndexError,
     index_matches,
+    index_pq,
     index_series,
 )
 
@@ -73,6 +74,35 @@ def test_index_matches_equal_and_unequal():
     }
     ok2, _ = index_matches(CONIFOLD, perturbed, 4)
     assert not ok2
+
+
+def test_full_pq_index_collapses_to_unrefined_at_p_equals_q():
+    # The full I(p,q) at p=q (a=b) reproduces the unrefined index. Key (i,j)
+    # = a^i b^j; setting a=b sends it to a^(i+j). The conifold mesons+baryons
+    # (10) sit at (2,2) under D=4 (R/2 denominators), i.e. total degree 4,
+    # which equals unrefined u^2 (D_unref=2). So the collapsed degree-4 = 10.
+    pq = index_pq(CONIFOLD, 4)
+    collapsed = {}
+    for (i, j), c in pq.items():
+        collapsed[i + j] = sympy.expand(collapsed.get(i + j, 0) + c)
+    assert collapsed[0] == 1
+    assert collapsed[4] == 10  # = unrefined u^2 (the 4 mesons + 6 baryons)
+
+
+def test_full_pq_index_has_off_diagonal_terms():
+    # A genuine 2-variable index: the free-chiral letters produce p^i q^j with
+    # i != j (not just the p=q diagonal). Check on a single chiral via index_pq
+    # of a 1-flavor-node toy where the chiral survives ungauged is awkward, so
+    # check the elliptic-Gamma-like structure on the conifold's pre-projection
+    # is implicit; here we assert the engine CAN produce off-diagonal keys.
+    # Free chiral R=2/3 in a trivial SU(1) "gauge" node + flavor node:
+    toy = {
+        "ranks": [1],
+        "arrows": [{"label": "Q", "source": 0, "target": 1, "r_charge": "2/3"}],
+        "superpotential": [],
+    }
+    pq = index_pq(toy, 6, flavor_ranks=[1])
+    assert any(i != j for (i, j) in pq)
 
 
 def test_refined_index_recovers_unrefined_at_unit_fugacity():
