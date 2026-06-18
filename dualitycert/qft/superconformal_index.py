@@ -27,11 +27,17 @@ VALIDATED against (see tests):
   - the conifold SU(2) x SU(2): 1 + 10 u^2 + ... (4 mesons + 6 baryons).
 
 SCOPE / LIMITATIONS (honest):
-  - UNREFINED (p = q) and RATIONAL R only. An irrational superconformal R
-    (the a-maximized dP_1 / dP_2 / SPP families) has irrational tau-powers,
-    so there is no finite tau-series; that case needs the flavor-fugacity
-    refinement (use a rational reference R + flavor fugacities) and is NOT
-    implemented here -> raises ``SuperconformalIndexError``.
+  - UNREFINED in p, q (p = q) and RATIONAL R for the tau-grading. Flavor
+    refinement IS available (``flavor_fugacities=True``): the index is then
+    graded by the theory's flavor U(1) symmetries (the ``repair_r_charges``
+    kernel), each coefficient becoming a Laurent polynomial in fugacities
+    v_a (a flavor character); setting every v_a = 1 recovers the unrefined
+    index. NOTE the irrational a-maximized superconformal R is reached only
+    by specializing those fugacities to irrational values (a final
+    substitution); the families' SEED R is rational, so their index is
+    computable directly. Refined index MATCHING across a duality needs the
+    flavor-symmetry map between the two sides (not automated) -> the wired
+    obligation compares the UNREFINED index.
   - SU(N) is supported, but the gauge integral is a brute-force
     constant-term extraction whose cost grows fast with N, the node count,
     and the order: SU(2) nodes are cheap; SU(N >= 3) (dP_0, F_0) is slow.
@@ -173,12 +179,62 @@ def _constant_term(expr, zv, order: int, sp):
 # ----------------------------------------------------------------------
 
 
-def index_series(theory_json: Mapping[str, Any], order: int = 6) -> dict[int, Any]:
-    """Return the unrefined index of `theory_json` as {u-power -> coefficient}.
+def _flavor_factors(theory_json: Mapping[str, Any], sp):
+    """Per-field flavor-fugacity monomial prod_a v_a^{F_a}, and the v symbols.
+
+    The flavor U(1) basis is the anomaly-free, W-invariant homogeneous space
+    that `repair_r_charges` returns -- the SAME flavor space a-maximization
+    mixes over. Each kernel vector is scaled to integer charges (a harmless
+    fugacity renormalization) so v_a appears with integer Laurent powers.
+    """
+
+    from dualitycert.qft.r_repair import repair_r_charges
+
+    rep = repair_r_charges(theory_json)
+    if rep.get("status") == "infeasible":
+        raise SuperconformalIndexError(
+            f"no feasible R-space for flavor refinement: {rep.get('failure_reason')}"
+        )
+    basis = rep["feasible_space"]["homogeneous_basis"]
+    v_syms = [sp.Symbol(f"v_{a}") for a in range(len(basis))]
+    int_basis: list[dict[str, int]] = []
+    for vec in basis:
+        fr = {k: Fraction(str(val)) for k, val in vec.items()}
+        denom = 1
+        for val in fr.values():
+            denom = _lcm(denom, val.denominator)
+        int_basis.append({k: int(val * denom) for k, val in fr.items()})
+    labels: set[str] = set()
+    for vec in int_basis:
+        labels |= set(vec)
+    factor: dict[str, Any] = {}
+    for lab in labels:
+        mono = sp.Integer(1)
+        for a, vec in enumerate(int_basis):
+            e = vec.get(lab, 0)
+            if e:
+                mono *= v_syms[a] ** e
+        factor[lab] = mono
+    return factor, v_syms
+
+
+def index_series(
+    theory_json: Mapping[str, Any],
+    order: int = 6,
+    *,
+    flavor_fugacities: bool = False,
+) -> dict[int, Any]:
+    """Return the index of `theory_json` as {u-power -> coefficient}.
 
     `order` is the highest u-power kept (u = tau^(1/D), tau = (pq)^(1/2),
     D = lcm of the R-charge denominators). The u^0 coefficient is always 1.
     Raises ``SuperconformalIndexError`` for irrational R or empty input.
+
+    With ``flavor_fugacities=True`` the index is refined by the theory's
+    flavor U(1) symmetries (the `repair_r_charges` kernel): each coefficient
+    becomes a Laurent polynomial in fugacities v_a (a flavor character), a
+    far more discriminating object than the unrefined number. Setting every
+    v_a = 1 recovers the unrefined index.
     """
 
     sp = _require_sympy()
@@ -216,26 +272,36 @@ def index_series(theory_json: Mapping[str, Any], order: int = 6) -> dict[int, An
     def adjoint(v):
         return sp.expand(fund(v) * antifund(v) - 1)
 
+    # Flavor U(1) fugacities (optional refinement): a monomial per field, the
+    # gaugino/vector stays flavor-neutral.
+    if flavor_fugacities:
+        flavor, v_syms = _flavor_factors(theory_json, sp)
+    else:
+        flavor, v_syms = {}, []
+
+    def _ff(label):
+        return flavor.get(label, sp.Integer(1))
+
     # Single-letter index of the full matter + vector content.
     letters: list[dict] = []
     for arrow in arrows:
         s, t = int(arrow["source"]), int(arrow["target"])
         r = _parse_r(arrow["r_charge"])
-        if s == t:
-            char = adjoint(s)
-            charbar = adjoint(s)
-        else:
-            char = sp.expand(fund(s) * antifund(t))
-            charbar = sp.expand(antifund(s) * fund(t))
+        gauge = adjoint(s) if s == t else sp.expand(fund(s) * antifund(t))
+        gauge_bar = adjoint(s) if s == t else sp.expand(antifund(s) * fund(t))
+        ff = _ff(arrow["label"])
+        char = sp.expand(gauge * ff)
+        charbar = sp.expand(gauge_bar / ff)
         letters.append(_chiral_letter(r, D, char, charbar, K, sp))
     for singlet in singlets:
         r = _parse_r(singlet["r_charge"])
-        letters.append(_chiral_letter(r, D, sp.Integer(1), sp.Integer(1), K, sp))
+        ff = _ff(singlet["label"])
+        letters.append(_chiral_letter(r, D, ff, 1 / ff, K, sp))
     for v, N in enumerate(ranks):
         if N >= 2:
             letters.append(_vector_letter(D, adjoint(v), K, sp))
 
-    syms = [s for v in z_free for s in z_free[v]]
+    syms = [s for v in z_free for s in z_free[v]] + list(v_syms)
     pe = _plethystic_exp(_sadd(letters, sp), K, syms, sp)
 
     # Gauge average: project onto gauge singlets node by node.
@@ -262,7 +328,7 @@ def index_series(theory_json: Mapping[str, Any], order: int = 6) -> dict[int, An
                     if val == 0:
                         break
         if val != 0:
-            out[k] = sp.Rational(val, norm) if not getattr(val, "free_symbols", set()) else val
+            out[k] = sp.expand(sp.Rational(1, norm) * val)
     out.setdefault(0, sp.Integer(1))
     return out
 

@@ -75,6 +75,28 @@ def test_index_matches_equal_and_unequal():
     assert not ok2
 
 
+def test_refined_index_recovers_unrefined_at_unit_fugacity():
+    unref = index_series(CONIFOLD, 4)
+    ref = index_series(CONIFOLD, 4, flavor_fugacities=True)
+    subs = {
+        s: 1
+        for c in ref.values()
+        if hasattr(c, "free_symbols")
+        for s in c.free_symbols
+    }
+    for k in set(unref) | set(ref):
+        r = ref.get(k, 0)
+        r1 = sympy.expand(r.subs(subs)) if hasattr(r, "subs") else r
+        assert sympy.expand(unref.get(k, 0) - r1) == 0
+
+
+def test_refined_index_carries_flavor_characters():
+    ref = index_series(CONIFOLD, 4, flavor_fugacities=True)
+    # the R=1 (u^2) coefficient is a nontrivial flavor character (the 4 mesons
+    # + 6 baryons split into distinct flavor-charge sectors), not a bare count.
+    assert getattr(ref[2], "free_symbols", set())
+
+
 def test_irrational_r_is_out_of_scope():
     bad = {
         "ranks": [2, 2],
