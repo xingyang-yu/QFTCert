@@ -164,6 +164,49 @@ def test_derive_r_from_superpotential_matches_given_r():
     assert given == derived
 
 
+def _sqcd(Nc, Nf):
+    return {
+        "name": f"SU({Nc})_Nf{Nf}",
+        "node_labels": ["g0"],
+        "ranks": [Nc],
+        "arrows": [
+            {"label": "Q", "source": 0, "target": 1, "r_charge": "1/2"},
+            {"label": "Qb", "source": 2, "target": 0, "r_charge": "1/2"},
+        ],
+        "superpotential": [],
+    }
+
+
+def test_amax_derives_sqcd_r_charge():
+    # The standard use of a-max for a FLAVORED theory: it must give SQCD's
+    # anomaly-fixed R_Q = 1 - Nc/Nf (ABJ R-anomaly at the gauge node only).
+    from dualitycert.qft.a_maximization import superconformal_central_charges
+
+    for Nc, Nf in [(2, 3), (3, 6), (3, 4)]:
+        res = superconformal_central_charges(_sqcd(Nc, Nf), flavor_ranks=[Nf, Nf])
+        expected = sympy.Rational(1) - sympy.Rational(Nc, Nf)
+        assert sympy.simplify(res.r_charges["Q"] - expected) == 0
+        assert sympy.simplify(res.r_charges["Qb"] - expected) == 0
+
+
+def test_derive_r_amax_on_flavored_sqcd_index():
+    # field content + W only: a-max derives R_Q = 1/3 for SU(2) Nf=3, and the
+    # index s-confines to 15 mesons/baryons at R=2/3 (flavor fugacity -> 1).
+    series = index_series(_sqcd(2, 3), 4, flavor_ranks=[3, 3], derive_r="amax")
+    subs = {
+        s: 1
+        for c in series.values()
+        if hasattr(c, "free_symbols")
+        for s in c.free_symbols
+    }
+    at_unit = {
+        k: sympy.expand(c.subs(subs)) if hasattr(c, "subs") else c
+        for k, c in series.items()
+    }
+    assert at_unit[0] == 1
+    assert at_unit[2] == 15
+
+
 def test_irrational_r_is_out_of_scope():
     bad = {
         "ranks": [2, 2],

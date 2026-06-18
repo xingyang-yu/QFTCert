@@ -208,6 +208,7 @@ def superconformal_central_charges(
     theory_json: Mapping[str, Any],
     *,
     flavor_basis: Sequence[Mapping[str, Any]] | None = None,
+    flavor_ranks: "Sequence[int] | None" = None,
 ) -> AMaxResult:
     """Independently a-maximize one theory; return its superconformal a, c, R.
 
@@ -215,11 +216,17 @@ def superconformal_central_charges(
     charge dicts; when given it is validated (W-invariant + anomaly-free,
     spanning the flavor space) and used in place of the auto-derived
     `repair_r_charges` kernel.
+
+    `flavor_ranks` (optional) are SU(N) GLOBAL flavor nodes (indexed after
+    the gauge nodes): the ABJ R-anomaly is then imposed only at the gauge
+    nodes and the gaugino traces count gauge nodes only, while flavored
+    fields contribute their full multiplicity. This is the standard a-max
+    for flavored theories -- e.g. it gives SQCD's R_Q = 1 - N_c/N_f.
     """
 
     sp = _require_sympy()
 
-    rep = repair_r_charges(theory_json)
+    rep = repair_r_charges(theory_json, flavor_ranks=list(flavor_ranks) if flavor_ranks else None)
     if rep["status"] == "infeasible":
         raise AMaxError(f"R-charge feasibility system inconsistent: {rep['failure_reason']}")
     fs = rep["feasible_space"]
@@ -239,6 +246,7 @@ def superconformal_central_charges(
     dim = len(basis)
 
     ranks = [int(r) for r in theory_json["ranks"]]
+    all_ranks = ranks + [int(r) for r in (flavor_ranks or [])]
     arrows = list(theory_json["arrows"])
     singlets = list(theory_json.get("singlets", []))
 
@@ -253,11 +261,11 @@ def superconformal_central_charges(
             expr += svars[i] * _rat(vec[label])
         return expr
 
-    gaugino = sum(N ** 2 - 1 for N in ranks)
+    gaugino = sum(N ** 2 - 1 for N in ranks)  # GAUGE nodes only; flavor has none
     tr_r = sp.Integer(gaugino)
     tr_r3 = sp.Integer(gaugino)
     for arrow in arrows:
-        d = _field_dim(arrow, ranks)
+        d = _field_dim(arrow, all_ranks)
         rf = trial_R(arrow["label"]) - 1
         tr_r += d * rf
         tr_r3 += d * rf ** 3

@@ -41,6 +41,7 @@ def repair_r_charges(
     *,
     tie_mode: str = "field",
     representative: str = "l2_nearest_trial",
+    flavor_ranks: "list[int] | None" = None,
 ) -> dict[str, Any]:
     """Repair R-charges by L2-projecting trial R onto the feasible affine space.
 
@@ -71,7 +72,7 @@ def repair_r_charges(
         Fraction(s["r_charge"]) for s in singlets
     ]
 
-    A, b = _build_constraint_system(theory_json, field_labels)
+    A, b = _build_constraint_system(theory_json, field_labels, flavor_ranks)
 
     trial_feasible = _check_trial_feasible(A, b, trial_r)
 
@@ -140,17 +141,27 @@ def repair_r_charges(
 def _build_constraint_system(
     theory_json: Mapping[str, Any],
     field_labels: list[str],
+    flavor_ranks: "list[int] | None" = None,
 ) -> tuple[list[list[Fraction]], list[Fraction]]:
     """Build A, b for the linear system A r = b.
 
-    Rows: one per W term (R-sum = 2), then one per gauge node
+    Rows: one per W term (R-sum = 2), then one per GAUGE node
     (SU(N_v)² × U(1)_R = 0). Columns: one per Field label, in the
     order given by `field_labels`.
+
+    `flavor_ranks` (optional) are SU(N) GLOBAL flavor nodes, indexed after
+    the gauge nodes. They get NO anomaly row (a flavor-R 't Hooft anomaly
+    is allowed, not a constraint), but they DO enter the gauge-node anomaly
+    coefficients as the spectator dimension of a flavored field (so a quark
+    Q_{gauge,flavor} contributes T(fund) × N_flavor). With no flavor_ranks
+    this is byte-identical to the pure-quiver system.
     """
 
     n = len(field_labels)
     col_idx = {label: i for i, label in enumerate(field_labels)}
-    ranks = [int(r) for r in theory_json["ranks"]]
+    gauge_ranks = [int(r) for r in theory_json["ranks"]]
+    n_gauge = len(gauge_ranks)
+    ranks = gauge_ranks + [int(r) for r in (flavor_ranks or [])]
     arrows = list(theory_json["arrows"])
 
     A: list[list[Fraction]] = []
@@ -169,8 +180,8 @@ def _build_constraint_system(
         A.append(row)
         b.append(Fraction(2))
 
-    # Anomaly constraints, one per gauge node.
-    for v in range(len(ranks)):
+    # Anomaly constraints, one per GAUGE node only (flavor nodes get none).
+    for v in range(n_gauge):
         N_v = ranks[v]
         row = [Fraction(0)] * n
         sum_a = Fraction(0)

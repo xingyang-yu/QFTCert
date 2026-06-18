@@ -219,20 +219,27 @@ def _flavor_factors(theory_json: Mapping[str, Any], sp):
     return factor, v_syms
 
 
-def _fill_r_charges(theory_json: Mapping[str, Any], policy: str) -> dict[str, Any]:
+def _fill_r_charges(
+    theory_json: Mapping[str, Any],
+    policy: str,
+    flavor_ranks: "list[int] | None" = None,
+) -> dict[str, Any]:
     """Return a copy of `theory_json` with R-charges DERIVED from the W +
     anomaly constraints, so the calculator takes just (field content + W).
 
     policy "feasible": the rational particular solution of {R(W)=2, gauge-
     anomaly-free} (always rational -> the index always computes). policy
     "amax": the superconformal (a-maximized) R (irrational for some families
-    -> the index then reports it out of scope). Pure-gauge quivers only.
+    -> the index then reports it out of scope). `flavor_ranks` imposes the
+    ABJ R-anomaly only at the gauge nodes (flavored theories) -- so e.g.
+    a-max recovers SQCD's R_Q = 1 - N_c/N_f.
     """
 
+    fr = list(flavor_ranks) if flavor_ranks else None
     if policy == "feasible":
         from dualitycert.qft.r_repair import repair_r_charges
 
-        rep = repair_r_charges(theory_json)
+        rep = repair_r_charges(theory_json, flavor_ranks=fr)
         if rep.get("status") == "infeasible":
             raise SuperconformalIndexError(
                 f"no feasible R for derive_r='feasible': {rep.get('failure_reason')}"
@@ -243,7 +250,9 @@ def _fill_r_charges(theory_json: Mapping[str, Any], policy: str) -> dict[str, An
 
         r_map = {
             k: str(v)
-            for k, v in superconformal_central_charges(theory_json).r_charges.items()
+            for k, v in superconformal_central_charges(
+                theory_json, flavor_ranks=fr
+            ).r_charges.items()
         }
     else:
         raise SuperconformalIndexError(f"unknown derive_r policy {policy!r}")
@@ -278,8 +287,9 @@ def index_series(
     get no vector multiplet and no gauge average.
 
     `derive_r` ("feasible" / "amax") fills the R-charges from the W +
-    anomaly constraints, so the input can be just (field content + W);
-    pure-gauge quivers only (flavor_ranks must be None).
+    anomaly constraints, so the input can be just (field content + W).
+    Works WITH flavor_ranks: the ABJ R-anomaly is imposed only at the gauge
+    nodes, so a-max recovers e.g. SQCD's R_Q = 1 - N_c/N_f.
 
     `flavor_fugacities=True` refines a PURE-GAUGE quiver by its flavor U(1)
     kernel (mutually exclusive with `flavor_ranks`); v_a = 1 recovers the
@@ -288,12 +298,7 @@ def index_series(
 
     sp = _require_sympy()
     if derive_r is not None:
-        if flavor_ranks:
-            raise SuperconformalIndexError(
-                "derive_r is only supported for pure-gauge quivers (flavor_ranks "
-                "must be None); supply explicit R-charges with flavor nodes"
-            )
-        theory_json = _fill_r_charges(theory_json, derive_r)
+        theory_json = _fill_r_charges(theory_json, derive_r, flavor_ranks)
     if flavor_ranks and flavor_fugacities:
         raise SuperconformalIndexError(
             "flavor_fugacities (the U(1) kernel refinement) and flavor_ranks "
@@ -499,11 +504,7 @@ def index_pq(
 
     sp = _require_sympy()
     if derive_r is not None:
-        if flavor_ranks:
-            raise SuperconformalIndexError(
-                "derive_r is only supported for pure-gauge quivers"
-            )
-        theory_json = _fill_r_charges(theory_json, derive_r)
+        theory_json = _fill_r_charges(theory_json, derive_r, flavor_ranks)
 
     gauge_ranks = [int(x) for x in theory_json["ranks"]]
     flavor_ranks = [int(x) for x in (flavor_ranks or [])]
