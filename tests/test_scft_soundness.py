@@ -25,6 +25,7 @@ from dualitycert.qft.a_maximization import (
     central_charge_scft_bounds,
     mesonic_unitarity_scan,
     one_loop_beta_coefficients,
+    scft_observables,
 )
 
 
@@ -163,3 +164,51 @@ def test_soundness_reports_central_charge_data():
     detail = result.details["electric"]
     assert detail["hofman_maldacena_ok"] is True
     assert 0.5 <= detail["a_over_c"] <= 1.5
+
+
+# ----------------------------------------------------------------------
+# Flavored theories: the full observable set via the gauge/flavor split.
+# ----------------------------------------------------------------------
+
+
+def _sqcd(Nc, Nf):
+    return {
+        "name": f"sqcd_{Nc}_{Nf}",
+        "node_labels": ["g0"],
+        "ranks": [Nc],
+        "arrows": [
+            {"label": "Q", "source": 0, "target": 1, "r_charge": "1/2"},
+            {"label": "Qb", "source": 2, "target": 0, "r_charge": "1/2"},
+        ],
+        "superpotential": [],
+    }
+
+
+def test_b0_for_sqcd_is_3Nc_minus_Nf():
+    for Nc, Nf in [(2, 3), (3, 6), (3, 4)]:
+        b0 = one_loop_beta_coefficients(_sqcd(Nc, Nf), flavor_ranks=[Nf, Nf])
+        assert b0[0] == 3 * Nc - Nf
+
+
+def test_scft_observables_sqcd_conformal_window():
+    # SU(3) Nf=6 is in the conformal window: R_Q=1/2, a/c in [1/2, 3/2].
+    obs = scft_observables(_sqcd(3, 6), flavor_ranks=[6, 6])
+    assert sympy.simplify(sympy.sympify(obs["r_charges"]["Q"]) - sympy.Rational(1, 2)) == 0
+    assert obs["one_loop_b0"]["0"] == "3"  # 3*3 - 6
+    assert obs["hofman_maldacena"]["ok"]
+
+
+def test_scft_observables_flags_below_conformal_window():
+    # SU(3) Nf=4 (= Nc+1, s-confining, BELOW the window 4.5 < Nf < 9): the
+    # naive a-max gives mesons at R=1/2 < 2/3, so it is NOT a unitary SCFT --
+    # the Hofman-Maldacena gate (a/c < 1/2) correctly flags it.
+    obs = scft_observables(_sqcd(3, 4), flavor_ranks=[4, 4])
+    assert not obs["hofman_maldacena"]["ok"]
+
+
+def test_scft_observables_pure_quiver_dp0_unchanged():
+    dp0 = _family("dp0_toric")
+    obs = scft_observables(dp0)
+    assert obs["tr_R"] == "-3" and obs["tr_R3"] == "21"  # -> a=99/16, c=51/8
+    assert all(v == "0" for v in obs["one_loop_b0"].values())
+    assert obs["hofman_maldacena"]["ok"]

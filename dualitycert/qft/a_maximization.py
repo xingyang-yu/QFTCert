@@ -50,6 +50,7 @@ __all__ = [
     "one_loop_beta_coefficients",
     "asymptotic_freedom_report",
     "mesonic_unitarity_scan",
+    "scft_observables",
 ]
 
 
@@ -716,21 +717,27 @@ def central_charge_scft_bounds(
 
 
 def one_loop_beta_coefficients(
-    theory_json: Mapping[str, Any]
+    theory_json: Mapping[str, Any],
+    flavor_ranks: "Sequence[int] | None" = None,
 ) -> dict[int, Fraction]:
-    """Per-node one-loop NSVZ numerator ``b0 = 3 T(adj) - sum_matter T(r)``.
+    """Per-GAUGE-node one-loop NSVZ numerator ``b0 = 3 T(adj) - sum_matter T(r)``.
 
     Sign convention: ``b0 > 0`` is asymptotically free. For SU(N):
     ``T(adj) = N``, ``T(fund) = 1/2``; a bifundamental contributes
     ``T(fund) x (spectator rank)`` and an adjoint ``N`` (singlets 0). This
     reuses exactly the matter index sums of the gauge-R anomaly rows, and
-    is R-independent (purely structural).
+    is R-independent (purely structural). `flavor_ranks` are SU(N) GLOBAL
+    flavor nodes (indexed after the gauge nodes): they get NO b0 of their
+    own but DO contribute their flavor multiplicity to a gauge node's
+    matter sum (so SQCD's gauge node gives b0 = 3 N_c - N_f).
     """
 
-    ranks = [int(r) for r in theory_json["ranks"]]
+    gauge_ranks = [int(r) for r in theory_json["ranks"]]
+    n_gauge = len(gauge_ranks)
+    ranks = gauge_ranks + [int(r) for r in (flavor_ranks or [])]
     arrows = list(theory_json["arrows"])
     b0: dict[int, Fraction] = {}
-    for v in range(len(ranks)):
+    for v in range(n_gauge):
         matter = Fraction(0)
         for arrow in arrows:
             s, t = int(arrow["source"]), int(arrow["target"])
@@ -745,7 +752,10 @@ def one_loop_beta_coefficients(
     return b0
 
 
-def asymptotic_freedom_report(theory_json: Mapping[str, Any]) -> dict[str, Any]:
+def asymptotic_freedom_report(
+    theory_json: Mapping[str, Any],
+    flavor_ranks: "Sequence[int] | None" = None,
+) -> dict[str, Any]:
     """Per-node one-loop beta classification -- a DIAGNOSTIC, NOT an SCFT gate.
 
     IMPORTANT (physics): the one-loop ``b0`` is the conformal condition ONLY
@@ -765,7 +775,7 @@ def asymptotic_freedom_report(theory_json: Mapping[str, Any]) -> dict[str, Any]:
     MUST NOT be used as a hard "not an SCFT" gate.
     """
 
-    b0 = one_loop_beta_coefficients(theory_json)
+    b0 = one_loop_beta_coefficients(theory_json, flavor_ranks)
     return {
         "b0": dict(b0),
         "all_one_loop_asymptotically_free": all(b > 0 for b in b0.values()),
@@ -780,6 +790,7 @@ def mesonic_unitarity_scan(
     *,
     max_length: int | None = None,
     max_operators: int = 5000,
+    flavor_ranks: "Sequence[int] | None" = None,
 ) -> dict[str, Any]:
     """Scan single-trace mesonic gauge invariants for the unitarity bound.
 
@@ -794,11 +805,15 @@ def mesonic_unitarity_scan(
     rather than a genuine chiral-ring generator -- it is a candidate to
     confirm, not a proof. Single-trace mesonic only: baryonic (epsilon-
     contracted) operators are not enumerated. The enumeration is capped at
-    ``max_operators`` (a warning records truncation).
+    ``max_operators`` (a warning records truncation). With `flavor_ranks`,
+    cycles may pass through flavor nodes (flavor-SINGLET composites); a
+    flavor-CHARGED meson (open flavor indices, e.g. SQCD's Q-Qtilde with
+    distinct L/R flavor groups) is gauge-invariant but not a cycle, so it is
+    not enumerated here (it sits at the unitarity bound R=2/3 in any case).
     """
 
-    ranks = [int(r) for r in theory_json["ranks"]]
-    num_nodes = len(ranks)
+    gauge_ranks = [int(r) for r in theory_json["ranks"]]
+    num_nodes = gauge_ranks.__len__() + len(flavor_ranks or [])
     arrows = list(theory_json["arrows"])
     if max_length is None:
         max_length = num_nodes  # a simple cycle visits each node at most once
@@ -889,3 +904,50 @@ def _simple_cycles_over_arrows(
         if state["capped"]:
             break
     return cycles, state["capped"]
+
+
+def scft_observables(
+    theory_json: Mapping[str, Any],
+    *,
+    flavor_ranks: "Sequence[int] | None" = None,
+) -> dict[str, Any]:
+    """The full 4d N=1 SCFT observable set for one theory (field content + W).
+
+    A single calculator entry point that a-maximizes and reports: the
+    superconformal R-charges, the central charges a, c, the 't Hooft
+    anomalies Tr R and Tr R^3 (= 16(a-c) and (80a-48c)/9), the
+    Hofman-Maldacena bound 1/2 <= a/c <= 3/2, the per-gauge-node one-loop
+    b0 / asymptotic-freedom diagnostic, and the composite-operator unitarity
+    scan. `flavor_ranks` adds SU(N) GLOBAL flavor nodes (the ABJ R-anomaly is
+    then imposed at the gauge nodes only) so flavored theories are supported
+    -- e.g. SQCD gives R_Q = 1 - N_c/N_f and b0 = 3 N_c - N_f. Requires the
+    optional [amax] extra (sympy).
+    """
+
+    sp = _require_sympy()
+    fr = list(flavor_ranks) if flavor_ranks else None
+    res = superconformal_central_charges(theory_json, flavor_ranks=fr)
+
+    tr_r = sp.simplify(16 * (res.a - res.c))
+    tr_r3 = sp.simplify((80 * res.a - 48 * res.c) / 9)
+
+    hm = central_charge_scft_bounds(res.a_float, res.c_float)
+    af = asymptotic_freedom_report(theory_json, fr)
+    mes = mesonic_unitarity_scan(theory_json, res.r_charges, flavor_ranks=fr)
+
+    return {
+        "r_charges": {k: str(v) for k, v in res.r_charges.items()},
+        "a": str(res.a),
+        "c": str(res.c),
+        "a_float": res.a_float,
+        "c_float": res.c_float,
+        "tr_R": str(tr_r),
+        "tr_R3": str(tr_r3),
+        "exact": res.exact,
+        "hofman_maldacena": hm,
+        "one_loop_b0": {str(v): str(b) for v, b in af["b0"].items()},
+        "all_one_loop_asymptotically_free": af["all_one_loop_asymptotically_free"],
+        "singlet_unitarity_ok": res.unitarity_ok,
+        "mesonic_unitarity_ok": mes["ok"],
+        "mesonic_below_bound": mes["below_bound"],
+    }
