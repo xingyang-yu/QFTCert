@@ -18,8 +18,11 @@ def test_correct_sqcd_like_seiberg_example_passes_implemented_checks():
         result.name == "operator map non-Abelian flavor matching"
         for result in certificate.passed_obligations
     )
+    # "index matching" is now an implemented (opt-in, pure_quiver-scoped)
+    # superconformal-index check, so for this flavored SQCD claim it is filtered
+    # out by kind rather than reported NOT_IMPLEMENTED; only "deformation
+    # checks" remains a genuine stub.
     assert {result.name for result in certificate.not_implemented_obligations} == {
-        "index matching",
         "deformation checks",
     }
 

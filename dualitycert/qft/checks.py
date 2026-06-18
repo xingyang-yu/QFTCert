@@ -26,6 +26,7 @@ from dualitycert.qft.quiver_chiral_ring import (
 from dualitycert.qft.rcharges import (
     a_maximization_matching,
     central_charge_matching,
+    index_matching_check,
     operator_unitarity_bound_check,
     scft_soundness_check,
     superconformal_r_audit_check,
@@ -389,10 +390,20 @@ def build_default_registry() -> CheckRegistry:
             CheckSpec(
                 key="index_matching",
                 name="index matching",
-                description="Check equality of protected indices in a supported expansion.",
+                description=(
+                    "Compare the 4d N=1 superconformal indices (unrefined, "
+                    "bounded order) of the two pure_quiver theories; opt-in via "
+                    "metadata['run_index_matching'], requires the [amax] extra."
+                ),
+                applicable_kinds=frozenset({"pure_quiver"}),
                 factory=lambda claim: Obligation(
                     name="index matching",
-                    description="Check equality of protected indices in a supported expansion.",
+                    description=(
+                        "Compare the 4d N=1 superconformal indices of the two "
+                        "theories (a duality invariant)."
+                    ),
+                    checker=lambda: index_matching_check(claim),
+                    checker_name="index_matching_check",
                 ),
             ),
             CheckSpec(

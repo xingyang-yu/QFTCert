@@ -21,12 +21,86 @@ from dualitycert.qft.pure_quiver_json import (
     PureQuiverJSONError,
     pure_quiver_to_json,
 )
+from dualitycert.qft.superconformal_index import (
+    SuperconformalIndexError,
+    index_matches,
+)
 
 
 UNITARITY_R_BOUND = Fraction(2, 3)
 
 A_MAXIMIZATION_OBLIGATION = "a-maximization central charge matching"
 SUPERCONFORMAL_AUDIT_OBLIGATION = "superconformal R-charge audit"
+INDEX_MATCHING_OBLIGATION = "superconformal index matching"
+
+
+def index_matching_check(claim: DualityClaim) -> CheckResult:
+    """Compare the 4d N=1 superconformal indices of the two theories.
+
+    The superconformal index is a duality invariant, so genuine Seiberg
+    duals must have identical indices. This computes both indices as an
+    unrefined (p=q) power series to a bounded order and checks them
+    coefficient-by-coefficient. A finite-order match is NECESSARY but not
+    sufficient (the index is a signed supertrace).
+
+    OPT-IN via ``claim.metadata['run_index_matching']`` -> NOT_APPLICABLE
+    otherwise (so committed ground truth is untouched). The expansion order
+    is ``metadata['index_matching_order']`` (default 4). Requires the
+    optional ``[amax]`` extra (sympy); irrational-R theories are out of
+    scope for the unrefined index (NOT_APPLICABLE).
+    """
+
+    if not claim.metadata.get("run_index_matching"):
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=(
+                "superconformal index matching is opt-in; set "
+                "metadata['run_index_matching']=True to enable it."
+            ),
+        )
+
+    try:
+        electric_json = pure_quiver_to_json(claim.electric_theory)
+        magnetic_json = pure_quiver_to_json(claim.magnetic_theory)
+    except PureQuiverJSONError as exc:
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=f"index matching requires pure-quiver theories: {exc}",
+        )
+
+    order = int(claim.metadata.get("index_matching_order", 4))
+    try:
+        matches, details = index_matches(electric_json, magnetic_json, order)
+    except SuperconformalIndexError as exc:
+        status = Status.UNKNOWN if "sympy" in str(exc) else Status.NOT_APPLICABLE
+        return CheckResult(
+            status=status, message=f"superconformal index could not run: {exc}"
+        )
+
+    if matches:
+        return CheckResult(
+            status=Status.CERTIFIED,
+            message=(
+                f"Superconformal indices agree to order u^{order} "
+                "(necessary condition for the duality)."
+            ),
+            details=details,
+            warnings=(
+                "Unrefined (p=q), finite-order index; equality is necessary, "
+                "not sufficient, and is checked only to the given order.",
+            ),
+        )
+    return CheckResult(
+        status=Status.FAILED,
+        message=(
+            f"Superconformal indices disagree at order <= u^{order}: "
+            + "; ".join(
+                f"u^{m['u_power']}: {m['electric']} vs {m['magnetic']}"
+                for m in details["mismatches"][:4]
+            )
+        ),
+        details=details,
+    )
 SCFT_SOUNDNESS_OBLIGATION = "SCFT soundness (necessary conditions)"
 
 
