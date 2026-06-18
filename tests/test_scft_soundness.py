@@ -21,6 +21,7 @@ from fractions import Fraction
 import pytest
 
 from dualitycert.qft.a_maximization import (
+    abelian_flavor_anomalies,
     asymptotic_freedom_report,
     central_charge_scft_bounds,
     flavor_thooft_anomalies,
@@ -233,3 +234,31 @@ def test_scft_observables_exposes_flavor_anomalies():
     fa = obs["flavor_anomalies"]
     assert set(fa) == {"1", "2"}
     assert all(abs(int(d["SU3"])) == 2 for d in fa.values())
+
+
+def test_abelian_flavor_baryonic_C_symmetry():
+    # SQCD's single abelian flavor U(1) is baryonic: Tr B = 0 and B^3 = 0
+    # (charge conjugation Q <-> Qtilde), basis-normalization-independent.
+    for Nc, Nf in [(2, 3), (3, 6), (3, 4)]:
+        R = superconformal_central_charges(_sqcd(Nc, Nf), flavor_ranks=[Nf, Nf]).r_charges
+        ab = abelian_flavor_anomalies(_sqcd(Nc, Nf), R, flavor_ranks=[Nf, Nf])
+        assert ab["n_u1"] == 1
+        assert ab["grav2"][0] == 0  # Tr B
+        assert ab["cubic"][(0, 0, 0)] == 0  # B^3
+
+
+def test_abelian_flavor_baryonic_values():
+    # In the integer kernel normalization (q_Q=+-1): B^2-R = -2 Nc^2 and
+    # SU(Nf)^2-B = +-Nc/2.
+    for Nc, Nf in [(2, 3), (3, 6)]:
+        R = superconformal_central_charges(_sqcd(Nc, Nf), flavor_ranks=[Nf, Nf]).r_charges
+        ab = abelian_flavor_anomalies(_sqcd(Nc, Nf), R, flavor_ranks=[Nf, Nf])
+        assert sympy.simplify(ab["F2_R"][(0, 0)] - (-2 * Nc ** 2)) == 0
+        assert {abs(v) for v in ab["SU2_F"].values()} == {sympy.Rational(Nc, 2)}
+
+
+def test_scft_observables_exposes_abelian_flavor_anomalies():
+    obs = scft_observables(_sqcd(2, 3), flavor_ranks=[3, 3])
+    ab = obs["abelian_flavor_anomalies"]
+    assert ab["n_u1"] == 1
+    assert ab["grav2"] == ["0"] and ab["cubic_diagonal"] == ["0"]

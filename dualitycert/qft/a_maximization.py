@@ -51,6 +51,7 @@ __all__ = [
     "asymptotic_freedom_report",
     "mesonic_unitarity_scan",
     "flavor_thooft_anomalies",
+    "abelian_flavor_anomalies",
     "scft_observables",
 ]
 
@@ -964,6 +965,106 @@ def flavor_thooft_anomalies(
     return out
 
 
+def abelian_flavor_anomalies(
+    theory_json: Mapping[str, Any],
+    r_charges: Mapping[str, Any],
+    *,
+    flavor_ranks: "Sequence[int] | None" = None,
+) -> dict[str, Any]:
+    """'t Hooft anomalies of the abelian U(1) flavor symmetries.
+
+    The abelian flavor U(1)s are the kernel of {R(W)=0, gauge-anomaly-free}
+    -- exactly the flavor directions a-maximization mixes over -- read off
+    from `repair_r_charges`. They are reported in THAT (kernel) basis F_0,
+    F_1, ...; a different basis is a linear recombination. Each field
+    carries one charge per U(1) (its kernel-vector entry); the trace runs
+    over all fermion components (the field's full gauge x flavor
+    multiplicity); gauginos are flavor-neutral (charge 0).
+
+    Returns the matched, RG-invariant anomaly coefficients:
+      - ``grav2[a]``   = U(1)_a-grav^2  = sum q_a x dim          (= Tr F_a)
+      - ``cubic[(a,b,c)]`` = U(1)_a U(1)_b U(1)_c = sum q_a q_b q_c x dim
+      - ``F2_R[(a,b)]``    = U(1)_a U(1)_b U(1)_R = sum q_a q_b R_f x dim
+      - ``SU2_F[(f,a)]``   = SU(N_f)^2 U(1)_a = sum T(rep_f) q_a x spectator
+    For SQCD the single U(1) is baryonic: Tr B = 0, B^3 = 0 (C-symmetry),
+    SU(N_f)^2-B = N_c/2 (in the kernel normalization).
+    """
+
+    sp = _require_sympy()
+    from dualitycert.qft.r_repair import repair_r_charges
+
+    fr = list(flavor_ranks) if flavor_ranks else None
+    rep = repair_r_charges(theory_json, flavor_ranks=fr)
+    if rep.get("status") == "infeasible":
+        raise AMaxError(f"no feasible R-space: {rep.get('failure_reason')}")
+    basis = rep["feasible_space"]["homogeneous_basis"]
+    n_u1 = len(basis)
+
+    gauge_ranks = [int(r) for r in theory_json["ranks"]]
+    n_gauge = len(gauge_ranks)
+    all_ranks = gauge_ranks + [int(r) for r in (fr or [])]
+    arrows = list(theory_json["arrows"])
+    singlets = list(theory_json.get("singlets", []))
+
+    field_dim: dict[str, int] = {}
+    r_fermion: dict[str, Any] = {}
+    for a in arrows:
+        s, t = int(a["source"]), int(a["target"])
+        field_dim[a["label"]] = (
+            all_ranks[s] ** 2 - 1 if s == t else all_ranks[s] * all_ranks[t]
+        )
+        r_fermion[a["label"]] = sp.sympify(str(r_charges[a["label"]])) - 1
+    for sg in singlets:
+        field_dim[sg["label"]] = 1
+        r_fermion[sg["label"]] = sp.sympify(str(r_charges[sg["label"]])) - 1
+
+    labels = list(field_dim)
+    F = [
+        {lab: sp.sympify(str(vec.get(lab, 0))) for lab in labels} for vec in basis
+    ]
+
+    grav2 = [
+        sp.simplify(sum(F[a][l] * field_dim[l] for l in labels)) for a in range(n_u1)
+    ]
+    cubic: dict[tuple, Any] = {}
+    f2_r: dict[tuple, Any] = {}
+    for a in range(n_u1):
+        for b in range(a, n_u1):
+            f2_r[(a, b)] = sp.simplify(
+                sum(F[a][l] * F[b][l] * r_fermion[l] * field_dim[l] for l in labels)
+            )
+            for c in range(b, n_u1):
+                cubic[(a, b, c)] = sp.simplify(
+                    sum(F[a][l] * F[b][l] * F[c][l] * field_dim[l] for l in labels)
+                )
+
+    # Mixed SU(N_f)^2-U(1)_a, per flavor node f and U(1) direction a.
+    su2_f: dict[tuple, Any] = {}
+    for f in range(n_gauge, len(all_ranks)):
+        for a in range(n_u1):
+            total = sp.Integer(0)
+            for arrow in arrows:
+                s, t = int(arrow["source"]), int(arrow["target"])
+                if s == t:
+                    continue
+                if f == s:
+                    spectator = all_ranks[t]
+                elif f == t:
+                    spectator = all_ranks[s]
+                else:
+                    continue
+                total += sp.Rational(1, 2) * F[a][arrow["label"]] * spectator
+            su2_f[(f, a)] = sp.simplify(total)
+
+    return {
+        "n_u1": n_u1,
+        "grav2": grav2,
+        "cubic": cubic,
+        "F2_R": f2_r,
+        "SU2_F": su2_f,
+    }
+
+
 def scft_observables(
     theory_json: Mapping[str, Any],
     *,
@@ -993,6 +1094,7 @@ def scft_observables(
     af = asymptotic_freedom_report(theory_json, fr)
     mes = mesonic_unitarity_scan(theory_json, res.r_charges, flavor_ranks=fr)
     flavor_anom = flavor_thooft_anomalies(theory_json, res.r_charges, flavor_ranks=fr)
+    abelian = abelian_flavor_anomalies(theory_json, res.r_charges, flavor_ranks=fr)
 
     return {
         "r_charges": {k: str(v) for k, v in res.r_charges.items()},
@@ -1017,5 +1119,15 @@ def scft_observables(
                 "k_F": str(d["k_F"]),
             }
             for f, d in flavor_anom.items()
+        },
+        "abelian_flavor_anomalies": {
+            "n_u1": abelian["n_u1"],
+            "grav2": [str(x) for x in abelian["grav2"]],
+            "cubic_diagonal": [
+                str(abelian["cubic"][(a, a, a)]) for a in range(abelian["n_u1"])
+            ],
+            "F2_R_diagonal": [
+                str(abelian["F2_R"][(a, a)]) for a in range(abelian["n_u1"])
+            ],
         },
     }
