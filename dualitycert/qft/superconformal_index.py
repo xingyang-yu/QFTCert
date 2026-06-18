@@ -218,27 +218,91 @@ def _flavor_factors(theory_json: Mapping[str, Any], sp):
     return factor, v_syms
 
 
+def _fill_r_charges(theory_json: Mapping[str, Any], policy: str) -> dict[str, Any]:
+    """Return a copy of `theory_json` with R-charges DERIVED from the W +
+    anomaly constraints, so the calculator takes just (field content + W).
+
+    policy "feasible": the rational particular solution of {R(W)=2, gauge-
+    anomaly-free} (always rational -> the index always computes). policy
+    "amax": the superconformal (a-maximized) R (irrational for some families
+    -> the index then reports it out of scope). Pure-gauge quivers only.
+    """
+
+    if policy == "feasible":
+        from dualitycert.qft.r_repair import repair_r_charges
+
+        rep = repair_r_charges(theory_json)
+        if rep.get("status") == "infeasible":
+            raise SuperconformalIndexError(
+                f"no feasible R for derive_r='feasible': {rep.get('failure_reason')}"
+            )
+        r_map = {k: str(v) for k, v in rep["feasible_space"]["particular_solution"].items()}
+    elif policy == "amax":
+        from dualitycert.qft.a_maximization import superconformal_central_charges
+
+        r_map = {
+            k: str(v)
+            for k, v in superconformal_central_charges(theory_json).r_charges.items()
+        }
+    else:
+        raise SuperconformalIndexError(f"unknown derive_r policy {policy!r}")
+
+    out = dict(theory_json)
+    out["arrows"] = [dict(a, r_charge=r_map[a["label"]]) for a in theory_json["arrows"]]
+    if theory_json.get("singlets"):
+        out["singlets"] = [
+            dict(s, r_charge=r_map[s["label"]]) for s in theory_json["singlets"]
+        ]
+    return out
+
+
 def index_series(
     theory_json: Mapping[str, Any],
     order: int = 6,
     *,
+    flavor_ranks: "list[int] | None" = None,
     flavor_fugacities: bool = False,
+    derive_r: "str | None" = None,
 ) -> dict[int, Any]:
     """Return the index of `theory_json` as {u-power -> coefficient}.
 
     `order` is the highest u-power kept (u = tau^(1/D), tau = (pq)^(1/2),
     D = lcm of the R-charge denominators). The u^0 coefficient is always 1.
-    Raises ``SuperconformalIndexError`` for irrational R or empty input.
 
-    With ``flavor_fugacities=True`` the index is refined by the theory's
-    flavor U(1) symmetries (the `repair_r_charges` kernel): each coefficient
-    becomes a Laurent polynomial in fugacities v_a (a flavor character), a
-    far more discriminating object than the unrefined number. Setting every
-    v_a = 1 recovers the unrefined index.
+    Field content: `theory_json["ranks"]` are the SU(N) GAUGE nodes; arrows
+    (and singlets) carry R-charges. `flavor_ranks` adds SU(N) GLOBAL flavor
+    nodes (indexed after the gauge nodes) that are NOT integrated and carry
+    surviving flavor fugacities -- so fundamental-flavor theories (SQCD,
+    Kutasov, ...) are expressible as arrows to a flavor node. Flavor nodes
+    get no vector multiplet and no gauge average.
+
+    `derive_r` ("feasible" / "amax") fills the R-charges from the W +
+    anomaly constraints, so the input can be just (field content + W);
+    pure-gauge quivers only (flavor_ranks must be None).
+
+    `flavor_fugacities=True` refines a PURE-GAUGE quiver by its flavor U(1)
+    kernel (mutually exclusive with `flavor_ranks`); v_a = 1 recovers the
+    unrefined index. Raises ``SuperconformalIndexError`` for irrational R.
     """
 
     sp = _require_sympy()
-    ranks = [int(x) for x in theory_json["ranks"]]
+    if derive_r is not None:
+        if flavor_ranks:
+            raise SuperconformalIndexError(
+                "derive_r is only supported for pure-gauge quivers (flavor_ranks "
+                "must be None); supply explicit R-charges with flavor nodes"
+            )
+        theory_json = _fill_r_charges(theory_json, derive_r)
+    if flavor_ranks and flavor_fugacities:
+        raise SuperconformalIndexError(
+            "flavor_fugacities (the U(1) kernel refinement) and flavor_ranks "
+            "(explicit flavor nodes) are mutually exclusive"
+        )
+
+    gauge_ranks = [int(x) for x in theory_json["ranks"]]
+    flavor_ranks = [int(x) for x in (flavor_ranks or [])]
+    all_ranks = gauge_ranks + flavor_ranks
+    n_gauge = len(gauge_ranks)
     arrows = list(theory_json["arrows"])
     singlets = list(theory_json.get("singlets", []))
     K = int(order)
@@ -249,11 +313,13 @@ def index_series(
     for r in r_values:
         D = _lcm(D, r.denominator)
 
-    # Per-node maximal-torus fugacities z_{v,i} with prod_i z_{v,i} = 1.
+    # Per-node maximal-torus fugacities, prod_i = 1 (SU(N)). Gauge nodes carry
+    # z fugacities (integrated out); flavor nodes carry y fugacities (kept).
     z_free: dict[int, list] = {}
     z_all: dict[int, list] = {}
-    for v, N in enumerate(ranks):
-        frees = [sp.Symbol(f"z_{v}_{i}") for i in range(N - 1)]
+    for v, N in enumerate(all_ranks):
+        prefix = "z" if v < n_gauge else "y"
+        frees = [sp.Symbol(f"{prefix}_{v}_{i}") for i in range(N - 1)]
         z_free[v] = frees
         if N == 1:
             z_all[v] = [sp.Integer(1)]
@@ -272,8 +338,6 @@ def index_series(
     def adjoint(v):
         return sp.expand(fund(v) * antifund(v) - 1)
 
-    # Flavor U(1) fugacities (optional refinement): a monomial per field, the
-    # gaugino/vector stays flavor-neutral.
     if flavor_fugacities:
         flavor, v_syms = _flavor_factors(theory_json, sp)
     else:
@@ -282,7 +346,7 @@ def index_series(
     def _ff(label):
         return flavor.get(label, sp.Integer(1))
 
-    # Single-letter index of the full matter + vector content.
+    # Single-letter index of the full matter + (gauge-node) vector content.
     letters: list[dict] = []
     for arrow in arrows:
         s, t = int(arrow["source"]), int(arrow["target"])
@@ -297,17 +361,19 @@ def index_series(
         r = _parse_r(singlet["r_charge"])
         ff = _ff(singlet["label"])
         letters.append(_chiral_letter(r, D, ff, 1 / ff, K, sp))
-    for v, N in enumerate(ranks):
-        if N >= 2:
+    for v in range(n_gauge):
+        if all_ranks[v] >= 2:
             letters.append(_vector_letter(D, adjoint(v), K, sp))
 
     syms = [s for v in z_free for s in z_free[v]] + list(v_syms)
     pe = _plethystic_exp(_sadd(letters, sp), K, syms, sp)
 
-    # Gauge average: project onto gauge singlets node by node.
+    # Gauge average: project onto gauge singlets node by node (gauge nodes
+    # only; flavor fugacities survive in the result).
     vandermonde: dict[int, Any] = {}
     norm = 1
-    for v, N in enumerate(ranks):
+    for v in range(n_gauge):
+        N = all_ranks[v]
         if N >= 2:
             vd = sp.Integer(1)
             for i in range(N):
@@ -320,8 +386,8 @@ def index_series(
     out: dict[int, Any] = {}
     for k, coeff in pe.items():
         val = sp.expand(coeff)
-        for v, N in enumerate(ranks):
-            if N >= 2:
+        for v in range(n_gauge):
+            if all_ranks[v] >= 2:
                 val = sp.expand(val * vandermonde[v])
                 for zv in z_free[v]:
                     val = _constant_term(val, zv, K, sp)

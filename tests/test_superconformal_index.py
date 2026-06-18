@@ -97,6 +97,43 @@ def test_refined_index_carries_flavor_characters():
     assert getattr(ref[2], "free_symbols", set())
 
 
+def test_flavor_nodes_sqcd_su2_nf3():
+    # SU(2) with Nf=3: gauge SU(2) (node 0) + two SU(3) GLOBAL flavor nodes
+    # (1, 2). Q, Qtilde have R=1/3; the theory s-confines to 15 mesons/baryons
+    # at R=2/3 (eq 4.2/4.3, the SU(6) antisymmetric). At flavor fugacity -> 1
+    # the u^2 coefficient is 15 -- reproduced THROUGH the machine, not by hand.
+    sqcd = {
+        "ranks": [2],
+        "arrows": [
+            {"label": "Q", "source": 0, "target": 1, "r_charge": "1/3"},
+            {"label": "Qt", "source": 0, "target": 2, "r_charge": "1/3"},
+        ],
+        "superpotential": [],
+    }
+    series = index_series(sqcd, 4, flavor_ranks=[3, 3])
+    subs = {
+        s: 1
+        for c in series.values()
+        if hasattr(c, "free_symbols")
+        for s in c.free_symbols
+    }
+    at_unit = {
+        k: sympy.expand(c.subs(subs)) if hasattr(c, "subs") else c
+        for k, c in series.items()
+    }
+    assert at_unit[0] == 1
+    assert at_unit[2] == 15
+
+
+def test_derive_r_from_superpotential_matches_given_r():
+    # dP_0 R is symmetry-forced to 2/3, so deriving R from {R(W)=2, anomaly}
+    # reproduces the given-R index (input = field content + W, no manual R).
+    dp0 = next(s for s in default_seed_specs() if s.source_name == "dp0_toric").electric()
+    given = index_series(dp0, 4)
+    derived = index_series(dp0, 4, derive_r="feasible")
+    assert given == derived
+
+
 def test_irrational_r_is_out_of_scope():
     bad = {
         "ranks": [2, 2],
