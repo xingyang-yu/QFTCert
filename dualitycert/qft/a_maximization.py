@@ -44,6 +44,12 @@ __all__ = [
     "central_charges_match",
     "audit_superconformal_r",
     "with_superconformal_r",
+    "HM_AC_LOWER",
+    "HM_AC_UPPER",
+    "central_charge_scft_bounds",
+    "one_loop_beta_coefficients",
+    "asymptotic_freedom_report",
+    "mesonic_unitarity_scan",
 ]
 
 
@@ -644,3 +650,234 @@ def with_superconformal_r(theory_json: Mapping[str, Any]) -> dict[str, Any]:
             dict(s, r_charge=str(r[s["label"]])) for s in theory_json["singlets"]
         ]
     return out
+
+
+# ----------------------------------------------------------------------
+# SCFT-soundness diagnostics (necessary conditions for a unitary 4d N=1
+# SCFT). These FLAG inputs that CANNOT be the SCFT they claim to be; they
+# do NOT prove an interacting fixed point exists (that needs physics input
+# / is not decidable from the Lagrangian). "certificates, not proofs."
+# ----------------------------------------------------------------------
+
+
+# Hofman-Maldacena conformal-collider bounds for a unitary 4d N=1 SCFT:
+# 1/2 <= a/c <= 3/2. The endpoints are free fields (a/c=1/2 a free chiral
+# multiplet, a/c=3/2 a free vector multiplet), so saturation is allowed.
+HM_AC_LOWER = Fraction(1, 2)
+HM_AC_UPPER = Fraction(3, 2)
+
+
+def central_charge_scft_bounds(
+    a_float: float, c_float: float, *, tol: float = 1e-9
+) -> dict[str, Any]:
+    """Necessary central-charge conditions for a unitary 4d N=1 SCFT.
+
+    Requires a > 0, c > 0 and the Hofman-Maldacena bound
+    ``1/2 <= a/c <= 3/2`` (Hofman-Maldacena 2008; the endpoints are free
+    fields). Violating any of these means the theory is NOT a unitary SCFT;
+    satisfying them is necessary, NOT sufficient. Takes the numeric a, c
+    (e.g. ``AMaxResult.a_float`` / ``.c_float``), so it is sympy-free.
+    """
+
+    a_pos = a_float > 0.0
+    c_pos = c_float > 0.0
+    ratio = (a_float / c_float) if c_float != 0.0 else None
+    lo, hi = float(HM_AC_LOWER), float(HM_AC_UPPER)
+    hm_ok = ratio is not None and (lo - tol) <= ratio <= (hi + tol)
+
+    violations: list[str] = []
+    if not a_pos:
+        violations.append(f"a = {a_float:.6g} is not positive")
+    if not c_pos:
+        violations.append(f"c = {c_float:.6g} is not positive")
+    if ratio is None:
+        violations.append("c = 0, so a/c is undefined")
+    elif not hm_ok:
+        violations.append(
+            f"a/c = {ratio:.6g} is outside the Hofman-Maldacena window [1/2, 3/2]"
+        )
+
+    return {
+        "ok": bool(a_pos and c_pos and hm_ok),
+        "a_positive": bool(a_pos),
+        "c_positive": bool(c_pos),
+        "hofman_maldacena_ok": bool(hm_ok),
+        "a_over_c": ratio,
+        "violations": tuple(violations),
+    }
+
+
+def one_loop_beta_coefficients(
+    theory_json: Mapping[str, Any]
+) -> dict[int, Fraction]:
+    """Per-node one-loop NSVZ numerator ``b0 = 3 T(adj) - sum_matter T(r)``.
+
+    Sign convention: ``b0 > 0`` is asymptotically free. For SU(N):
+    ``T(adj) = N``, ``T(fund) = 1/2``; a bifundamental contributes
+    ``T(fund) x (spectator rank)`` and an adjoint ``N`` (singlets 0). This
+    reuses exactly the matter index sums of the gauge-R anomaly rows, and
+    is R-independent (purely structural).
+    """
+
+    ranks = [int(r) for r in theory_json["ranks"]]
+    arrows = list(theory_json["arrows"])
+    b0: dict[int, Fraction] = {}
+    for v in range(len(ranks)):
+        matter = Fraction(0)
+        for arrow in arrows:
+            s, t = int(arrow["source"]), int(arrow["target"])
+            if s == v and t == v:
+                matter += Fraction(ranks[v])  # adjoint, T(adj) = N
+            elif s == v:
+                matter += Fraction(1, 2) * ranks[t]  # fund of v, mult = rank(t)
+            elif t == v:
+                matter += Fraction(1, 2) * ranks[s]
+        # gauge-singlet fields carry no node charge -> contribute 0.
+        b0[v] = 3 * Fraction(ranks[v]) - matter
+    return b0
+
+
+def asymptotic_freedom_report(theory_json: Mapping[str, Any]) -> dict[str, Any]:
+    """Per-node one-loop beta classification -- a DIAGNOSTIC, NOT an SCFT gate.
+
+    IMPORTANT (physics): the one-loop ``b0`` is the conformal condition ONLY
+    at a free/orbifold point where every R = 2/3 (then ``b0 = 0``, e.g.
+    dP_0, C^3/(Z2xZ2)). The EXACT conformal condition is the NSVZ beta with
+    anomalous dimensions ``gamma_i = 3 R_i - 2``,
+
+        beta ~ T(adj) + sum_i T(r_i) (R_i - 1) = 0,
+
+    which is exactly the ABJ R-anomaly / gauge-R-anomaly condition already
+    enforced (r_repair feasibility + the mixed gauge-global anomaly check).
+    So for an SCFT with R != 2/3 the one-loop ``b0`` is generically nonzero,
+    and ``b0 < 0`` at a node is PHYSICALLY ALLOWED (a free-magnetic-phase
+    node, or one that is interacting only via the superpotential / other
+    nodes; e.g. F_0 phase II and dP_2 phase I are genuine SCFTs with
+    ``b0 < 0`` nodes). Therefore ``b0`` is reported for information only and
+    MUST NOT be used as a hard "not an SCFT" gate.
+    """
+
+    b0 = one_loop_beta_coefficients(theory_json)
+    return {
+        "b0": dict(b0),
+        "all_one_loop_asymptotically_free": all(b > 0 for b in b0.values()),
+        "one_loop_ir_free_nodes": {v: b for v, b in b0.items() if b < 0},
+        "one_loop_marginal_nodes": [v for v, b in b0.items() if b == 0],
+    }
+
+
+def mesonic_unitarity_scan(
+    theory_json: Mapping[str, Any],
+    r_charges: Mapping[str, Any],
+    *,
+    max_length: int | None = None,
+    max_operators: int = 5000,
+) -> dict[str, Any]:
+    """Scan single-trace mesonic gauge invariants for the unitarity bound.
+
+    Broadens the v1 singlet-only check to COMPOSITE operators: every simple
+    directed cycle in the quiver (a closed gauge-invariant word, up to
+    ``max_length`` arrows; default = #nodes) is an operator with
+    ``R = sum of its arrows' R``. Any with ``R < 2/3`` is a CANDIDATE
+    decoupling free field (so naive a-maximization would be invalid there).
+
+    Honestly bounded (same posture as the bounded chiral ring): F-term
+    relations are NOT imposed, so a flagged cycle may be F-term trivial
+    rather than a genuine chiral-ring generator -- it is a candidate to
+    confirm, not a proof. Single-trace mesonic only: baryonic (epsilon-
+    contracted) operators are not enumerated. The enumeration is capped at
+    ``max_operators`` (a warning records truncation).
+    """
+
+    ranks = [int(r) for r in theory_json["ranks"]]
+    num_nodes = len(ranks)
+    arrows = list(theory_json["arrows"])
+    if max_length is None:
+        max_length = num_nodes  # a simple cycle visits each node at most once
+
+    def _as_float(x: Any) -> float:
+        try:
+            return float(x)
+        except (TypeError, ValueError):
+            import sympy as sp
+
+            return float(sp.N(x, 40))
+
+    r_float = {a["label"]: _as_float(r_charges[a["label"]]) for a in arrows}
+    cycles, capped = _simple_cycles_over_arrows(
+        arrows, num_nodes, max_length, max_operators
+    )
+
+    bound = float(UNITARITY_R_BOUND)
+    below: list[dict[str, Any]] = []
+    for cyc in cycles:
+        labels = [arrows[i]["label"] for i in cyc]
+        r_sum = sum(r_float[lab] for lab in labels)
+        if r_sum < bound - 1e-9:
+            below.append({"operator": labels, "R": r_sum})
+
+    warnings: list[str] = []
+    if capped:
+        warnings.append(
+            f"mesonic operator enumeration hit the cap ({max_operators}); "
+            "longer cycles were not all scanned."
+        )
+    for op in below:
+        warnings.append(
+            f"single-trace operator {'*'.join(op['operator'])} has R="
+            f"{op['R']:.6g} < 2/3 -> candidate decoupling (confirm vs the "
+            "chiral ring; F-relations not imposed here)."
+        )
+
+    return {
+        "ok": not below,
+        "operators_scanned": len(cycles),
+        "below_bound": tuple(below),
+        "truncated": bool(capped),
+        "warnings": tuple(warnings),
+    }
+
+
+def _simple_cycles_over_arrows(
+    arrows: Sequence[Mapping[str, Any]],
+    num_nodes: int,
+    max_length: int,
+    max_operators: int,
+) -> tuple[list[list[int]], bool]:
+    """Enumerate simple directed cycles as lists of arrow indices.
+
+    Canonical de-duplication: a cycle is recorded only from its minimum
+    node, and the DFS only extends to strictly larger nodes, so each simple
+    cycle is emitted exactly once (no rotations). Self-loops (adjoints) and
+    2-cycles are included. Parallel arrows are distinct edges. Returns
+    ``(cycles, truncated)``.
+    """
+
+    adj: dict[int, list[tuple[int, int]]] = {v: [] for v in range(num_nodes)}
+    for i, ar in enumerate(arrows):
+        adj[int(ar["source"])].append((i, int(ar["target"])))
+
+    cycles: list[list[int]] = []
+    state = {"capped": False}
+
+    def dfs(start: int, node: int, visited: frozenset, stack: list[int]) -> None:
+        if state["capped"]:
+            return
+        for ai, tgt in adj[node]:
+            if len(stack) + 1 > max_length:
+                continue
+            if tgt == start:
+                cycles.append(stack + [ai])
+                if len(cycles) >= max_operators:
+                    state["capped"] = True
+                    return
+            elif tgt > start and tgt not in visited:
+                dfs(start, tgt, visited | {tgt}, stack + [ai])
+                if state["capped"]:
+                    return
+
+    for start in range(num_nodes):
+        dfs(start, start, frozenset({start}), [])
+        if state["capped"]:
+            break
+    return cycles, state["capped"]

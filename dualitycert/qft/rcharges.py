@@ -10,8 +10,11 @@ from dualitycert.core.status import Status
 from dualitycert.groups.su import dimension
 from dualitycert.qft.a_maximization import (
     AMaxError,
+    asymptotic_freedom_report,
     audit_superconformal_r,
+    central_charge_scft_bounds,
     central_charges_match,
+    mesonic_unitarity_scan,
     superconformal_central_charges,
 )
 from dualitycert.qft.pure_quiver_json import (
@@ -24,6 +27,137 @@ UNITARITY_R_BOUND = Fraction(2, 3)
 
 A_MAXIMIZATION_OBLIGATION = "a-maximization central charge matching"
 SUPERCONFORMAL_AUDIT_OBLIGATION = "superconformal R-charge audit"
+SCFT_SOUNDNESS_OBLIGATION = "SCFT soundness (necessary conditions)"
+
+
+def scft_soundness_check(claim: DualityClaim) -> CheckResult:
+    """Necessary conditions for each theory to be a unitary 4d N=1 SCFT.
+
+    A battery of independent NECESSARY conditions (a failure proves the
+    input is not the SCFT it claims to be; passing them is NOT sufficient --
+    "certificates, not proofs"):
+
+    - **Hofman-Maldacena (the hard gate):** a > 0, c > 0 and
+      ``1/2 <= a/c <= 3/2`` on the a-maximized central charges. Violating
+      this means the theory is not a unitary SCFT, so the obligation FAILS.
+    - **Composite unitarity (warning):** single-trace mesonic gauge
+      invariants with R < 2/3 are flagged as candidate decoupling free
+      fields (broadens the v1 singlet-only scan; F-relations are not
+      imposed, so these are candidates to confirm, not a hard failure).
+    - **One-loop beta coefficients (diagnostic only):** per-node ``b0`` is
+      reported in ``details`` but NEVER gates -- the exact conformal
+      condition is the ABJ R-anomaly already enforced elsewhere, and a
+      node with ``b0 < 0`` is physically allowed (free-magnetic phase).
+
+    OPT-IN via ``claim.metadata['run_scft_soundness']`` -> NOT_APPLICABLE
+    otherwise, so committed certificates / benchmark ground truth are
+    untouched. Requires the optional ``[amax]`` extra (sympy) for the
+    central-charge gate; the b0 diagnostic is sympy-free.
+    """
+
+    if not claim.metadata.get("run_scft_soundness"):
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=(
+                "SCFT-soundness battery is opt-in; set "
+                "metadata['run_scft_soundness']=True to enable it."
+            ),
+        )
+
+    try:
+        sides = {
+            "electric": pure_quiver_to_json(claim.electric_theory),
+            "magnetic": pure_quiver_to_json(claim.magnetic_theory),
+        }
+    except PureQuiverJSONError as exc:
+        return CheckResult(
+            status=Status.NOT_APPLICABLE,
+            message=f"SCFT soundness requires pure-quiver theories: {exc}",
+        )
+
+    details: dict[str, dict] = {}
+    hard_failures: list[str] = []
+    warnings: list[str] = []
+    amax_unavailable: list[str] = []
+    amax_sympy_missing = False
+
+    for side, theory_json in sides.items():
+        af = asymptotic_freedom_report(theory_json)
+        side_detail: dict = {
+            # diagnostic only -- see scft docstring / asymptotic_freedom_report.
+            "one_loop_b0": {str(v): str(b) for v, b in af["b0"].items()},
+            "one_loop_ir_free_nodes": {
+                str(v): str(b) for v, b in af["one_loop_ir_free_nodes"].items()
+            },
+        }
+        try:
+            res = superconformal_central_charges(theory_json)
+        except AMaxError as exc:
+            side_detail["a_maximization"] = f"unavailable: {exc}"
+            details[side] = side_detail
+            amax_unavailable.append(f"{side}: {exc}")
+            if "sympy" in str(exc):
+                amax_sympy_missing = True
+            continue
+
+        hm = central_charge_scft_bounds(res.a_float, res.c_float)
+        mes = mesonic_unitarity_scan(theory_json, res.r_charges)
+        side_detail.update(
+            {
+                "a": str(res.a),
+                "c": str(res.c),
+                "a_over_c": hm["a_over_c"],
+                "hofman_maldacena_ok": hm["ok"],
+                "singlet_unitarity_ok": res.unitarity_ok,
+                "mesonic_unitarity_ok": mes["ok"],
+                "mesonic_operators_below_bound": mes["below_bound"],
+            }
+        )
+        details[side] = side_detail
+
+        if not hm["ok"]:
+            hard_failures.append(f"{side}: " + "; ".join(hm["violations"]))
+        if not res.unitarity_ok:
+            warnings.extend(f"{side}: {w}" for w in res.unitarity_warnings[1:])
+        warnings.extend(f"{side}: {w}" for w in mes["warnings"])
+
+    if hard_failures:
+        return CheckResult(
+            status=Status.FAILED,
+            message=(
+                "central-charge SCFT bounds violated (not a unitary SCFT): "
+                + "; ".join(hard_failures)
+            ),
+            details=details,
+            warnings=tuple(warnings),
+        )
+
+    if amax_unavailable:
+        status = Status.UNKNOWN if amax_sympy_missing else Status.NOT_APPLICABLE
+        return CheckResult(
+            status=status,
+            message=(
+                "SCFT soundness could not run the central-charge gate "
+                "(a-maximization unavailable): " + "; ".join(amax_unavailable)
+            ),
+            details=details,
+            warnings=tuple(warnings),
+        )
+
+    return CheckResult(
+        status=Status.CERTIFIED,
+        message=(
+            "Necessary SCFT conditions hold: a, c > 0 and the Hofman-Maldacena "
+            "bound 1/2 <= a/c <= 3/2 on both theories."
+        ),
+        details=details,
+        warnings=tuple(warnings)
+        + (
+            "Necessary conditions only; passing does NOT prove an interacting "
+            "fixed point exists. One-loop b0 is reported as a diagnostic, not a "
+            "gate (the exact conformal condition is the ABJ R-anomaly).",
+        ),
+    )
 
 
 def superconformal_r_audit_check(claim: DualityClaim) -> CheckResult:

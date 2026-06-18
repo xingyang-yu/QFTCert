@@ -27,6 +27,7 @@ from dualitycert.qft.rcharges import (
     a_maximization_matching,
     central_charge_matching,
     operator_unitarity_bound_check,
+    scft_soundness_check,
     superconformal_r_audit_check,
 )
 from dualitycert.qft.scaffolds import (
@@ -206,6 +207,28 @@ def build_default_registry() -> CheckRegistry:
                     ),
                     checker=lambda: a_maximization_matching(claim),
                     checker_name="a_maximization_matching",
+                ),
+            ),
+            CheckSpec(
+                key="scft_soundness",
+                name="SCFT soundness (necessary conditions)",
+                description=(
+                    "Necessary conditions for each pure_quiver theory to be a "
+                    "unitary 4d N=1 SCFT: a,c>0 + Hofman-Maldacena 1/2<=a/c<=3/2 "
+                    "(hard gate), composite-operator unitarity (warning), and "
+                    "one-loop b0 (diagnostic). Opt-in via "
+                    "metadata['run_scft_soundness']; requires the [amax] extra."
+                ),
+                applicable_kinds=frozenset({"pure_quiver"}),
+                factory=lambda claim: Obligation(
+                    name="SCFT soundness (necessary conditions)",
+                    description=(
+                        "Necessary conditions for each theory to be a unitary "
+                        "4d N=1 SCFT (Hofman-Maldacena gate + unitarity / b0 "
+                        "diagnostics)."
+                    ),
+                    checker=lambda: scft_soundness_check(claim),
+                    checker_name="scft_soundness_check",
                 ),
             ),
             CheckSpec(
