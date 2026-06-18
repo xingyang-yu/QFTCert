@@ -50,6 +50,7 @@ __all__ = [
     "one_loop_beta_coefficients",
     "asymptotic_freedom_report",
     "mesonic_unitarity_scan",
+    "flavor_thooft_anomalies",
     "scft_observables",
 ]
 
@@ -906,6 +907,63 @@ def _simple_cycles_over_arrows(
     return cycles, state["capped"]
 
 
+def flavor_thooft_anomalies(
+    theory_json: Mapping[str, Any],
+    r_charges: Mapping[str, Any],
+    *,
+    flavor_ranks: "Sequence[int] | None" = None,
+) -> dict[int, dict[str, Any]]:
+    """'t Hooft anomalies of the non-abelian SU(N) GLOBAL flavor symmetries.
+
+    For each flavor node f (an SU(N_f) global symmetry, indexed after the
+    gauge nodes) returns the matched 't Hooft anomaly coefficients:
+
+      - ``SU3``  = SU(N_f)^3 cubic anomaly = sum_fields A(rep_f) x spectator
+        (A(fund)=+1, A(antifund)=-1). For SQCD this is +-N_c (matched across
+        Seiberg duality).
+      - ``SU2_R`` = SU(N_f)^2-U(1)_R coefficient = sum_fields T(rep_f) x
+        R_fermion x spectator (T(fund)=1/2, R_fermion = R_scalar - 1); the
+        flavor central charge is k_F = -6 * SU2_R in the GGS convention. For
+        SQCD this is -N_c^2/(2 N_f).
+
+    These are 't Hooft anomalies of GLOBAL symmetries -- they are MATCHED
+    (not cancelled) and are RG invariants. `r_charges` are the (super-
+    conformal) R-charges to use; the spectator dimension is the product of
+    the other nodes' ranks (gauge + flavor) the field carries.
+    """
+
+    sp = _require_sympy()
+    gauge_ranks = [int(r) for r in theory_json["ranks"]]
+    n_gauge = len(gauge_ranks)
+    all_ranks = gauge_ranks + [int(r) for r in (flavor_ranks or [])]
+    arrows = list(theory_json["arrows"])
+
+    out: dict[int, dict[str, Any]] = {}
+    for f in range(n_gauge, len(all_ranks)):
+        su3 = sp.Integer(0)
+        su2r = sp.Integer(0)
+        for arrow in arrows:
+            s, t = int(arrow["source"]), int(arrow["target"])
+            if s == t:
+                continue  # an adjoint at a flavor node is real -> A = 0
+            if f == s:
+                cubic, spectator = 1, all_ranks[t]  # fund of f
+            elif f == t:
+                cubic, spectator = -1, all_ranks[s]  # antifund of f
+            else:
+                continue
+            r_fermion = sp.sympify(str(r_charges[arrow["label"]])) - 1
+            su3 += cubic * spectator
+            su2r += sp.Rational(1, 2) * r_fermion * spectator
+        out[f] = {
+            "dim": all_ranks[f],
+            "SU3": sp.simplify(su3),
+            "SU2_R": sp.simplify(su2r),
+            "k_F": sp.simplify(-6 * su2r),
+        }
+    return out
+
+
 def scft_observables(
     theory_json: Mapping[str, Any],
     *,
@@ -934,6 +992,7 @@ def scft_observables(
     hm = central_charge_scft_bounds(res.a_float, res.c_float)
     af = asymptotic_freedom_report(theory_json, fr)
     mes = mesonic_unitarity_scan(theory_json, res.r_charges, flavor_ranks=fr)
+    flavor_anom = flavor_thooft_anomalies(theory_json, res.r_charges, flavor_ranks=fr)
 
     return {
         "r_charges": {k: str(v) for k, v in res.r_charges.items()},
@@ -950,4 +1009,13 @@ def scft_observables(
         "singlet_unitarity_ok": res.unitarity_ok,
         "mesonic_unitarity_ok": mes["ok"],
         "mesonic_below_bound": mes["below_bound"],
+        "flavor_anomalies": {
+            str(f): {
+                "dim": d["dim"],
+                "SU3": str(d["SU3"]),
+                "SU2_R": str(d["SU2_R"]),
+                "k_F": str(d["k_F"]),
+            }
+            for f, d in flavor_anom.items()
+        },
     }

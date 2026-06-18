@@ -23,9 +23,11 @@ import pytest
 from dualitycert.qft.a_maximization import (
     asymptotic_freedom_report,
     central_charge_scft_bounds,
+    flavor_thooft_anomalies,
     mesonic_unitarity_scan,
     one_loop_beta_coefficients,
     scft_observables,
+    superconformal_central_charges,
 )
 
 
@@ -212,3 +214,22 @@ def test_scft_observables_pure_quiver_dp0_unchanged():
     assert obs["tr_R"] == "-3" and obs["tr_R3"] == "21"  # -> a=99/16, c=51/8
     assert all(v == "0" for v in obs["one_loop_b0"].values())
     assert obs["hofman_maldacena"]["ok"]
+
+
+def test_flavor_thooft_anomalies_sqcd():
+    # SU(N_f)^3 cubic flavor anomaly = +-N_c (matched across Seiberg duality);
+    # SU(N_f)^2-U(1)_R coefficient = -N_c^2/(2 N_f).
+    for Nc, Nf in [(2, 3), (3, 6), (3, 4)]:
+        R = superconformal_central_charges(_sqcd(Nc, Nf), flavor_ranks=[Nf, Nf]).r_charges
+        anom = flavor_thooft_anomalies(_sqcd(Nc, Nf), R, flavor_ranks=[Nf, Nf])
+        assert set(anom) == {1, 2}  # two flavor nodes
+        for f, d in anom.items():
+            assert abs(d["SU3"]) == Nc
+            assert sympy.simplify(d["SU2_R"] - sympy.Rational(-(Nc ** 2), 2 * Nf)) == 0
+
+
+def test_scft_observables_exposes_flavor_anomalies():
+    obs = scft_observables(_sqcd(2, 3), flavor_ranks=[3, 3])
+    fa = obs["flavor_anomalies"]
+    assert set(fa) == {"1", "2"}
+    assert all(abs(int(d["SU3"])) == 2 for d in fa.values())
