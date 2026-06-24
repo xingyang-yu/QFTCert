@@ -70,6 +70,21 @@ def load_theory(theory_root: Path | str, rel_path: str) -> dict[str, Any]:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def _strip_r_charges(theory: Mapping[str, Any]) -> dict[str, Any]:
+    """Return a copy of a (sanitized) theory with every field's r_charge
+    removed — the judge-②b interface, where the model is given only the
+    quiver + matter + superpotential and the verifier recomputes the R."""
+
+    out = dict(theory)
+    for key in ("arrows", "singlets"):
+        if key in out and out[key]:
+            out[key] = [
+                {k: v for k, v in dict(field).items() if k != "r_charge"}
+                for field in out[key]
+            ]
+    return out
+
+
 def run_single_shot(
     records: Sequence[ManifestRecord],
     *,
@@ -82,8 +97,16 @@ def run_single_shot(
     run_id: str | None = None,
     config_snapshot: Mapping[str, Any] | None = None,
     timestamp_override: str | None = None,
+    hide_r_charges: bool = False,
 ) -> SingleShotResult:
-    """Run detection / diagnosis over a manifest and write all artefacts."""
+    """Run detection / diagnosis over a manifest and write all artefacts.
+
+    `hide_r_charges=True` is the judge-②b interface: the R-charges are
+    stripped from the theories shown to the model and the ②b system prompts
+    are used, so the model commits only to quiver + matter + W (the verifier
+    recomputes the superconformal R). The CLI sets it from the config's
+    `verifier.r_charge_policy == "computed"`.
+    """
 
     tasks = tuple(tasks)
     for t in tasks:
@@ -103,15 +126,18 @@ def run_single_shot(
         candidate = load_theory(theory_root, rec.theory_b_path)
         sanitized_e = sanitize_for_prompt(electric, theory_label="Theory A")
         sanitized_c = sanitize_for_prompt(candidate, theory_label="Theory B")
+        if hide_r_charges:
+            sanitized_e = _strip_r_charges(sanitized_e)
+            sanitized_c = _strip_r_charges(sanitized_c)
 
         out: dict[str, Any] = {"fixture_id": rec.fixture_id, "model": model}
         if "detection" in tasks:
             out["detection"] = _call_detection(
-                sanitized_e, sanitized_c, client, model, max_tokens
+                sanitized_e, sanitized_c, client, model, max_tokens, hide_r_charges
             )
         if "diagnosis" in tasks:
             out["diagnosis"] = _call_diagnosis(
-                sanitized_e, sanitized_c, client, model, max_tokens
+                sanitized_e, sanitized_c, client, model, max_tokens, hide_r_charges
             )
         outputs.append(out)
 
@@ -155,6 +181,7 @@ def _call_detection(
     client: LLMClient,
     model: str,
     max_tokens: int,
+    computed_r: bool = False,
 ) -> dict[str, Any]:
     try:
         dec = run_detection(
@@ -163,6 +190,7 @@ def _call_detection(
             client=client,
             model=model,
             max_tokens=max_tokens,
+            computed_r=computed_r,
         )
     except Exception as exc:  # invalid output / refusal / schema violation
         return {
@@ -193,6 +221,7 @@ def _call_diagnosis(
     client: LLMClient,
     model: str,
     max_tokens: int,
+    computed_r: bool = False,
 ) -> dict[str, Any]:
     try:
         dec = run_diagnosis(
@@ -201,6 +230,7 @@ def _call_diagnosis(
             client=client,
             model=model,
             max_tokens=max_tokens,
+            computed_r=computed_r,
         )
     except Exception as exc:
         return {

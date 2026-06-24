@@ -221,6 +221,10 @@ def cmd_run_single_shot(args) -> int:
     tasks = tuple(t.strip() for t in args.tasks.split(",") if t.strip())
 
     client, model_name = _build_client(args.model)
+    # Judge ②b: under the "computed" R-charge policy the model is shown only
+    # quiver + matter + W (R-charges stripped, ②b system prompts); the verifier
+    # recomputes the superconformal R. Other policies leave the prompt unchanged.
+    hide_r_charges = config.verifier.r_charge_policy == "computed"
     result = run_single_shot(
         records,
         theory_root=theory_root,
@@ -231,6 +235,7 @@ def cmd_run_single_shot(args) -> int:
         tasks=tasks,
         run_id=args.run_id,
         config_snapshot=config.to_dict(),
+        hide_r_charges=hide_r_charges,
     )
     _write_stats_single_shot(result.scored_rows, model_name, tasks, result.run_dir)
     print(f"[run-single-shot] run_dir={result.run_dir}")

@@ -9,6 +9,7 @@ from dualitycert.agent.client import (
 from dualitycert.agent.detection import (
     DETECTION_DECISION_SCHEMA,
     DETECTION_SYSTEM_PROMPT,
+    DETECTION_SYSTEM_PROMPT_COMPUTED_R,
     DETECTION_TOOL_NAME,
     DetectionDecision,
     run_detection,
@@ -23,6 +24,7 @@ __all__ = [
     "AnthropicAdapter",
     "DETECTION_DECISION_SCHEMA",
     "DETECTION_SYSTEM_PROMPT",
+    "DETECTION_SYSTEM_PROMPT_COMPUTED_R",
     "DETECTION_TOOL_NAME",
     "DetectionDecision",
     "LLMClient",

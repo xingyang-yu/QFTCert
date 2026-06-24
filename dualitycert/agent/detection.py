@@ -29,6 +29,7 @@ from dualitycert.agent.client import AnthropicAdapter, LLMClient
 __all__ = [
     "DETECTION_DECISION_SCHEMA",
     "DETECTION_SYSTEM_PROMPT",
+    "DETECTION_SYSTEM_PROMPT_COMPUTED_R",
     "DETECTION_TOOL_NAME",
     "DEFAULT_MODEL",
     "DEFAULT_MAX_TOKENS",
@@ -98,6 +99,30 @@ confidence level and a brief reasoning. Do not write any output outside \
 the tool call."""
 
 
+# Judge ②b ("computed" R-charge policy) variant: the theories shown to the
+# model carry NO R-charges (the verifier recomputes the superconformal R by
+# a-maximization), so the model commits only to quiver + matter + W. Used
+# verbatim instead of DETECTION_SYSTEM_PROMPT when run_detection(computed_r=True).
+DETECTION_SYSTEM_PROMPT_COMPUTED_R = """You are a theoretical physicist evaluating proposed 4d N=1 supersymmetric \
+gauge theory dualities.
+
+You will see two theory JSONs labeled "Theory A" and "Theory B", each \
+encoding a quiver gauge theory: gauge group ranks, bifundamental matter \
+arrows, and a superpotential of cubic+ monomials. The R-charges are NOT \
+given: the superconformal R-symmetry is fixed by a-maximization, so work it \
+out yourself from the matter content and superpotential as your reasoning \
+requires.
+
+Your task: judge whether Theory A and Theory B are Seiberg-dual / IR-\
+equivalent under the standard scope (cubic gauge anomaly cancellation, \
+SU(N)^2 x U(1)_R mixed anomaly cancellation, R(W)=2 R-charge balance, \
+F-term ideal consistency, bounded chiral-ring multiplicity matching).
+
+Use the provided structured-output tool to return your verdict with a \
+confidence level and a brief reasoning. Do not write any output outside \
+the tool call."""
+
+
 @dataclass(frozen=True)
 class DetectionDecision:
     """The parsed result of a single detection call."""
@@ -151,6 +176,7 @@ def run_detection(
     client: LLMClient | None = None,
     model: str = DEFAULT_MODEL,
     max_tokens: int = DEFAULT_MAX_TOKENS,
+    computed_r: bool = False,
 ) -> DetectionDecision:
     """Single LLM call: prompt -> tool_use -> validated decision.
 
@@ -158,6 +184,10 @@ def run_detection(
     payload), `client.complete_structured` raises — there is no parse-
     fallback in the MVP backend set. Callers (the runner) should
     surface the failure rather than swallowing it.
+
+    `computed_r=True` selects the judge-②b system prompt (the theories
+    carry no R-charges; the verifier recomputes the superconformal R). The
+    default leaves the locked judge-① prompt byte-for-byte unchanged.
     """
 
     if client is None:
@@ -168,7 +198,11 @@ def run_detection(
     )
     response = client.complete_structured(
         model=model,
-        system=DETECTION_SYSTEM_PROMPT,
+        system=(
+            DETECTION_SYSTEM_PROMPT_COMPUTED_R
+            if computed_r
+            else DETECTION_SYSTEM_PROMPT
+        ),
         user=user_message,
         schema=DETECTION_DECISION_SCHEMA,
         tool_name=DETECTION_TOOL_NAME,

@@ -22,6 +22,7 @@ from dualitycert.agent.client import AnthropicAdapter, LLMClient
 __all__ = [
     "DIAGNOSIS_DECISION_SCHEMA",
     "DIAGNOSIS_SYSTEM_PROMPT",
+    "DIAGNOSIS_SYSTEM_PROMPT_COMPUTED_R",
     "DIAGNOSIS_TOOL_NAME",
     "DIAGNOSIS_FAILURE_MODES",
     "DIAGNOSIS_SUSPECTED_CAUSES",
@@ -132,6 +133,38 @@ Use the structured-output tool only; do not write anything outside the \
 tool call."""
 
 
+# Judge ②b ("computed") variant: the theories shown to the model carry NO
+# R-charges (the verifier recomputes the superconformal R by a-maximization).
+# r_charge_perturb is not a ②b cause, so it is dropped from the suspected_cause
+# guidance (the schema enum is frozen and still permits it). Used verbatim
+# instead of DIAGNOSIS_SYSTEM_PROMPT when run_diagnosis(computed_r=True).
+DIAGNOSIS_SYSTEM_PROMPT_COMPUTED_R = """You are a theoretical physicist diagnosing why a proposed 4d N=1 \
+supersymmetric gauge theory duality fails (or confirming that it holds).
+
+You will see two quiver theory JSONs labeled "Theory A" (electric) and \
+"Theory B" (candidate dual): gauge ranks, bifundamental arrows, and a \
+superpotential. The R-charges are NOT given: the superconformal R-symmetry \
+is fixed by a-maximization.
+
+PRIMARY task — identify which consistency obligation categories Theory B \
+violates relative to Theory A, choosing from:
+  - anomaly        : cubic gauge or SU(N)^2 x U(1)_R mixed 't Hooft anomalies
+  - superpotential : superpotential consistency / R(W)=2 balance
+  - r_charge       : R-symmetry assignment / central charge matching
+  - chiral_ring    : bounded chiral-ring multiplicity mismatch
+  - unknown        : a failure you cannot localize
+Return these in failure_modes (EMPTY if the pair is a valid dual). Note a \
+gauge-rank error shows up as an anomaly obligation failure — there is no \
+separate "rank" obligation.
+
+SECONDARY task (optional) — in suspected_cause, name the upstream edit you \
+think broke the duality (drop_w_term, flip_w_sign, rank_perturb, wrong_pair, \
+unknown), or EMPTY for a valid dual.
+
+Use the structured-output tool only; do not write anything outside the \
+tool call."""
+
+
 @dataclass(frozen=True)
 class DiagnosisDecision:
     """Parsed result of a single diagnosis call."""
@@ -195,8 +228,14 @@ def run_diagnosis(
     client: LLMClient | None = None,
     model: str = DEFAULT_MODEL,
     max_tokens: int = DEFAULT_MAX_TOKENS,
+    computed_r: bool = False,
 ) -> DiagnosisDecision:
-    """Single LLM call: prompt -> tool_use -> validated diagnosis."""
+    """Single LLM call: prompt -> tool_use -> validated diagnosis.
+
+    `computed_r=True` selects the judge-②b system prompt (the theories
+    carry no R-charges; the verifier recomputes the superconformal R). The
+    default leaves the locked judge-① prompt byte-for-byte unchanged.
+    """
 
     if client is None:
         client = AnthropicAdapter()
@@ -206,7 +245,11 @@ def run_diagnosis(
     )
     response = client.complete_structured(
         model=model,
-        system=DIAGNOSIS_SYSTEM_PROMPT,
+        system=(
+            DIAGNOSIS_SYSTEM_PROMPT_COMPUTED_R
+            if computed_r
+            else DIAGNOSIS_SYSTEM_PROMPT
+        ),
         user=user_message,
         schema=DIAGNOSIS_DECISION_SCHEMA,
         tool_name=DIAGNOSIS_TOOL_NAME,

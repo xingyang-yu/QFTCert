@@ -35,6 +35,75 @@ def test_default_policy_is_not_serialized():
     assert "r_charge_policy" not in VerifierConfig().to_dict()
 
 
+# --- ②b LLM interface: R-charges hidden, ②b system prompt (no sympy) ------
+_THEORY = {
+    "name": "X",
+    "ranks": [3],
+    "node_labels": ["G0"],
+    "u1_globals": ["U(1)_R"],
+    "arrows": [{"label": "A", "tail": 0, "head": 0, "r_charge": "2/3"}],
+    "singlets": [{"label": "M", "r_charge": "1/2"}],
+    "superpotential": [{"factors": ["A"], "coefficient": "1"}],
+}
+
+
+def test_strip_r_charges_removes_only_r_charge():
+    from dualitycert.experiments.single_shot import _strip_r_charges
+
+    out = _strip_r_charges(_THEORY)
+    assert "r_charge" not in out["arrows"][0]
+    assert out["arrows"][0]["label"] == "A" and out["arrows"][0]["head"] == 0
+    assert "r_charge" not in out["singlets"][0]
+    assert out["ranks"] == [3] and out["superpotential"]
+    # input untouched
+    assert "r_charge" in _THEORY["arrows"][0]
+
+
+def test_detection_computed_r_selects_2b_system_prompt():
+    from dualitycert.agent import (
+        DETECTION_SYSTEM_PROMPT,
+        DETECTION_SYSTEM_PROMPT_COMPUTED_R,
+        MockLLMClient,
+        run_detection,
+    )
+
+    assert DETECTION_SYSTEM_PROMPT_COMPUTED_R != DETECTION_SYSTEM_PROMPT
+    assert "NOT" in DETECTION_SYSTEM_PROMPT_COMPUTED_R  # "R-charges are NOT given"
+    payload = {"verdict": "dual", "confidence": "low", "reasoning": "x"}
+    mock = MockLLMClient(structured_responses=[payload, payload])
+
+    run_detection(
+        sanitized_electric=_THEORY, sanitized_candidate=_THEORY,
+        client=mock, model="m", max_tokens=64, computed_r=True,
+    )
+    assert mock.structured_calls[0]["system"] == DETECTION_SYSTEM_PROMPT_COMPUTED_R
+
+    run_detection(
+        sanitized_electric=_THEORY, sanitized_candidate=_THEORY,
+        client=mock, model="m", max_tokens=64, computed_r=False,
+    )
+    assert mock.structured_calls[1]["system"] == DETECTION_SYSTEM_PROMPT
+
+
+def test_diagnosis_computed_r_selects_2b_system_prompt():
+    from dualitycert.agent.client import MockLLMClient
+    from dualitycert.agent.diagnosis import (
+        DIAGNOSIS_SYSTEM_PROMPT,
+        DIAGNOSIS_SYSTEM_PROMPT_COMPUTED_R,
+        run_diagnosis,
+    )
+
+    assert DIAGNOSIS_SYSTEM_PROMPT_COMPUTED_R != DIAGNOSIS_SYSTEM_PROMPT
+    payload = {"failure_modes": [], "confidence": "low", "reasoning": "x"}
+    mock = MockLLMClient(structured_responses=[payload])
+
+    run_diagnosis(
+        sanitized_electric=_THEORY, sanitized_candidate=_THEORY,
+        client=mock, model="m", max_tokens=64, computed_r=True,
+    )
+    assert mock.structured_calls[0]["system"] == DIAGNOSIS_SYSTEM_PROMPT_COMPUTED_R
+
+
 # --- sympy-dependent below -----------------------------------------------
 sympy = pytest.importorskip("sympy")
 
@@ -175,3 +244,38 @@ def test_given_policy_generation_unchanged_by_computed_code(tmp_path):
     candidate = json.loads((tmp_path / pos[0].theory_b_path).read_text())
     for arrow in candidate["arrows"]:
         Fraction(arrow["r_charge"])
+
+
+@pytest.mark.slow
+def test_run_single_shot_computed_hides_r_and_uses_2b_prompt(tmp_path):
+    """End-to-end ②b interface: run_single_shot(hide_r_charges=True) strips the
+    R-charges from the prompt and uses the ②b detection system prompt, so the
+    model sees only quiver + matter + W."""
+
+    from dualitycert.agent import DETECTION_SYSTEM_PROMPT_COMPUTED_R, MockLLMClient
+    from dualitycert.experiments.single_shot import run_single_shot
+
+    result = generate_fixtures(
+        _config("2b_ss", ("positive",)),
+        seed_specs=_SPP,
+        out_dir=tmp_path,
+        allow_incomplete_cells=True,
+        write=True,
+    )
+    recs = [r for r in result.manifest if r.perturbation_class == "positive"]
+    assert recs
+    payload = {"verdict": "dual", "confidence": "high", "reasoning": "x"}
+    mock = MockLLMClient(structured_responses=[payload for _ in recs])
+
+    run_single_shot(
+        recs,
+        theory_root=tmp_path,
+        client=mock,
+        out_dir=tmp_path / "run",
+        model="mock",
+        tasks=("detection",),
+        hide_r_charges=True,
+    )
+    call = mock.structured_calls[0]
+    assert call["system"] == DETECTION_SYSTEM_PROMPT_COMPUTED_R
+    assert "r_charge" not in call["user"]
