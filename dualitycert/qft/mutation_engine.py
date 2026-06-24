@@ -58,6 +58,19 @@ class MutationEngineError(ValueError):
     """
 
 
+def _parse_singlet_label(label: str) -> tuple[int, int] | None:
+    """Parse a gauge-singlet label ``S{u}[{k}]`` into ``(u, k)``; None if it
+    does not match (a non-singlet or out-of-convention label)."""
+
+    if not label.startswith("S") or "[" not in label or not label.endswith("]"):
+        return None
+    try:
+        u_str, k_str = label[1:-1].split("[", 1)
+        return int(u_str), int(k_str)
+    except ValueError:
+        return None
+
+
 def mutate_bare(theory_json: Mapping[str, Any], *, node: int) -> dict[str, Any]:
     """Apply bare single-node Seiberg duality at gauge node `node`.
 
@@ -75,6 +88,13 @@ def mutate_bare(theory_json: Mapping[str, Any], *, node: int) -> dict[str, Any]:
         {"factors": list(t["factors"]), "coefficient": t["coefficient"]}
         for t in theory_json["superpotential"]
     ]
+    # Pre-existing gauge singlets (from an EARLIER mutation, at depth >= 2).
+    # They carry no gauge charge, so a single-node move never reverses or
+    # mesonizes them — they ride through W as scalar factors and survive into
+    # the output payload (integration may later remove a massive pair). At
+    # depth-1 there are none, so this is empty and the path is byte-identical.
+    existing_singlets = [dict(s) for s in theory_json.get("singlets", [])]
+    existing_singlet_labels = {s["label"] for s in existing_singlets}
 
     if not (0 <= node < len(ranks)):
         raise MutationEngineError(
@@ -186,8 +206,20 @@ def mutate_bare(theory_json: Mapping[str, Any], *, node: int) -> dict[str, Any]:
     meson_label_for_pair: dict[tuple[str, str], str] = {}
     meson_label_set: set[str] = set()
     singlet_for_pair: dict[tuple[str, str], str] = {}
-    singlets_payload: list[dict[str, str]] = []
+    # Carry pre-existing singlets first (preserving payload order), then append
+    # the new diagonal-meson singlets created by this move.
+    singlets_payload: list[dict[str, str]] = list(existing_singlets)
+    # Seed per-node singlet indices past any existing S{u}[*] (by max index + 1,
+    # so label gaps cannot collide) — a new node-u singlet then gets a fresh
+    # label instead of clobbering an inherited one (e.g. old S2[0] + new -> S2[1]).
     singlet_counts: dict[int, int] = {}
+    for s in existing_singlets:
+        parsed = _parse_singlet_label(s["label"])
+        if parsed is not None:
+            u_existing, k_existing = parsed
+            singlet_counts[u_existing] = max(
+                singlet_counts.get(u_existing, 0), k_existing + 1
+            )
     for in_a in in_arrows:
         u = int(in_a["source"])
         r_in = Fraction(in_a["r_charge"])
@@ -221,6 +253,15 @@ def mutate_bare(theory_json: Mapping[str, Any], *, node: int) -> dict[str, Any]:
     in_labels = {a["label"] for a in in_arrows}
     out_labels = {a["label"] for a in out_arrows}
 
+    # The trace of a lone diagonal meson is its SINGLET part: when a W term's
+    # gauge word collapses to exactly one diagonal meson M_uu, emit S_u, not the
+    # (traceless) adjoint arrow. Map each diagonal meson's arrow label -> its
+    # singlet label for that swap.
+    diagonal_meson_to_singlet = {
+        meson_label_for_pair[pair]: s_label
+        for pair, s_label in singlet_for_pair.items()
+    }
+
     new_W: list[dict[str, Any]] = []
     for term in superpotential:
         factors = list(term["factors"])
@@ -231,6 +272,8 @@ def mutate_bare(theory_json: Mapping[str, Any], *, node: int) -> dict[str, Any]:
             meson_label_for_pair=meson_label_for_pair,
             relabel_map=relabel_map,
             node=node,
+            singlet_labels=existing_singlet_labels,
+            diagonal_meson_to_singlet=diagonal_meson_to_singlet,
         )
         new_W.append(
             {"factors": new_factors, "coefficient": str(Fraction(term["coefficient"]))}
@@ -282,35 +325,104 @@ def _rewrite_term_through_node(
     meson_label_for_pair: dict[tuple[str, str], str],
     relabel_map: dict[str, str],
     node: int,
+    singlet_labels: set[str],
+    diagonal_meson_to_singlet: dict[str, str],
 ) -> list[str]:
     """Collapse every (in -> out) pass through `node` to its meson label.
 
-    DWZ premutation: a W term is a cyclic word; each cyclically adjacent
-    pair (in-arrow at `node`, out-arrow at `node`) is one path
-    i -> node -> j and collapses to the meson M_{(in, out)} on edge (i, j)
-    (a diagonal pass i -> node -> i collapses to the adjoint meson at i).
-    A term may traverse `node` several times; each pass collapses
-    independently. Non-incident factors are relabeled via `relabel_map`.
+    DWZ premutation: a W term is (a product of gauge-SINGLET scalar factors)
+    times Tr(one closed gauge word). Each cyclically adjacent pair (in-arrow,
+    out-arrow) of the gauge word is one path i -> node -> j and collapses to the
+    meson M_{(in, out)} on edge (i, j); a diagonal pass i -> node -> i collapses
+    to the meson at node i. Non-incident factors are relabeled via `relabel_map`.
 
-    For an adjoint-free `node` the in-/out-label sets are disjoint, so a
-    single factor is never both halves of a pass and passes never overlap;
-    the single-pass case is preserved byte-for-byte.
+    Pre-existing singlets (`singlet_labels`) are scalars under the gauge group,
+    so they are STRIPPED before the gauge-word collapse (otherwise a singlet
+    sitting cyclically between the two quarks would hide an in->out pass) and
+    prepended back afterwards. With no input singlets this branch is never taken
+    and the gauge-word collapse runs on the full factor list, byte-for-byte as
+    before (depth-1 stays identical).
+
+    `Tr(M_uu)` of a LONE diagonal meson is its singlet part S_u, so when the
+    collapsed gauge word is a single diagonal meson it is re-emitted as the
+    singlet (`diagonal_meson_to_singlet`). The two fail-closed guards below cover
+    the cases this narrow rule does not prove (see C3 in spp_depth2_review.md).
     """
+
+    input_singlets = [f for f in factors if f in singlet_labels]
+    if not input_singlets:
+        # Legacy path: no scalar factors to strip; collapse the full word. This
+        # is the already-validated convention (incl. c3_z2z2/spp depth-1, which
+        # produce diagonal mesons) and is preserved byte-for-byte.
+        return _collapse_gauge_word(
+            factors,
+            in_labels=in_labels,
+            out_labels=out_labels,
+            meson_label_for_pair=meson_label_for_pair,
+            relabel_map=relabel_map,
+        )
+
+    gauge_factors = [f for f in factors if f not in singlet_labels]
+    collapsed = _collapse_gauge_word(
+        gauge_factors,
+        in_labels=in_labels,
+        out_labels=out_labels,
+        meson_label_for_pair=meson_label_for_pair,
+        relabel_map=relabel_map,
+    )
+
+    if len(collapsed) == 1:
+        lone = collapsed[0]
+        # A lone factor in a closed single-trace gauge word can only be a
+        # diagonal meson (an off-diagonal meson is not gauge-invariant alone).
+        if lone not in diagonal_meson_to_singlet:
+            raise MutationEngineError(
+                f"singlet-transparent rewrite collapsed to a lone non-diagonal "
+                f"factor {lone!r}; not a closed trace, out of scope"
+            )
+        collapsed = [diagonal_meson_to_singlet[lone]]
+    else:
+        # A new diagonal meson sandwiched by other gauge factors carries a
+        # singlet component (S_u/N)*Tr(rest) that this single-trace rewrite would
+        # silently drop; with an input-singlet prefactor it is not provably zero.
+        # Fail closed (-> attrition) rather than emit a wrong dual.
+        sandwiched = [f for f in collapsed if f in diagonal_meson_to_singlet]
+        if sandwiched:
+            raise MutationEngineError(
+                f"input-singlet term sandwiches new diagonal meson(s) "
+                f"{sorted(sandwiched)}; their dropped singlet component is not "
+                "proven zero, out of scope"
+            )
+
+    return input_singlets + collapsed
+
+
+def _collapse_gauge_word(
+    factors: list[str],
+    *,
+    in_labels: set[str],
+    out_labels: set[str],
+    meson_label_for_pair: dict[tuple[str, str], str],
+    relabel_map: dict[str, str],
+) -> list[str]:
+    """Collapse every (in -> out) pass through the dualized node in one closed
+    gauge word; relabel non-incident factors. (The pure-gauge core of
+    `_rewrite_term_through_node`, unchanged from the original MVP.)"""
 
     n = len(factors)
     if n < 2:
-        # Length-1 W term cannot traverse `node` (no in/out pair).
+        # Length-1 word cannot traverse the node (no in/out pair).
         return [relabel_map.get(f, f) for f in factors]
 
     # Pass = position i with factors[i] an in-arrow and factors[(i+1) % n] an
-    # out-arrow at `node` (cyclic). These are the i -> node -> j segments.
+    # out-arrow at the node (cyclic). These are the i -> node -> j segments.
     pass_starts = [
         i
         for i in range(n)
         if factors[i] in in_labels and factors[(i + 1) % n] in out_labels
     ]
     if not pass_starts:
-        # The W term doesn't traverse `node` — leave it alone (after
+        # The word doesn't traverse the node — leave it alone (after
         # relabeling of any untouched factors).
         return [relabel_map.get(f, f) for f in factors]
 
@@ -750,14 +862,31 @@ def integrate_fields(theory_json: Mapping[str, Any]) -> dict[str, Any]:
         {"factors": list(t["factors"]), "coefficient": Fraction(t["coefficient"])}
         for t in linear["superpotential"]
     ]
+    singlets = [dict(s) for s in linear.get("singlets", [])]
 
+    # One fixed-point loop over BOTH the arrow 2-cycle reduction and the
+    # singlet-singlet mass-pair reduction: an arrow reduction can expose a new
+    # singlet mass term (and vice versa), so we re-check to quiescence rather
+    # than running them in two separate passes. With no singlets the singlet
+    # reducer is a no-op, so this is identical to the old arrow-only loop.
     steps = 0
-    while _reduce_one_quadratic(
-        arrows=arrows,
-        arrow_by_label=arrow_by_label,
-        superpotential=superpotential,
-        arrow_labels={a["label"] for a in arrows},
-    ):
+    while True:
+        if _reduce_one_quadratic(
+            arrows=arrows,
+            arrow_by_label=arrow_by_label,
+            superpotential=superpotential,
+            arrow_labels={a["label"] for a in arrows},
+        ):
+            pass
+        elif _reduce_singlet_mass_pair(
+            superpotential=superpotential,
+            singlets=singlets,
+            arrow_labels={a["label"] for a in arrows},
+            singlet_labels={s["label"] for s in singlets},
+        ):
+            pass
+        else:
+            break
         steps += 1
         if steps > _MAX_REDUCTION_STEPS:
             raise MutationEngineError(
@@ -785,7 +914,6 @@ def integrate_fields(theory_json: Mapping[str, Any]) -> dict[str, Any]:
             for t in final_W
         ],
     }
-    singlets = linear.get("singlets", [])
     if singlets:
         result["singlets"] = [dict(s) for s in singlets]
     return result
@@ -870,6 +998,100 @@ def _reduce_one_quadratic(
     arrows[:] = surviving
     arrow_by_label.clear()
     arrow_by_label.update({ar["label"]: ar for ar in surviving})
+    superpotential[:] = collected
+    return True
+
+
+def _reduce_singlet_mass_pair(
+    *,
+    superpotential: list[dict[str, Any]],
+    singlets: list[dict[str, Any]],
+    arrow_labels: set[str],
+    singlet_labels: set[str],
+) -> bool:
+    """Integrate out one singlet-singlet mass term ``c·S·S'`` via its EOMs.
+
+    A length-2 W term whose two factors are BOTH gauge singlets is a singlet
+    mass pair (the only gauge-invariant length-2 singlet term: ``S·adjoint`` is
+    traceless = 0 and ``S·bifundamental`` is not closed). It arises at depth >= 2
+    when a pre-existing singlet meets a freshly-created diagonal-meson singlet
+    (e.g. spp's ``S1·S0``). Solving ``∂_{S} W = ∂_{S'} W = 0`` gives
+    ``W -> U - (1/c)·P_S·P_S'`` with S, S' removed from the singlet pool and all
+    S/S' terms dropped, where P_S / P_S' are the residual couplings in the OTHER
+    W terms. Mutates `superpotential` and `singlets` in place; returns True iff a
+    pair was found and reduced.
+
+    Fail-closed (-> attrition) when the integrate-out leaves current scope:
+    `_reduce_one_quadratic`'s arrow path never sees these (it skips length-2
+    terms with a singlet), and singlets never enter `_find_linear_field`.
+    """
+
+    mass_idx = next(
+        (
+            i
+            for i, t in enumerate(superpotential)
+            if len(t["factors"]) == 2
+            and all(f in singlet_labels for f in t["factors"])
+        ),
+        None,
+    )
+    if mass_idx is None:
+        return False
+
+    mass = superpotential[mass_idx]
+    c = Fraction(mass["coefficient"])
+    s_a, s_b = mass["factors"][0], mass["factors"][1]
+    if s_a == s_b:
+        raise MutationEngineError(
+            f"degenerate singlet 2-cycle on a single field {s_a!r}; not a mass term"
+        )
+
+    others = [t for i, t in enumerate(superpotential) if i != mass_idx]
+    p_a = _partial_derivative(others, s_a)
+    p_b = _partial_derivative(others, s_b)
+
+    # Coupled-mass guard: a residual that still references the integrated singlets
+    # is a coupled singlet mass matrix the per-pair recipe cannot diagonalize.
+    for _coeff, factors in p_a + p_b:
+        if s_a in factors or s_b in factors:
+            raise MutationEngineError(
+                f"singlet mass {s_a!r}·{s_b!r} is coupled (its F-equation still "
+                "references the integrated singlets); out of scope"
+            )
+
+    # Double-trace guard: each singlet couples to a CLOSED gauge trace, so if both
+    # residuals carry a gauge word the correction -(1/c)·P_S·P_S' is Tr(A)·Tr(B),
+    # which the single-`factors`-list W cannot represent. (Tr(A)Tr(B) != Tr(AB);
+    # do not fuse.) For spp, P_{S1} is empty so the product vanishes.
+    def _carries_gauge(residuals: list[tuple[Fraction, list[str]]]) -> bool:
+        return any(any(f in arrow_labels for f in factors) for _, factors in residuals)
+
+    if p_a and p_b and _carries_gauge(p_a) and _carries_gauge(p_b):
+        raise MutationEngineError(
+            f"singlet mass {s_a!r}·{s_b!r} integrate-out yields a double-trace "
+            "correction (both F-residuals carry a gauge word); out of scope"
+        )
+
+    new_terms: list[dict[str, Any]] = [
+        {"factors": list(t["factors"]), "coefficient": Fraction(t["coefficient"])}
+        for t in others
+        if s_a not in t["factors"] and s_b not in t["factors"]
+    ]
+    # Correction -(1/c)·P_S·P_S'. One residual empty -> no product term (the spp
+    # zero-mode case); otherwise a single representable trace (one side scalar).
+    for coeff_a, factors_a in p_a:
+        for coeff_b, factors_b in p_b:
+            new_terms.append(
+                {
+                    "factors": list(factors_a) + list(factors_b),
+                    "coefficient": -(coeff_a * coeff_b) / c,
+                }
+            )
+
+    collected = _collect_cyclic_terms(new_terms)
+
+    dropped = {s_a, s_b}
+    singlets[:] = [s for s in singlets if s["label"] not in dropped]
     superpotential[:] = collected
     return True
 

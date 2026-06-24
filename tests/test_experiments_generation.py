@@ -25,7 +25,11 @@ from dualitycert.experiments.perturbations import (
     apply_single_positive_edit,
 )
 from dualitycert.experiments.seeds import SeedSpec, default_seed_specs, dp0_electric
-from dualitycert.experiments.seed_catalog import dp1_electric, spp_electric
+from dualitycert.experiments.seed_catalog import (
+    c3_z2z2_electric,
+    dp1_electric,
+    spp_electric,
+)
 
 
 def _mvp_config(**kw) -> ExperimentConfig:
@@ -85,10 +89,11 @@ def test_generation_is_deterministic(tmp_path):
 # dp0-only seed + small chain budget: dp0 depth-2 fails fast at the
 # engine level (no verifier calls), keeping these tests quick.
 _DP0_SPEC = [SeedSpec("dp0_toric", dp0_electric, node=0, N=3)]
-# SPP still cannot be re-mutated at depth 2 (its second-step F-equation needs
-# a quadratic / multi-field elimination beyond current engine scope), so it is
-# the standing "empty depth-2 cell" example now that dp0 succeeds.
-_SPP_SPEC = [SeedSpec("spp", spp_electric, node=0, N=2)]
+# C^3/(Z_2 x Z_2) legitimately has NO depth-2: after any single Seiberg move,
+# every OTHER node carries an adjoint loop (Kutasov, out of scope) and the just-
+# dualized node is the forbidden round-trip, so no non-adjoint non-round-trip node
+# remains. It is the standing "empty depth-2 cell" example now that spp re-mutates.
+_C3_NO_DEPTH2_SPEC = [SeedSpec("c3_z2z2", c3_z2z2_electric, node=0, N=2)]
 
 
 def _depth_cfg(depths, **kw):
@@ -104,12 +109,12 @@ def _depth_cfg(depths, **kw):
 
 
 def test_strict_completeness_raises_on_empty_depth2_cell(tmp_path):
-    # Strict by default: a seed whose depth-2 cell stays empty (spp cannot be
-    # re-mutated yet) makes the post-generation completeness check fail loudly.
+    # Strict by default: a seed whose depth-2 cell stays empty (c3_z2z2 has no
+    # legal second move) makes the post-generation completeness check fail loudly.
     cfg = _depth_cfg((1, 2))
     with pytest.raises(IncompleteCellsError):
         generate_fixtures(
-            cfg, out_dir=tmp_path, seed_specs=_SPP_SPEC,
+            cfg, out_dir=tmp_path, seed_specs=_C3_NO_DEPTH2_SPEC,
             generated_at="t", git_commit="c",
         )
 
@@ -117,10 +122,10 @@ def test_strict_completeness_raises_on_empty_depth2_cell(tmp_path):
 def test_depth2_attrition_is_precise_when_allowed(tmp_path):
     cfg = _depth_cfg((1, 2))
     res = generate_fixtures(
-        cfg, out_dir=tmp_path, seed_specs=_SPP_SPEC, generated_at="t",
+        cfg, out_dir=tmp_path, seed_specs=_C3_NO_DEPTH2_SPEC, generated_at="t",
         git_commit="c", allow_incomplete_cells=True,
     )
-    # depth-1 main fixtures exist; depth-2 produced none on spp.
+    # depth-1 main fixtures exist; depth-2 produced none on c3_z2z2.
     assert all(r.depth == 1 for r in res.manifest)
     assert any(r.depth == 1 for r in res.manifest)
     reasons = {a.attrition_reason for a in res.attrition}

@@ -22,7 +22,7 @@ from dualitycert.experiments.chains import (
     seiberg_dual_consistent_chain,
 )
 from dualitycert.experiments.config import ChainConfig, VerifierConfig
-from dualitycert.experiments.seed_catalog import dp1_electric
+from dualitycert.experiments.seed_catalog import dp1_electric, spp_electric
 from dualitycert.experiments.seeds import dp0_electric, f0_phase_ii_electric
 from dualitycert.experiments.verifier import VerifierOutcome, run_verifier
 
@@ -190,6 +190,30 @@ def test_chain_depth2_succeeds_genuine_on_dp0():
     assert res.node_sequence[0] != res.node_sequence[1]
     assert res.verifier_status_seed_to_final == "CERTIFIED"
     assert all(s == "CERTIFIED" for s in res.verifier_status_adjacent_steps)
+
+
+def test_chain_depth2_succeeds_genuine_on_spp():
+    # spp's depth-1 magnetic dual carries pre-existing gauge singlets (S1, S2).
+    # Re-mutating it at the one adjoint-free non-round-trip node (1) requires the
+    # singlet-meson physics: the inherited `S1.X10.X01` collapses to the singlet
+    # mass `S1.S0` and integrates out, the new node-2 diagonal-meson singlet S2'
+    # stays DISTINCT from the inherited S2 (collision-free naming), and the dual
+    # certifies end to end (worked example in spp_depth2_review.md).
+    res = generate_mutation_chain(
+        spp_electric(2), 2, Random(0), ChainConfig(), source_name="spp", node=0,
+        seed_id=3,
+    )
+    assert isinstance(res, MutationChainResult)
+    assert res.success is True
+    assert res.depth_realized == 2
+    assert res.node_sequence == (0, 1)
+    assert res.verifier_status_seed_to_final == "CERTIFIED"
+    assert all(s == "CERTIFIED" for s in res.verifier_status_adjacent_steps)
+    # the singlet mass pair S1.S0 integrated out, leaving exactly the two distinct
+    # singlets S2 (R 4/5, inherited) and S2' (R 6/5, new node-2 meson trace).
+    final_singlets = res.final_theory.get("singlets", [])
+    assert len(final_singlets) == 2
+    assert {s["r_charge"] for s in final_singlets} == {"4/5", "6/5"}
 
 
 @pytest.mark.slow
