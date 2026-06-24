@@ -485,10 +485,24 @@ def _integration_pass(
         #              W-substitution below distributes products of sums.
         substitutions[pivot_var] = non_pivot_terms
 
+    # Guard (Codex review): this linear pass assumes the eliminated siblings are
+    # disjoint from the F-equation variables -- the intended W = sum_i L_i P_i +
+    # U, where the L_i are the mass-paired siblings and the columns are among the
+    # P_i / U. A sibling appearing as a column means a COUPLED quadratic block
+    # (e.g. a term L_i L_j in W), whose elimination needs a Schur-complement /
+    # mass-matrix reduction, not a single linear pass. Reject it (-> attrition)
+    # rather than silently emit a wrong integrated-out theory.
+    sibling_set = set(sibling_labels)
+    coupled = sibling_set & set(columns)
+    if coupled:
+        raise MutationEngineError(
+            f"coupled sibling-pivot block (siblings as F-equation variables: "
+            f"{sorted(coupled)}); needs a mass-matrix reducer, out of scope"
+        )
+
     # ------------------------------------------------------------------
     # Apply substitutions in W; drop W terms containing siblings.
     # ------------------------------------------------------------------
-    sibling_set = set(sibling_labels)
     expanded: list[dict[str, Any]] = []
     for term in superpotential:
         if any(f in sibling_set for f in term["factors"]):
@@ -515,9 +529,11 @@ def _integration_pass(
         expanded.extend(
             {"factors": factors, "coefficient": coeff} for factors, coeff in partials
         )
-    # Sum cyclically-equal monomials and drop any that cancel to zero. For the
-    # single-term path (len<=1, no fan-out) this is a no-op, so depth-1
-    # generation stays byte-for-byte identical.
+    # Sum cyclically-equal monomials and drop any that cancel to zero. The
+    # single-term path produces one monomial per input term, so this only
+    # changes output if two inputs were already cyclically equal; the committed
+    # depth-1 fixtures have none (verified byte-identical by the test suite), but
+    # that is an observed property of those fixtures, not a guarantee from arity.
     new_W = _collect_cyclic_terms(expanded)
 
     # ------------------------------------------------------------------

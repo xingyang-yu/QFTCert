@@ -25,7 +25,7 @@ import json
 from dataclasses import dataclass, field
 from fractions import Fraction
 from random import Random
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from dualitycert.benchmark.fixtures import sanitize_for_prompt
 from dualitycert.experiments.config import ChainConfig, VerifierConfig
@@ -44,6 +44,7 @@ from dualitycert.qft.r_repair import RRepairError, repair_r_charges
 
 __all__ = [
     "ChainConstructionError",
+    "ConsistentChainResult",
     "ConsistentDualResult",
     "DepthNotImplementedError",
     "MutationChainResult",
@@ -54,6 +55,7 @@ __all__ = [
     "generate_mutation_chain",
     "legal_mutation_nodes",
     "seiberg_dual_consistent",
+    "seiberg_dual_consistent_chain",
     "theory_size",
 ]
 
@@ -253,6 +255,138 @@ def seiberg_dual_consistent(
         electric=electric_consistent,
         magnetic=magnetic,
         metadata=metadata,
+    )
+
+
+@dataclass(frozen=True)
+class ConsistentChainResult:
+    """A depth-K Seiberg chain carrying ONE consistent R-symmetry, propagated
+    through every step (each adjacent pair is an exact duality image)."""
+
+    ok: bool
+    node_sequence: tuple[int, ...]
+    theories: tuple[dict[str, Any], ...] = ()  # [T0_with_R, T1, ..., T_K]
+    reason: str | None = None
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+def seiberg_dual_consistent_chain(
+    theory: Mapping[str, Any], node_sequence: Sequence[int]
+) -> ConsistentChainResult:
+    """Depth-K consistent-R Seiberg chain along a FIXED node sequence.
+
+    The depth-1 `seiberg_dual_consistent` picks the electric R, within T0's
+    feasible affine R-space, whose single Seiberg-propagated magnetic side is
+    anomaly-free. For a chain we need ONE seed electric R that stays anomaly-
+    free at EVERY intermediate: the per-node U(1)_R-SU(N)^2 residual of each
+    intermediate is affine-linear in the seed-R kernel coefficients (the
+    integrate-out topology is R-independent), so STACK the residual vectors of
+    all K intermediates into one linear system over Q and solve once. The
+    resulting seed R, propagated by the Seiberg rules (no per-step repair),
+    makes every adjacent (T_{i-1}, T_i) pair an exact duality image, so
+    TrR^3 / central charges match for free -- this is what the depth-1 path
+    buys for irrational-superconformal-R families (dP_1 / dP_2), now along the
+    whole chain.
+
+    Returns the propagated chain [T0_with_R, T1, ..., T_K]. ok=False (with an
+    attrition-vocabulary `reason`) on engine refusal, infeasible electric R, or
+    no rational seed R that is anomaly-free at every step. The caller still
+    verifies each adjacent pair and applies any triviality / isomorphism guard.
+    """
+
+    theory = dict(theory)
+    nodes = [int(n) for n in node_sequence]
+    try:
+        repaired = repair_r_charges(theory)
+    except RRepairError as exc:
+        return ConsistentChainResult(
+            ok=False, node_sequence=tuple(nodes),
+            reason="single_step_mutation_failed", error=str(exc),
+        )
+    if repaired["status"] == "infeasible":
+        return ConsistentChainResult(
+            ok=False, node_sequence=tuple(nodes),
+            reason="single_step_mutation_failed",
+            error=str(repaired.get("failure_reason")),
+        )
+
+    feasible = repaired["feasible_space"]
+    labels = [a["label"] for a in theory["arrows"]]
+    particular = {k: Fraction(v) for k, v in feasible["particular_solution"].items()}
+    kernel = [
+        {k: Fraction(v) for k, v in vec.items()}
+        for vec in feasible["homogeneous_basis"]
+    ]
+
+    def with_r(rmap: Mapping[str, Fraction]) -> dict[str, Any]:
+        return {
+            **theory,
+            "arrows": [
+                {**a, "r_charge": str(rmap[a["label"]])} for a in theory["arrows"]
+            ],
+        }
+
+    def propagate(
+        rmap: Mapping[str, Fraction]
+    ) -> tuple[list[dict[str, Any]], list[Fraction]]:
+        """Mutate+integrate through the node sequence; return the chain of
+        theories and the concatenated gauge-global R-residual of every
+        intermediate (magnetic) theory."""
+
+        current = with_r(rmap)
+        chain: list[dict[str, Any]] = [current]
+        residual: list[Fraction] = []
+        for n in nodes:
+            current = integrate_fields(mutate_bare(dict(current), node=n))
+            residual.extend(_gauge_global_r_residual(current))
+            chain.append(current)
+        return chain, residual
+
+    def rmap_of(coeffs: Sequence[Fraction]) -> dict[str, Fraction]:
+        return {
+            l: particular[l]
+            + sum(coeffs[i] * kernel[i].get(l, Fraction(0)) for i in range(len(kernel)))
+            for l in labels
+        }
+
+    # The residual at every intermediate is affine in the kernel coefficients:
+    # base at the particular solution, plus one delta column per kernel vector.
+    try:
+        _, base = propagate(particular)
+        deltas: list[list[Fraction]] = []
+        for vec in kernel:
+            perturbed = {l: particular[l] + vec.get(l, Fraction(0)) for l in labels}
+            _, row = propagate(perturbed)
+            deltas.append([row[c] - base[c] for c in range(len(base))])
+    except MutationEngineError as exc:
+        return ConsistentChainResult(
+            ok=False, node_sequence=tuple(nodes),
+            reason="single_step_mutation_failed", error=str(exc),
+        )
+
+    # Solve sum_i coeffs[i]*deltas[i] = -base over ALL stacked residual
+    # components (redundant rows are harmless under exact Fraction arithmetic;
+    # including them cannot admit a non-anomaly-free seed R -- per the Codex
+    # review in depth2_consistent_r_review.md).
+    rows = [[deltas[i][c] for i in range(len(kernel))] for c in range(len(base))]
+    rhs = [-base[c] for c in range(len(base))]
+    coeffs = _solve_linear_fractions(rows, rhs)
+    if coeffs is None:
+        return ConsistentChainResult(
+            ok=False, node_sequence=tuple(nodes), reason="no_consistent_r_symmetry"
+        )
+
+    chain, residual = propagate(rmap_of(coeffs))
+    if any(r != 0 for r in residual):  # defensive: the solve must zero every node
+        return ConsistentChainResult(
+            ok=False, node_sequence=tuple(nodes), reason="no_consistent_r_symmetry"
+        )
+    return ConsistentChainResult(
+        ok=True,
+        node_sequence=tuple(nodes),
+        theories=tuple(chain),
+        metadata={"r_consistency": "propagated_chain", "depth": len(nodes)},
     )
 
 

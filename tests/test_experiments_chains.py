@@ -19,10 +19,12 @@ from dualitycert.experiments.chains import (
     apply_single_seiberg_mutation,
     generate_mutation_chain,
     legal_mutation_nodes,
+    seiberg_dual_consistent_chain,
 )
 from dualitycert.experiments.config import ChainConfig, VerifierConfig
+from dualitycert.experiments.seed_catalog import dp1_electric
 from dualitycert.experiments.seeds import dp0_electric, f0_phase_ii_electric
-from dualitycert.experiments.verifier import VerifierOutcome
+from dualitycert.experiments.verifier import VerifierOutcome, run_verifier
 
 
 # ----------------------------------------------------------------------
@@ -206,3 +208,27 @@ def test_chain_depth2_real_success_on_f0_seed_to_final():
             assert res.depth_realized == 2
             assert res.verifier_status_seed_to_final == "CERTIFIED"
     assert successes >= 1
+
+
+def test_consistent_chain_dp1_depth2_certifies_genuine():
+    # The consistent-R chain gives dP_1 (irrational superconformal R) a GENUINE
+    # depth-2 dual: one seed R, propagated, keeps every step anomaly-free, so
+    # both adjacent pairs and the seed-to-final pair certify over Q.
+    res = seiberg_dual_consistent_chain(dp1_electric(2), [0, 1])
+    assert res.ok and len(res.theories) == 3
+    vc = VerifierConfig()
+    assert all(
+        run_verifier(res.theories[i], res.theories[i + 1], vc).is_certified
+        for i in range(2)
+    )
+    assert run_verifier(res.theories[0], res.theories[-1], vc).is_certified
+    # genuine: the final theory differs structurally from the seed
+    assert res.theories[-1]["ranks"] != res.theories[0]["ranks"]
+
+
+def test_consistent_chain_reports_no_solution_without_raising():
+    # A node sequence with no rational anomaly-free seed R returns ok=False
+    # (attrition), never raises.
+    res = seiberg_dual_consistent_chain(dp1_electric(2), [2, 3])
+    assert res.ok is False
+    assert res.reason == "no_consistent_r_symmetry"
