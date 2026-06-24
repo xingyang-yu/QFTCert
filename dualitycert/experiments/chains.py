@@ -53,6 +53,7 @@ __all__ = [
     "apply_single_seiberg_mutation",
     "canonical_theory_hash",
     "generate_mutation_chain",
+    "iso_signature",
     "legal_mutation_nodes",
     "seiberg_dual_consistent",
     "seiberg_dual_consistent_chain",
@@ -564,6 +565,38 @@ def canonical_theory_hash(theory_json: Mapping[str, Any]) -> str:
     sanitized = sanitize_for_prompt(dict(theory_json), theory_label="T")
     payload = json.dumps(sanitized, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def iso_signature(theory_json: Mapping[str, Any]) -> tuple:
+    """A node-relabeling-invariant signature for a triviality / isomorphism
+    PREFILTER (Codex review, `depth2_consistent_r_review.md`): sorted gauge
+    ranks, the arrow count, the multiset of (W-term length, signed coefficient),
+    and the directed edge-count matrix keyed by (source-rank, target-rank).
+    R-charges and provenance names are ignored.
+
+    Two theories with DIFFERENT signatures are provably NOT isomorphic. Equal
+    signatures are a NECESSARY (not sufficient) condition for isomorphism, so a
+    guard that rejects on signature equality is SOUND (never admits a genuine
+    isomorph as new) but CONSERVATIVE (can over-reject a same-signature
+    non-isomorphic phase). The exact rank-preserving quiver+W isomorphism
+    refinement that recovers those is deferred.
+    """
+
+    ranks = [int(r) for r in theory_json["ranks"]]
+    wterms = sorted(
+        (len(t["factors"]), str(Fraction(t["coefficient"])))
+        for t in theory_json["superpotential"]
+    )
+    edges: dict[tuple[int, int], int] = {}
+    for a in theory_json["arrows"]:
+        key = (ranks[int(a["source"])], ranks[int(a["target"])])
+        edges[key] = edges.get(key, 0) + 1
+    return (
+        tuple(sorted(ranks)),
+        len(theory_json["arrows"]),
+        tuple(wterms),
+        tuple(sorted(edges.items())),
+    )
 
 
 def theory_size(theory_json: Mapping[str, Any]) -> dict[str, int]:

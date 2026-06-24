@@ -25,7 +25,7 @@ from dualitycert.experiments.perturbations import (
     apply_single_positive_edit,
 )
 from dualitycert.experiments.seeds import SeedSpec, default_seed_specs, dp0_electric
-from dualitycert.experiments.seed_catalog import spp_electric
+from dualitycert.experiments.seed_catalog import dp1_electric, spp_electric
 
 
 def _mvp_config(**kw) -> ExperimentConfig:
@@ -154,6 +154,32 @@ def test_dp0_depth2_now_generates_certified_positive(tmp_path):
     assert d2_pos[0].label == "CERTIFIED"
     assert d2_pos[0].chain_depth == 2
     assert len(set(d2_pos[0].mutation_node_sequence)) == 2  # genuine, not a round-trip
+
+
+def test_dp1_depth2_consistent_chain_generates_certified_positive(tmp_path):
+    # Irrational-superconformal-R dP_1 yields a GENUINE depth-2 positive via the
+    # consistent-R chain fallback (one propagated seed R, seed-isomorphic finals
+    # rejected) -- the standard chain fails it with adjacent_verifier_failed.
+    cfg = ExperimentConfig(
+        name="depthtest",
+        depths=(2,),
+        fixture_classes=("positive",),
+        n_per_cell=1,
+        seed=7,
+        chain=ChainConfig(),
+    )
+    res = generate_fixtures(
+        cfg, out_dir=tmp_path,
+        seed_specs=[SeedSpec("dp1", dp1_electric, node=0, N=2)],
+        generated_at="t", git_commit="c", allow_incomplete_cells=True,
+    )
+    d2_pos = [
+        r for r in res.manifest if r.depth == 2 and r.perturbation_class == "positive"
+    ]
+    assert d2_pos, "dp1 should yield a consistent-R depth-2 positive"
+    assert d2_pos[0].label == "CERTIFIED"
+    assert d2_pos[0].chain_depth == 2
+    assert len(set(d2_pos[0].mutation_node_sequence)) == 2  # genuine
 
 
 def test_decoupled_edit_matches_mvp_generator(tmp_path):

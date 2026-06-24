@@ -20,7 +20,7 @@ import json
 import subprocess
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from itertools import combinations
+from itertools import combinations, product
 from pathlib import Path
 from random import Random
 from typing import Any, Mapping
@@ -31,7 +31,9 @@ from dualitycert.experiments.chains import (
     _chain_id,
     canonical_theory_hash,
     generate_mutation_chain,
+    iso_signature,
     seiberg_dual_consistent,
+    seiberg_dual_consistent_chain,
 )
 from dualitycert.experiments.config import ExperimentConfig
 from dualitycert.experiments.manifest import (
@@ -92,6 +94,38 @@ class GenerationResult:
         for r in self.manifest:
             counts[r.perturbation_class] = counts.get(r.perturbation_class, 0) + 1
         return counts
+
+
+@dataclass(frozen=True)
+class _ConsistentChainOutcome:
+    """A successful depth>=2 consistent-R chain, adapted to the fields the main
+    generation loop sets for a positive (the consistent electric carries the
+    propagated seed R, so `electric` is shifted vs `spec.electric()`)."""
+
+    electric: dict[str, Any]
+    magnetic: dict[str, Any]
+    node_sequence: tuple[int, ...]
+    depth_realized: int
+    intermediate_hashes: tuple[str, ...]
+    final_hash: str
+    chain_id: str
+    chain_seed_id: int
+
+
+def _candidate_sequences(
+    n_nodes: int, depth: int, prefer: int
+) -> list[tuple[int, ...]]:
+    """Deterministic node sequences of length `depth` with no consecutive
+    repeats (a consecutive repeat is a Seiberg involution / round-trip).
+    Sequences opening at `prefer` come first, then lexicographic."""
+
+    seqs = [
+        combo
+        for combo in product(range(n_nodes), repeat=depth)
+        if all(combo[i] != combo[i + 1] for i in range(depth - 1))
+    ]
+    seqs.sort(key=lambda s: (s[0] != prefer, s))
+    return seqs
 
 
 def generate_fixtures(
@@ -280,6 +314,66 @@ def generate_fixtures(
             last = chain
         return last  # all attempts failed; carries the last attrition_reason
 
+    def _attempt_consistent_chain(
+        electric: Mapping[str, Any], depth: int, spec: SeedSpec, si: int
+    ) -> _ConsistentChainOutcome | None:
+        """depth>=2 fallback for irrational-superconformal-R families (dP_1 /
+        dP_2): build a CONSISTENT-R chain (one propagated seed R) along the
+        first node sequence that fully certifies and is not seed-isomorphic.
+
+        Tries `seiberg_dual_consistent_chain` over candidate node sequences,
+        verifies every adjacent pair + the seed-to-final pair under judge-①
+        (`structural_vc`), and rejects a final theory whose iso-signature
+        matches the seed or any intermediate (a trivial / round-trip dual).
+        Returns the adapted outcome, or None -> the caller routes to attrition.
+        """
+
+        n_nodes = len(electric["ranks"])
+        chain_seed = _stable_seed(config.seed, depth, si, "cchain")
+        # The consistent-R search is a deterministic sweep over node sequences
+        # (cheap: one R-solve + propagation each), NOT the rng-retry budget the
+        # standard chain uses -- so use a dedicated bound large enough to cover
+        # every depth-2 sequence on the in-scope quivers (<= 8 nodes -> <= 56).
+        for seq in _candidate_sequences(n_nodes, depth, spec.node)[:64]:
+            cc = seiberg_dual_consistent_chain(electric, list(seq))
+            if not cc.ok:
+                continue
+            theories = list(cc.theories)
+            electric_c, magnetic = theories[0], theories[-1]
+            # Triviality guard (Codex review): reject if ANY two chain states
+            # share an iso-signature -- not just final-vs-prior. A pairwise
+            # collision is a trivial sub-loop (e.g. T_2 isomorphic to T_0 at
+            # depth>=3) that would inflate the realized depth; pairwise rejection
+            # is the fail-closed version. (Exact rank-preserving quiver+W
+            # isomorphism is the deferred refinement.)
+            sigs = [iso_signature(t) for t in theories]
+            if len(set(sigs)) < len(sigs):
+                continue
+            adjacent = [
+                run_verifier(theories[i], theories[i + 1], structural_vc)
+                for i in range(len(theories) - 1)
+            ]
+            if not all(o.is_certified for o in adjacent):
+                continue
+            if not run_verifier(electric_c, magnetic, structural_vc).is_certified:
+                continue
+            final_hash = canonical_theory_hash(magnetic)
+            return _ConsistentChainOutcome(
+                electric=dict(electric_c),
+                magnetic=dict(magnetic),
+                node_sequence=tuple(int(n) for n in seq),
+                depth_realized=depth,
+                intermediate_hashes=tuple(
+                    canonical_theory_hash(t) for t in theories
+                ),
+                final_hash=final_hash,
+                chain_id=_chain_id(
+                    spec.source_name, chain_seed, list(seq), final_hash, depth
+                ),
+                chain_seed_id=chain_seed,
+            )
+        return None
+
     single_classes = [
         c
         for c in config.fixture_classes
@@ -328,7 +422,27 @@ def generate_fixtures(
                 chain_seed_id: int = chain_seed
             else:
                 chain = _attempt_chain(electric, depth, spec, si)
-                if chain is None or not chain.success:
+                # depth>=2: if the standard chain fails -- e.g. the irrational-R
+                # families dp1/dp2, whose per-step independent R-repair breaks
+                # 't Hooft / central-charge matching (adjacent_verifier_failed) --
+                # fall back to a consistent-R chain (one propagated seed R, with
+                # seed-isomorphic finals rejected). dp0/F_0 succeed above, so they
+                # never reach this and stay byte-for-byte identical.
+                cc = (
+                    _attempt_consistent_chain(electric, depth, spec, si)
+                    if depth >= 2 and (chain is None or not chain.success)
+                    else None
+                )
+                if cc is not None:
+                    electric = cc.electric
+                    positive_candidate = cc.magnetic
+                    node_sequence = cc.node_sequence
+                    depth_realized = cc.depth_realized
+                    intermediate_hashes = cc.intermediate_hashes
+                    final_hash = cc.final_hash
+                    chain_id = cc.chain_id
+                    chain_seed_id = cc.chain_seed_id
+                elif chain is None or not chain.success:
                     reason = (
                         chain.attrition_reason if chain is not None else "max_attempts_exceeded"
                     ) or "no_valid_mutation_nodes"
@@ -354,14 +468,14 @@ def generate_fixtures(
                         )
                     )
                     continue
-
-                positive_candidate = chain.final_theory
-                node_sequence = chain.node_sequence
-                depth_realized = chain.depth_realized
-                intermediate_hashes = chain.intermediate_hashes
-                final_hash = chain.final_theory_hash
-                chain_id = chain.chain_id
-                chain_seed_id = chain.seed_id
+                else:
+                    positive_candidate = chain.final_theory
+                    node_sequence = chain.node_sequence
+                    depth_realized = chain.depth_realized
+                    intermediate_hashes = chain.intermediate_hashes
+                    final_hash = chain.final_theory_hash
+                    chain_id = chain.chain_id
+                    chain_seed_id = chain.seed_id
 
             # Judge ②a: under the "superconformal" R-charge policy the claim
             # must carry THE superconformal (a-maximized) R. Substitute it into
