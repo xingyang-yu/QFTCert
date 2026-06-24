@@ -284,6 +284,13 @@ def generate_fixtures(
         c
         for c in config.fixture_classes
         if PERTURBATION_REGISTRY[c].arity == "single"
+        # Judge ②b ("computed"): the verifier recomputes the R from structure,
+        # so an r_charge_perturb edit is a no-op -- it would only attrit as a
+        # silent miss. Drop it from the negative set entirely.
+        and not (
+            config.verifier.r_charge_policy == "computed"
+            and c == "r_charge_perturb"
+        )
     ]
     want_positive = "positive" in config.fixture_classes
     want_wrong_pair = "wrong_pair" in config.fixture_classes

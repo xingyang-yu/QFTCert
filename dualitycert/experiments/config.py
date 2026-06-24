@@ -127,12 +127,17 @@ class VerifierConfig:
     chiral_ring_grading: str = "auto"
     # R-charge cutoff for r_charge grading (string-encoded Fraction).
     chiral_ring_max_r_charge: str = "2"
-    # How the claim's R-charge is treated (judge ① vs ②a):
+    # How the claim's R-charge is treated (judge ① / ②a / ②b):
     #   "given"         : trust the claimed R (only consistency is checked) — the
     #                     locked default; the structural checks use it directly.
-    #   "superconformal": the claim must provide the SUPERCONFORMAL R; a-max
-    #                     audits it (kill before duality if wrong) and the
-    #                     structural checks run on a rational-feasible proxy.
+    #   "superconformal": (judge ②a) the claim must provide THE superconformal R;
+    #                     a-max audits it (kill before the duality comparison if
+    #                     wrong). The structural checks run on that algebraic R.
+    #   "computed"      : (judge ②b) the claimed R is ignored; the verifier
+    #                     recomputes the superconformal R from each side's
+    #                     structure (a-max) and runs the structural checks on it.
+    #                     No claimed-R audit; the model commits only to quiver+W,
+    #                     so there is no r_charge_perturb negative class.
     r_charge_policy: str = "given"
 
     def to_dict(self) -> dict[str, Any]:

@@ -25,6 +25,7 @@ from typing import Any, Mapping
 
 from dualitycert.core.objects import DualityClaim
 from dualitycert.experiments.config import VerifierConfig
+from dualitycert.qft.a_maximization import with_superconformal_r
 from dualitycert.qft.dualities import evaluate_claim
 from dualitycert.qft.pure_quiver_json import (
     PureQuiverJSONError,
@@ -159,6 +160,20 @@ def run_verifier(
     convention) is caught and returned as status "ERROR" so callers route
     to attrition rather than crash.
     """
+
+    # Judge ②b ("computed"): the claimed R is not authoritative. Recompute the
+    # superconformal R from each side's STRUCTURE (a-max) and verify on that, so
+    # the model only commits to quiver + matter + W. a-max being unable to
+    # resolve a side (or a missing sympy extra) -> ERROR, which the caller routes
+    # to attrition, exactly like malformed JSON. Other policies are untouched.
+    if config.r_charge_policy == "computed":
+        try:
+            electric_json = with_superconformal_r(dict(electric_json))
+            candidate_json = with_superconformal_r(dict(candidate_json))
+        except Exception as exc:  # a-max unresolved / sympy missing / malformed
+            return VerifierOutcome(
+                status="ERROR", error=f"computed-R: {type(exc).__name__}: {exc}"
+            )
 
     try:
         electric_theory = pure_quiver_from_json(dict(electric_json))
