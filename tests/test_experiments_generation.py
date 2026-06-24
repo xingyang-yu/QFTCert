@@ -25,6 +25,7 @@ from dualitycert.experiments.perturbations import (
     apply_single_positive_edit,
 )
 from dualitycert.experiments.seeds import SeedSpec, default_seed_specs, dp0_electric
+from dualitycert.experiments.seed_catalog import spp_electric
 
 
 def _mvp_config(**kw) -> ExperimentConfig:
@@ -84,6 +85,10 @@ def test_generation_is_deterministic(tmp_path):
 # dp0-only seed + small chain budget: dp0 depth-2 fails fast at the
 # engine level (no verifier calls), keeping these tests quick.
 _DP0_SPEC = [SeedSpec("dp0_toric", dp0_electric, node=0, N=3)]
+# SPP still cannot be re-mutated at depth 2 (its second-step F-equation needs
+# a quadratic / multi-field elimination beyond current engine scope), so it is
+# the standing "empty depth-2 cell" example now that dp0 succeeds.
+_SPP_SPEC = [SeedSpec("spp", spp_electric, node=0, N=2)]
 
 
 def _depth_cfg(depths, **kw):
@@ -99,12 +104,12 @@ def _depth_cfg(depths, **kw):
 
 
 def test_strict_completeness_raises_on_empty_depth2_cell(tmp_path):
-    # Strict by default: depth-2 cells stay empty (dp0 cannot re-mutate),
-    # so the post-generation completeness check fails loudly.
+    # Strict by default: a seed whose depth-2 cell stays empty (spp cannot be
+    # re-mutated yet) makes the post-generation completeness check fail loudly.
     cfg = _depth_cfg((1, 2))
     with pytest.raises(IncompleteCellsError):
         generate_fixtures(
-            cfg, out_dir=tmp_path, seed_specs=_DP0_SPEC,
+            cfg, out_dir=tmp_path, seed_specs=_SPP_SPEC,
             generated_at="t", git_commit="c",
         )
 
@@ -112,10 +117,10 @@ def test_strict_completeness_raises_on_empty_depth2_cell(tmp_path):
 def test_depth2_attrition_is_precise_when_allowed(tmp_path):
     cfg = _depth_cfg((1, 2))
     res = generate_fixtures(
-        cfg, out_dir=tmp_path, seed_specs=_DP0_SPEC, generated_at="t",
+        cfg, out_dir=tmp_path, seed_specs=_SPP_SPEC, generated_at="t",
         git_commit="c", allow_incomplete_cells=True,
     )
-    # depth-1 main fixtures exist; depth-2 produced none on dp0.
+    # depth-1 main fixtures exist; depth-2 produced none on spp.
     assert all(r.depth == 1 for r in res.manifest)
     assert any(r.depth == 1 for r in res.manifest)
     reasons = {a.attrition_reason for a in res.attrition}
@@ -125,6 +130,30 @@ def test_depth2_attrition_is_precise_when_allowed(tmp_path):
         a.depth == 2 and a.attrition_reason == "single_step_mutation_failed"
         for a in res.attrition
     )
+
+
+def test_dp0_depth2_now_generates_certified_positive(tmp_path):
+    # The multi-term F-term integration unblocks GENUINE depth-2 on dp0: a
+    # second mutation at a DIFFERENT node, certified end to end.
+    cfg = ExperimentConfig(
+        name="depthtest",
+        depths=(1, 2),
+        fixture_classes=("positive", "drop_w_term"),
+        n_per_cell=1,
+        seed=7,
+        chain=ChainConfig(max_chain_attempts_per_cell=8),
+    )
+    res = generate_fixtures(
+        cfg, out_dir=tmp_path, seed_specs=_DP0_SPEC, generated_at="t",
+        git_commit="c", allow_incomplete_cells=True,
+    )
+    d2_pos = [
+        r for r in res.manifest if r.depth == 2 and r.perturbation_class == "positive"
+    ]
+    assert d2_pos, "dp0 should now yield a genuine depth-2 positive"
+    assert d2_pos[0].label == "CERTIFIED"
+    assert d2_pos[0].chain_depth == 2
+    assert len(set(d2_pos[0].mutation_node_sequence)) == 2  # genuine, not a round-trip
 
 
 def test_decoupled_edit_matches_mvp_generator(tmp_path):

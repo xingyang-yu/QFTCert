@@ -208,12 +208,17 @@ class ChainConfig:
     max_json_token_estimate: int = 8000
     allow_repeated_states: bool = False
     forbid_immediate_backtracking: bool = True
+    # Reject dualizing the SAME node twice in a row: a Seiberg involution that
+    # round-trips to the start theory (a trivial, distance-0 "depth-2"). Slips
+    # past forbid_immediate_backtracking because the round trip lands on a
+    # different rational R-representative (different hash).
+    forbid_consecutive_same_node: bool = True
     verify_adjacent_steps: bool = True
     verify_seed_to_final: bool = True
     save_intermediate_theories: bool = True
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "max_chain_attempts_per_cell": int(self.max_chain_attempts_per_cell),
             "max_attempts_per_step": int(self.max_attempts_per_step),
             "max_gauge_nodes": int(self.max_gauge_nodes),
@@ -226,6 +231,11 @@ class ChainConfig:
             "verify_seed_to_final": bool(self.verify_seed_to_final),
             "save_intermediate_theories": bool(self.save_intermediate_theories),
         }
+        # Serialize only when non-default so existing configs keep a byte-for-
+        # byte identical dict (and config hash).
+        if not self.forbid_consecutive_same_node:
+            payload["forbid_consecutive_same_node"] = False
+        return payload
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "ChainConfig":
@@ -251,6 +261,11 @@ class ChainConfig:
             forbid_immediate_backtracking=bool(
                 data.get(
                     "forbid_immediate_backtracking", d.forbid_immediate_backtracking
+                )
+            ),
+            forbid_consecutive_same_node=bool(
+                data.get(
+                    "forbid_consecutive_same_node", d.forbid_consecutive_same_node
                 )
             ),
             verify_adjacent_steps=bool(

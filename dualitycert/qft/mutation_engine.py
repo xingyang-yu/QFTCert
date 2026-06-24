@@ -473,41 +473,52 @@ def _integration_pass(
             # row[pivot_col] · pivot_var + row[j] · columns[j] + ... = 0
             # pivot_var = -row[j] / pivot_coeff · columns[j] + ...
             non_pivot_terms.append((columns[j], -coeff / pivot_coeff))
-        # MVP requires that the substitution is a single-term identification
-        # (so e.g. M_{(2,1)} = M_{(1,2)} works, but M = X + Y does not).
-        if len(non_pivot_terms) != 1:
-            raise MutationEngineError(
-                f"pivot {pivot_var!r} needs nontrivial substitution "
-                f"(non-pivot terms: {non_pivot_terms!r}); MVP only handles "
-                "single-term identifications"
-            )
+        # The F-equation expresses this pivot as a linear combination of the
+        # free (non-pivot) fields: pivot = sum(coeff · field). RREF guarantees
+        # the right-hand side uses only non-pivot columns, so a replacement is
+        # never itself substituted again. The list may be:
+        #   - empty  : a zero-mode — the pivot is forced to 0, so any monomial
+        #              containing it vanishes (drops out of W);
+        #   - one    : an identification, e.g. M_{(2,1)} = c·M_{(1,2)};
+        #   - several: a genuine linear combination (arises once a SECOND
+        #              mutation produces multi-term mass couplings). The
+        #              W-substitution below distributes products of sums.
         substitutions[pivot_var] = non_pivot_terms
 
     # ------------------------------------------------------------------
     # Apply substitutions in W; drop W terms containing siblings.
     # ------------------------------------------------------------------
-    new_W: list[dict[str, Any]] = []
     sibling_set = set(sibling_labels)
+    expanded: list[dict[str, Any]] = []
     for term in superpotential:
         if any(f in sibling_set for f in term["factors"]):
             # The linear field F-equation collapses these terms to 0
             # in the chiral ring (mass-pair integration).
             continue
-        new_factors = []
-        coeff_multiplier = Fraction(1)
+        # Distribute over each factor's substitution options. A normal field
+        # has the single option (itself, ×1); a pivot expands into its
+        # F-equation terms. An empty option list (zero-mode pivot) kills the
+        # whole monomial. A pivot with several terms makes a product of sums,
+        # so the cartesian product fans the monomial into several monomials.
+        partials: list[tuple[list[str], Fraction]] = [
+            ([], Fraction(term["coefficient"]))
+        ]
         for f in term["factors"]:
-            if f in substitutions:
-                replacement, mult = substitutions[f][0]
-                new_factors.append(replacement)
-                coeff_multiplier *= mult
-            else:
-                new_factors.append(f)
-        new_W.append(
-            {
-                "factors": new_factors,
-                "coefficient": term["coefficient"] * coeff_multiplier,
-            }
+            options = substitutions[f] if f in substitutions else [(f, Fraction(1))]
+            partials = [
+                (labels + [label], coeff * mult)
+                for labels, coeff in partials
+                for label, mult in options
+            ]
+            if not partials:
+                break  # a zero-mode pivot eliminated this monomial
+        expanded.extend(
+            {"factors": factors, "coefficient": coeff} for factors, coeff in partials
         )
+    # Sum cyclically-equal monomials and drop any that cancel to zero. For the
+    # single-term path (len<=1, no fan-out) this is a no-op, so depth-1
+    # generation stays byte-for-byte identical.
+    new_W = _collect_cyclic_terms(expanded)
 
     # ------------------------------------------------------------------
     # Drop linear-field siblings and pivot columns from the arrows list.

@@ -173,22 +173,21 @@ def test_chain_depth1_real_reproduces_single_move():
     )
 
 
-def test_chain_depth2_returns_result_not_raises_on_dp0():
-    # dp0's magnetic dual cannot be re-mutated in MVP scope: honest
-    # attrition, NOT a DepthNotImplemented placeholder, and no exception.
+def test_chain_depth2_succeeds_genuine_on_dp0():
+    # dp0's magnetic dual CAN now be re-mutated (multi-term F-term
+    # integration): a GENUINE depth-2 dual at a different second node,
+    # certified end to end -- not a same-node Seiberg involution / round-trip.
     res = generate_mutation_chain(
         dp0_electric(3), 2, Random(1), ChainConfig(), source_name="dp0", node=0,
         seed_id=1,
     )
     assert isinstance(res, MutationChainResult)
-    assert res.success is False
-    assert res.attrition_reason in {
-        "single_step_mutation_failed",
-        "adjacent_verifier_failed",
-        "adjacent_verifier_unknown",
-        "no_valid_mutation_nodes",
-    }
-    assert res.attrition_reason != "depth_not_implemented"
+    assert res.success is True
+    assert res.depth_realized == 2
+    # genuine: the two moves are at different nodes (no consecutive involution)
+    assert res.node_sequence[0] != res.node_sequence[1]
+    assert res.verifier_status_seed_to_final == "CERTIFIED"
+    assert all(s == "CERTIFIED" for s in res.verifier_status_adjacent_steps)
 
 
 @pytest.mark.slow

@@ -558,6 +558,11 @@ def generate_mutation_chain(
         attempts = 0
 
         for n in order:
+            # Dualizing the same node twice in a row is a Seiberg involution
+            # that round-trips to the previous state; skip it (not an attempt)
+            # so the chain spends its budget on genuinely new theories.
+            if cfg.forbid_consecutive_same_node and node_seq and n == node_seq[-1]:
+                continue
             if attempts >= cfg.max_attempts_per_step:
                 break
             attempts += 1
