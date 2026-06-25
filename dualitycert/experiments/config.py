@@ -213,6 +213,12 @@ class ChainConfig:
     # past forbid_immediate_backtracking because the round trip lands on a
     # different rational R-representative (different hash).
     forbid_consecutive_same_node: bool = True
+    # Reject a depth>=2 chain in which any two states are quiver+W isomorphic
+    # (node relabeling + diagonal field redefinition): a trivial sub-loop that
+    # makes a distance-<K chain masquerade as depth-K. Catches the sign/phase-
+    # flip self-dualities the `canonical_theory_hash`/signature dedup misses
+    # (e.g. dP_1 node-0 duality, a self-duality of its unique toric phase).
+    reject_isomorphic_states: bool = True
     verify_adjacent_steps: bool = True
     verify_seed_to_final: bool = True
     save_intermediate_theories: bool = True
@@ -235,6 +241,8 @@ class ChainConfig:
         # byte identical dict (and config hash).
         if not self.forbid_consecutive_same_node:
             payload["forbid_consecutive_same_node"] = False
+        if not self.reject_isomorphic_states:
+            payload["reject_isomorphic_states"] = False
         return payload
 
     @classmethod
@@ -267,6 +275,9 @@ class ChainConfig:
                 data.get(
                     "forbid_consecutive_same_node", d.forbid_consecutive_same_node
                 )
+            ),
+            reject_isomorphic_states=bool(
+                data.get("reject_isomorphic_states", d.reject_isomorphic_states)
             ),
             verify_adjacent_steps=bool(
                 data.get("verify_adjacent_steps", d.verify_adjacent_steps)

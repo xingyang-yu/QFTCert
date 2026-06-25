@@ -24,6 +24,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from fractions import Fraction
+from itertools import permutations, product
 from random import Random
 from typing import Any, Mapping, Sequence
 
@@ -32,6 +33,7 @@ from dualitycert.experiments.config import ChainConfig, VerifierConfig
 from dualitycert.experiments.verifier import run_verifier
 from dualitycert.qft.mutation_engine import (
     MutationEngineError,
+    _cyclic_canonical,
     integrate_fields,
     mutate_bare,
 )
@@ -57,6 +59,7 @@ __all__ = [
     "legal_mutation_nodes",
     "seiberg_dual_consistent",
     "seiberg_dual_consistent_chain",
+    "theories_isomorphic",
     "theory_size",
 ]
 
@@ -599,6 +602,136 @@ def iso_signature(theory_json: Mapping[str, Any]) -> tuple:
     )
 
 
+def _iso_prefilter(theory_json: Mapping[str, Any]) -> tuple:
+    """A SIGN-INVARIANT necessary signature for quiver+W isomorphism: nothing in
+    it can change under a rank-preserving node relabeling, a parallel-field /
+    singlet bijection, or a diagonal field redefinition (which only rescales
+    coefficients). Unlike `iso_signature` it uses |coeff|, so it does not exclude
+    a sign/phase-flipped isomorph. Differing prefilters => provably not isomorphic.
+    """
+
+    ranks = [int(r) for r in theory_json["ranks"]]
+    edges: dict[tuple[int, int], int] = {}
+    for a in theory_json["arrows"]:
+        key = (ranks[int(a["source"])], ranks[int(a["target"])])
+        edges[key] = edges.get(key, 0) + 1
+    wterms: dict[tuple[int, str], int] = {}
+    for t in theory_json["superpotential"]:
+        key = (len(t["factors"]), str(abs(Fraction(t["coefficient"]))))
+        wterms[key] = wterms.get(key, 0) + 1
+    return (
+        tuple(sorted(ranks)),
+        len(theory_json["arrows"]),
+        len(theory_json.get("singlets", [])),
+        len(theory_json["superpotential"]),
+        tuple(sorted(wterms.items())),
+        tuple(sorted(edges.items())),
+    )
+
+
+def _w_support(
+    superpotential: Sequence[Mapping[str, Any]], field_map: Mapping[str, str]
+) -> dict[tuple[str, ...], int]:
+    """Multiset of cyclic-canonical relabeled factor-tuples, COEFFICIENTS IGNORED
+    (the monomial support of W under `field_map`)."""
+
+    out: dict[tuple[str, ...], int] = {}
+    for t in superpotential:
+        key = _cyclic_canonical(tuple(field_map.get(f, f) for f in t["factors"]))
+        out[key] = out.get(key, 0) + 1
+    return out
+
+
+def theories_isomorphic(
+    a: Mapping[str, Any], b: Mapping[str, Any], *, cap: int = 200_000
+) -> bool:
+    """Fail-closed monomial-presentation isomorphism test for the depth>=2
+    triviality guard.
+
+    Returns True iff some rank-preserving node relabeling + per-edge parallel-arrow
+    bijection + singlet bijection makes the two theories' W MONOMIAL SUPPORTS
+    coincide (COEFFICIENTS IGNORED). This is COMPLETE for node relabeling + diagonal
+    field redefinition: a chiral field redefinition X_i -> lambda_i X_i (lambda in
+    C*, which includes real sign flips AND complex phases) only rescales coefficients
+    and never changes the monomial support. So any genuine isomorph (e.g. dP_1's
+    node-0 self-duality, a sign-flip isomorphism) is NEVER missed -> the guard never
+    admits a trivial (distance-0) pair as a genuine depth-K dual (G1, fail-closed).
+
+    It is deliberately CONSERVATIVE: it also returns True for a same-support pair whose
+    coefficient pattern is NOT field-redefinition-related, over-rejecting a genuine
+    distinct phase that happens to share monomial structure (pure yield loss). Two
+    further documented limits, both G1-safe (only ever over-reject for the engine's
+    outputs): the exact C* coefficient solve (which would recover those same-support
+    distinct phases) is deferred; and non-diagonal GL mixing of parallel fields that
+    CHANGES the support is not modeled (the deterministic engine emits only diagonal /
+    permutation-related returns). Cap-exceeded -> True (fail-closed).
+    """
+
+    if _iso_prefilter(a) != _iso_prefilter(b):
+        return False
+
+    ranks_a = [int(r) for r in a["ranks"]]
+    ranks_b = [int(r) for r in b["ranks"]]
+    arrows_a = [(x["label"], int(x["source"]), int(x["target"])) for x in a["arrows"]]
+    arrows_b = [(x["label"], int(x["source"]), int(x["target"])) for x in b["arrows"]]
+    singlets_a = [s["label"] for s in a.get("singlets", [])]
+    singlets_b = [s["label"] for s in b.get("singlets", [])]
+    target = _w_support(b["superpotential"], {})
+
+    # Rank-preserving node bijections a-node -> b-node (only permute equal ranks).
+    b_by_rank: dict[int, list[int]] = {}
+    for j, r in enumerate(ranks_b):
+        b_by_rank.setdefault(r, []).append(j)
+    a_by_rank: dict[int, list[int]] = {}
+    for i, r in enumerate(ranks_a):
+        a_by_rank.setdefault(r, []).append(i)
+    per_rank: list[list[dict[int, int]]] = []
+    for r, a_idx in a_by_rank.items():
+        b_idx = b_by_rank.get(r, [])
+        if len(a_idx) != len(b_idx):
+            return False
+        per_rank.append([dict(zip(a_idx, p)) for p in permutations(b_idx)])
+
+    count = 0
+    for combo in product(*per_rank):
+        pi: dict[int, int] = {}
+        for d in combo:
+            pi.update(d)
+        # Bucket arrows by permuted edge; per-edge counts must match b's.
+        a_buckets: dict[tuple[int, int], list[str]] = {}
+        b_buckets: dict[tuple[int, int], list[str]] = {}
+        for lab, s, t in arrows_a:
+            a_buckets.setdefault((pi[s], pi[t]), []).append(lab)
+        for lab, s, t in arrows_b:
+            b_buckets.setdefault((s, t), []).append(lab)
+        if {k: len(v) for k, v in a_buckets.items()} != {
+            k: len(v) for k, v in b_buckets.items()
+        }:
+            continue
+        edges = list(a_buckets)
+        per_edge = [
+            [
+                {a_buckets[e][i]: b_buckets[e][p[i]] for i in range(len(a_buckets[e]))}
+                for p in permutations(range(len(b_buckets[e])))
+            ]
+            for e in edges
+        ]
+        singlet_maps = [
+            {singlets_a[i]: sp[i] for i in range(len(singlets_a))}
+            for sp in permutations(singlets_b)
+        ] or [{}]
+        for choice in product(*per_edge, singlet_maps):
+            count += 1
+            if count > cap:
+                return True  # fail-closed: too large to decide -> treat as iso
+            field_map: dict[str, str] = {}
+            for d in choice:
+                field_map.update(d)
+            if _w_support(a["superpotential"], field_map) == target:
+                return True
+    return False
+
+
 def theory_size(theory_json: Mapping[str, Any]) -> dict[str, int]:
     """Coarse size metrics used for budget checks + covariates."""
 
@@ -750,6 +883,18 @@ def generate_mutation_chain(
                 continue
             if (not cfg.allow_repeated_states) and chash in hashes:
                 last_reject = "repeated_state_rejected"
+                continue
+            # Triviality guard (depth>=2): reject a candidate that is quiver+W
+            # isomorphic (node relabeling + diagonal field redefinition) to ANY
+            # earlier chain state -- a trivial sub-loop the canonical-JSON hash
+            # misses (e.g. a sign/phase-flip self-duality). Gated depth>=2 so
+            # depth-1 generation is byte-identical.
+            if (
+                cfg.reject_isomorphic_states
+                and depth >= 2
+                and any(theories_isomorphic(cand, t) for t in theories)
+            ):
+                last_reject = "trivial_isomorphic_state"
                 continue
             if _exceeds_size(cand, cfg):
                 last_reject = "exceeds_size_budget"

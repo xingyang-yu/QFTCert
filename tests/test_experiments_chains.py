@@ -9,6 +9,8 @@ slow real depth-2 success path on F_0 is marked `slow`.
 
 from __future__ import annotations
 
+import json
+from fractions import Fraction
 from random import Random
 
 import pytest
@@ -20,6 +22,7 @@ from dualitycert.experiments.chains import (
     generate_mutation_chain,
     legal_mutation_nodes,
     seiberg_dual_consistent_chain,
+    theories_isomorphic,
 )
 from dualitycert.experiments.config import ChainConfig, VerifierConfig
 from dualitycert.experiments.seed_catalog import dp1_electric, spp_electric
@@ -71,7 +74,11 @@ def _always_certified(a, b, vcfg) -> VerifierOutcome:
 
 
 def _stub_chain(transitions, depth, *, cfg=None, seed=0):
-    cfg = cfg or ChainConfig()
+    # Stub states encode identity in r_charge (which the quiver+W isomorphism guard
+    # correctly IGNORES) and carry an empty W, so every stub state is trivially
+    # iso to every other. These tests exercise the COMPOSITION mechanics, not the
+    # triviality guard, so disable it here (the guard is tested on real physics).
+    cfg = cfg or ChainConfig(reject_isomorphic_states=False)
     return generate_mutation_chain(
         _mk(0),
         depth,
@@ -118,7 +125,11 @@ def test_stub_repeated_state_rejected():
 def test_stub_allow_repeated_states_permits_revisit():
     t = {(0, n): 1 for n in range(3)}
     t.update({(1, n): 1 for n in range(3)})
-    cfg = ChainConfig(allow_repeated_states=True, forbid_immediate_backtracking=False)
+    cfg = ChainConfig(
+        allow_repeated_states=True,
+        forbid_immediate_backtracking=False,
+        reject_isomorphic_states=False,  # stub states are all mutually iso (see _stub_chain)
+    )
     res = _stub_chain(t, 2, cfg=cfg)
     assert res.success is True
     assert _state_of(res.final_theory) == 1
@@ -237,8 +248,11 @@ def test_chain_depth2_real_success_on_f0_seed_to_final():
 def test_consistent_chain_dp1_depth2_certifies_genuine():
     # The consistent-R chain gives dP_1 (irrational superconformal R) a GENUINE
     # depth-2 dual: one seed R, propagated, keeps every step anomaly-free, so
-    # both adjacent pairs and the seed-to-final pair certify over Q.
-    res = seiberg_dual_consistent_chain(dp1_electric(2), [0, 1])
+    # both adjacent pairs and the seed-to-final pair certify over Q. Sequence (2,0)
+    # is genuine (all 3 states pairwise non-isomorphic); note (0,1) certifies too
+    # but is TRIVIAL -- dP_1's node-0 duality is a self-duality of its unique toric
+    # phase (T0 ~ T1), so the triviality guard rejects it (see _dp1_node0_self_dual).
+    res = seiberg_dual_consistent_chain(dp1_electric(2), [2, 0])
     assert res.ok and len(res.theories) == 3
     vc = VerifierConfig()
     assert all(
@@ -246,8 +260,54 @@ def test_consistent_chain_dp1_depth2_certifies_genuine():
         for i in range(2)
     )
     assert run_verifier(res.theories[0], res.theories[-1], vc).is_certified
-    # genuine: the final theory differs structurally from the seed
-    assert res.theories[-1]["ranks"] != res.theories[0]["ranks"]
+    # genuine: every pair of chain states is quiver+W non-isomorphic
+    assert not any(
+        theories_isomorphic(res.theories[i], res.theories[j])
+        for i in range(3)
+        for j in range(i + 1, 3)
+    )
+
+
+def test_dp1_node0_self_dual_is_rejected_as_trivial():
+    # dP_1 has a UNIQUE toric phase, so dualizing the rank-preserving node 0 is a
+    # self-duality: T1 is quiver+W isomorphic to T0 (node relabeling + sign flips),
+    # which the sign-blind canonical-hash / signed-signature dedup misses. The exact
+    # `theories_isomorphic` catches it, so the (0,1) chain is a trivial sub-loop.
+    res = seiberg_dual_consistent_chain(dp1_electric(2), [0, 1])
+    assert res.ok
+    assert theories_isomorphic(res.theories[0], res.theories[1])
+    # ...while the genuine (2,0) chain's first step is NOT a self-duality.
+    gen = seiberg_dual_consistent_chain(dp1_electric(2), [2, 0])
+    assert gen.ok
+    assert not theories_isomorphic(gen.theories[0], gen.theories[1])
+
+
+def test_theories_isomorphic_contract():
+    # A node relabeling (0<->2 swap) + arbitrary arrow renaming is isomorphic;
+    # a per-field SIGN flip is too (coefficients are ignored); a genuinely
+    # different W (extra/changed monomial) is not.
+    dp0 = dp0_electric(3)
+    assert theories_isomorphic(dp0, dp0)  # identity
+
+    relabeled = json.loads(json.dumps(dp0))
+    perm = [0, 2, 1]
+    ren = {a["label"]: f"Z{i}" for i, a in enumerate(relabeled["arrows"])}
+    for a in relabeled["arrows"]:
+        a["source"], a["target"] = perm[int(a["source"])], perm[int(a["target"])]
+        a["label"] = ren[a["label"]]
+    for t in relabeled["superpotential"]:
+        t["factors"] = [ren.get(f, f) for f in t["factors"]]
+    assert theories_isomorphic(dp0, relabeled)  # relabel + rename
+
+    flipped = json.loads(json.dumps(dp0))
+    for t in flipped["superpotential"]:
+        t["coefficient"] = str(-Fraction(t["coefficient"]))  # global sign flip
+    assert theories_isomorphic(dp0, flipped)  # sign pattern ignored
+
+    assert not theories_isomorphic(dp0, f0_phase_ii_electric(3))  # genuinely distinct
+    dropped = json.loads(json.dumps(dp0))
+    dropped["superpotential"] = dropped["superpotential"][:-1]  # different #W-terms
+    assert not theories_isomorphic(dp0, dropped)
 
 
 def test_consistent_chain_reports_no_solution_without_raising():

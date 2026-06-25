@@ -31,9 +31,9 @@ from dualitycert.experiments.chains import (
     _chain_id,
     canonical_theory_hash,
     generate_mutation_chain,
-    iso_signature,
     seiberg_dual_consistent,
     seiberg_dual_consistent_chain,
+    theories_isomorphic,
 )
 from dualitycert.experiments.config import ExperimentConfig
 from dualitycert.experiments.manifest import (
@@ -340,14 +340,19 @@ def generate_fixtures(
                 continue
             theories = list(cc.theories)
             electric_c, magnetic = theories[0], theories[-1]
-            # Triviality guard (Codex review): reject if ANY two chain states
-            # share an iso-signature -- not just final-vs-prior. A pairwise
-            # collision is a trivial sub-loop (e.g. T_2 isomorphic to T_0 at
-            # depth>=3) that would inflate the realized depth; pairwise rejection
-            # is the fail-closed version. (Exact rank-preserving quiver+W
-            # isomorphism is the deferred refinement.)
-            sigs = [iso_signature(t) for t in theories]
-            if len(set(sigs)) < len(sigs):
+            # Triviality guard: reject if ANY two chain states are quiver+W
+            # isomorphic (node relabeling + diagonal field redefinition) -- a
+            # trivial sub-loop that inflates the realized depth. This is the exact
+            # `theories_isomorphic` (monomial-presentation, sign/phase-aware), which
+            # catches the self-dualities the old signed-signature guard missed: e.g.
+            # dP_1's node-0 duality is a self-duality of its unique toric phase, so
+            # the sequence (0,1) is REJECTED here and the sweep falls through to a
+            # genuine sequence like (2,0).
+            if config.chain.reject_isomorphic_states and any(
+                theories_isomorphic(theories[i], theories[j])
+                for i in range(len(theories))
+                for j in range(i + 1, len(theories))
+            ):
                 continue
             adjacent = [
                 run_verifier(theories[i], theories[i + 1], structural_vc)
