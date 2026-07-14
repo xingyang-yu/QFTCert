@@ -328,9 +328,9 @@ def _critic_feedback(
     )
     user = (
         "Theory A:\n"
-        + json.dumps(dict(electric), indent=2, sort_keys=True)
+        + _prompt_json(electric)
         + "\n\nTheory B:\n"
-        + json.dumps(dict(candidate), indent=2, sort_keys=True)
+        + _prompt_json(candidate)
     )
     try:
         return critic_client.complete(
@@ -423,6 +423,15 @@ def validate_theory_schema(theory_json: Mapping[str, Any]) -> str | None:
 # ----------------------------------------------------------------------
 
 
+def _prompt_json(theory: Mapping[str, Any]) -> str:
+    """Compact JSON for model prompts: ~44% fewer tokens than indent=2
+    (whitespace dominates deeply-nested theory JSONs), which nearly doubles
+    what a free-tier daily token budget can run. Artifact files on disk keep
+    indent=2 for human readability."""
+
+    return json.dumps(dict(theory), sort_keys=True, separators=(",", ":"))
+
+
 def build_repair_user_message(
     electric: Mapping[str, Any],
     candidate: Mapping[str, Any],
@@ -432,10 +441,10 @@ def build_repair_user_message(
 ) -> str:
     parts = [
         "Theory A (electric, target):",
-        json.dumps(dict(electric), indent=2, sort_keys=True),
+        _prompt_json(electric),
         "",
         "Theory B (candidate to repair):",
-        json.dumps(dict(candidate), indent=2, sort_keys=True),
+        _prompt_json(candidate),
         "",
         f"Repair round: {round_idx}",
     ]
