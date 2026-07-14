@@ -232,6 +232,7 @@ class OpenAICompatAdapter:
         *,
         base_url: str | None = None,
         api_key: str | None = None,
+        max_retries: int = 5,
     ) -> None:
         if client is None:
             try:
@@ -246,7 +247,11 @@ class OpenAICompatAdapter:
                 kwargs["base_url"] = base_url
             if api_key is not None:
                 kwargs["api_key"] = api_key
-            client = OpenAI(**kwargs)
+            # Free-tier providers throttle by tokens/minute; the SDK's
+            # exponential backoff honors Retry-After on 429/5xx, so a
+            # higher retry budget turns bursts into waits, not failures
+            # (a raised call is recorded as an invalid fixture).
+            client = OpenAI(max_retries=max_retries, **kwargs)
         self._client = client
 
     def complete(
@@ -282,7 +287,7 @@ class OpenAICompatAdapter:
         max_tokens: int,
     ) -> StructuredLLMResponse:
         start = time.monotonic()
-        response = self._client.chat.completions.create(
+        request = dict(
             model=model,
             max_tokens=max_tokens,
             messages=[
@@ -306,6 +311,26 @@ class OpenAICompatAdapter:
             ],
             tool_choice={"type": "function", "function": {"name": tool_name}},
         )
+        # Some providers (e.g. Groq) return HTTP 400 when the MODEL emits a
+        # malformed function call (code `tool_use_failed`, message "Failed to
+        # call a function" / "tool call validation failed") rather than
+        # surfacing the bad call. Decoding is stochastic, so a couple of fresh
+        # attempts usually recover; persistent failure still raises (recorded
+        # as invalid output — a model that reliably cannot emit a valid call).
+        attempts = 3
+        for attempt in range(attempts):
+            try:
+                response = self._client.chat.completions.create(**request)
+                break
+            except Exception as exc:
+                msg = str(exc).lower()
+                transient = (
+                    "tool_use_failed" in msg
+                    or "failed to call a function" in msg
+                    or "tool call validation failed" in msg
+                )
+                if not transient or attempt == attempts - 1:
+                    raise
         latency_s = time.monotonic() - start
 
         choices = getattr(response, "choices", None) or []
