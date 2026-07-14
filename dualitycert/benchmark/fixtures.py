@@ -204,6 +204,13 @@ def sanitize_for_prompt(
       - ``arrows``          — including the structural ``X{i}{j}[k]``
         labels; these are source/target indexers, not provenance.
       - ``superpotential``  — including coefficients (as stored strings)
+      - ``singlets``        — gauge-singlet fields (``S{u}[k]`` labels are
+        structural, like arrow labels). Emitted only when present and
+        non-empty, mirroring the theory-JSON convention, so singlet-free
+        theories sanitize byte-identically to before. Dropping them
+        would orphan the W terms that reference them: the model would be
+        shown a malformed theory, and a sanitized round-trip through the
+        schema validator / verifier (the repair loop does both) fails.
 
     The input mapping is NOT mutated; the output is a fresh dict with
     fresh inner lists, so the runner can json.dumps() the result
@@ -212,7 +219,7 @@ def sanitize_for_prompt(
 
     ranks = [int(r) for r in theory_json["ranks"]]
     n = len(ranks)
-    return {
+    out: dict[str, Any] = {
         "name": theory_label,
         "node_labels": [f"G{i}" for i in range(n)],
         "ranks": ranks,
@@ -223,6 +230,10 @@ def sanitize_for_prompt(
             for t in theory_json["superpotential"]
         ],
     }
+    singlets = theory_json.get("singlets", [])
+    if singlets:
+        out["singlets"] = [dict(s) for s in singlets]
+    return out
 
 
 # ----------------------------------------------------------------------

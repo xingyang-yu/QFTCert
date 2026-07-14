@@ -99,6 +99,31 @@ def test_repair_abstain(tmp_path):
     assert r.success is False
 
 
+def test_repair_copy_cheat_flagged_not_success(tmp_path):
+    # The identity pair (A, A) trivially CERTIFIES, so replacing Theory B
+    # with a copy of Theory A would otherwise be scored as a successful
+    # repair. The guard flags it (exact canonical hash) and scores failure.
+    cfg, res, root = _dp0_manifest(tmp_path)
+    drop = _by_class(res.manifest, "drop_w_term")
+    electric = json.loads((Path(root) / drop.theory_a_path).read_text())
+
+    def copy_cheat(*, user, tool_name, schema):
+        return {
+            "action": "edit_candidate",
+            "full_theory": electric,
+            "reasoning": "just copy A",
+        }
+
+    client = DryRunModelClient(structured_policy=copy_cheat)
+    r = run_repair_loop(
+        drop, theory_root=root, client=client, config=cfg, arm="verifier_feedback"
+    )
+    assert r.copied_electric is True
+    assert r.success is False
+    summary = score_repair([r], max_rounds=cfg.repair.max_rounds)
+    assert summary["copied_electric_rate"] == 1.0
+
+
 def test_repair_invalid_patch_recorded(tmp_path):
     cfg, res, root = _dp0_manifest(tmp_path)
     drop = _by_class(res.manifest, "drop_w_term")

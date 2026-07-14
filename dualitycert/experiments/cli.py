@@ -59,7 +59,11 @@ def add_subparsers(subparsers) -> None:
     ss.add_argument("--manifest", required=True)
     ss.add_argument("--config", required=True)
     ss.add_argument("--out", required=True)
-    ss.add_argument("--model", default="dryrun", help="dryrun | <anthropic model id>.")
+    ss.add_argument(
+        "--model",
+        default="dryrun",
+        help="dryrun | openai:<model id> (OPENAI_BASE_URL/KEY) | <anthropic model id>.",
+    )
     ss.add_argument("--theory-root", default=None)
     ss.add_argument(
         "--tasks",
@@ -90,7 +94,11 @@ def add_subparsers(subparsers) -> None:
         default="verifier_feedback",
         help="single_shot_repair | generic_retry | llm_critic | verifier_feedback.",
     )
-    rep.add_argument("--model", default="dryrun")
+    rep.add_argument(
+        "--model",
+        default="dryrun",
+        help="dryrun | openai:<model id> (OPENAI_BASE_URL/KEY) | <anthropic model id>.",
+    )
     rep.add_argument("--theory-root", default=None)
     rep.add_argument("--run-id", default=None)
     rep.add_argument(
@@ -124,10 +132,30 @@ def add_subparsers(subparsers) -> None:
 
 
 def _build_client(model: str):
+    """Route a --model string to an LLMClient.
+
+    - "dryrun"              -> offline deterministic client (no API).
+    - "openai:<model-id>"   -> OpenAI-compatible endpoint via the openai
+      SDK; point it at a provider with OPENAI_BASE_URL + OPENAI_API_KEY
+      (OpenRouter / Groq / Gemini-compat / Together / local vLLM...).
+      The "<model-id>" after the prefix is sent as the model name.
+    - anything else         -> Anthropic model id via the anthropic SDK.
+    """
+
     from dualitycert.agent.dryrun import DryRunModelClient
 
     if model == "dryrun":
         return DryRunModelClient(), "dryrun"
+    if model.startswith("openai:"):
+        from dualitycert.agent.client import OpenAICompatAdapter
+
+        model_id = model[len("openai:"):]
+        if not model_id:
+            raise SystemExit(
+                "--model openai: requires a model id, e.g. "
+                "openai:llama-3.3-70b-versatile"
+            )
+        return OpenAICompatAdapter(), model_id
     from dualitycert.agent.client import AnthropicAdapter
 
     return AnthropicAdapter(), model

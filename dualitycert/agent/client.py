@@ -13,12 +13,18 @@ Two concerns share this module:
     arguments back as a validated dict.
 
 Both methods sit on the same `LLMClient` Protocol so any backend can
-drop in. Two implementations ship here:
+drop in. Three implementations ship here:
 
   - AnthropicAdapter — wraps the anthropic SDK (requires
     `pip install -e .[llm]`). Uses the Messages API for `complete` and
     the same Messages API with `tools=[...]` + `tool_choice` for
     `complete_structured`.
+  - OpenAICompatAdapter — wraps the openai SDK (requires
+    `pip install -e .[llm-openai]`) pointed at ANY OpenAI-compatible
+    /chat/completions endpoint: OpenAI itself, OpenRouter, Groq,
+    Together, Gemini's OpenAI-compat layer, local vLLM/Ollama, ...
+    Provider selection is just `base_url` + `api_key` (the SDK also
+    reads OPENAI_BASE_URL / OPENAI_API_KEY from the environment).
   - MockLLMClient   — deterministic; returns canned text from a
     `responses` queue (existing repair-loop semantics) and canned
     structured payloads from a separate `structured_responses` queue
@@ -27,6 +33,7 @@ drop in. Two implementations ship here:
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
@@ -36,6 +43,7 @@ __all__ = [
     "AnthropicAdapter",
     "LLMClient",
     "MockLLMClient",
+    "OpenAICompatAdapter",
     "StructuredLLMResponse",
 ]
 
@@ -189,6 +197,151 @@ class AnthropicAdapter:
         input_tokens = getattr(usage, "input_tokens", None) if usage is not None else None
         output_tokens = (
             getattr(usage, "output_tokens", None) if usage is not None else None
+        )
+
+        return StructuredLLMResponse(
+            data=tool_input,
+            latency_s=latency_s,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            raw_response=response,
+        )
+
+
+class OpenAICompatAdapter:
+    """LLMClient backed by any OpenAI-compatible chat-completions endpoint.
+
+    Works against OpenAI, OpenRouter (`https://openrouter.ai/api/v1`),
+    Groq (`https://api.groq.com/openai/v1`), Together, Gemini's
+    OpenAI-compat layer
+    (`https://generativelanguage.googleapis.com/v1beta/openai/`), and
+    local vLLM / Ollama servers. Pass `base_url` / `api_key` explicitly,
+    or rely on the SDK's OPENAI_BASE_URL / OPENAI_API_KEY environment
+    variables. A pre-built client object can be injected for tests.
+
+    `complete_structured` forces a single function call via
+    `tool_choice={"type": "function", "function": {"name": tool_name}}`
+    and parses the returned JSON arguments. Providers that ignore forced
+    tool choice and return no tool call make this raise — the Protocol
+    contract (no silent empty structured reply) is preserved.
+    """
+
+    def __init__(
+        self,
+        client: Any | None = None,
+        *,
+        base_url: str | None = None,
+        api_key: str | None = None,
+    ) -> None:
+        if client is None:
+            try:
+                from openai import OpenAI
+            except ImportError as exc:
+                raise RuntimeError(
+                    "openai SDK is not installed. Install with: "
+                    "pip install -e .[llm-openai]"
+                ) from exc
+            kwargs: dict[str, Any] = {}
+            if base_url is not None:
+                kwargs["base_url"] = base_url
+            if api_key is not None:
+                kwargs["api_key"] = api_key
+            client = OpenAI(**kwargs)
+        self._client = client
+
+    def complete(
+        self,
+        *,
+        model: str,
+        system: str,
+        user: str,
+        max_tokens: int,
+    ) -> str:
+        response = self._client.chat.completions.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        )
+        choices = getattr(response, "choices", None) or []
+        if not choices:
+            return ""
+        content = getattr(choices[0].message, "content", None)
+        return (content or "").strip()
+
+    def complete_structured(
+        self,
+        *,
+        model: str,
+        system: str,
+        user: str,
+        schema: dict,
+        tool_name: str,
+        max_tokens: int,
+    ) -> StructuredLLMResponse:
+        start = time.monotonic()
+        response = self._client.chat.completions.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool_name,
+                        "description": (
+                            "Return the structured judgment. The arguments "
+                            "object must match the declared parameters schema "
+                            "exactly. Do not produce any output outside this "
+                            "tool call."
+                        ),
+                        "parameters": schema,
+                    },
+                }
+            ],
+            tool_choice={"type": "function", "function": {"name": tool_name}},
+        )
+        latency_s = time.monotonic() - start
+
+        choices = getattr(response, "choices", None) or []
+        tool_input: dict | None = None
+        seen: list[str] = []
+        for choice in choices:
+            for call in getattr(choice.message, "tool_calls", None) or []:
+                fn = getattr(call, "function", None)
+                name = getattr(fn, "name", None)
+                seen.append(str(name))
+                if fn is None or name != tool_name:
+                    continue
+                try:
+                    candidate = json.loads(fn.arguments)
+                except (TypeError, json.JSONDecodeError) as exc:
+                    raise RuntimeError(
+                        f"OpenAI-compat tool call {tool_name!r} returned "
+                        f"unparseable arguments: {exc}"
+                    ) from exc
+                if isinstance(candidate, dict):
+                    tool_input = candidate
+                    break
+            if tool_input is not None:
+                break
+        if tool_input is None:
+            raise RuntimeError(
+                f"OpenAI-compat response did not contain a tool call for "
+                f"{tool_name!r}; got tool calls {seen!r}"
+            )
+
+        usage = getattr(response, "usage", None)
+        input_tokens = (
+            getattr(usage, "prompt_tokens", None) if usage is not None else None
+        )
+        output_tokens = (
+            getattr(usage, "completion_tokens", None) if usage is not None else None
         )
 
         return StructuredLLMResponse(

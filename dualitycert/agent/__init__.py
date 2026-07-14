@@ -4,6 +4,7 @@ from dualitycert.agent.client import (
     AnthropicAdapter,
     LLMClient,
     MockLLMClient,
+    OpenAICompatAdapter,
     StructuredLLMResponse,
 )
 from dualitycert.agent.detection import (
@@ -30,6 +31,7 @@ __all__ = [
     "LLMClient",
     "LLMRepairResult",
     "MockLLMClient",
+    "OpenAICompatAdapter",
     "RepairIteration",
     "StructuredLLMResponse",
     "run_detection",

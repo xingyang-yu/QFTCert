@@ -116,6 +116,31 @@ def test_sanitize_preserves_ranks_arrows_superpotential():
     assert sanitized["u1_globals"] == cand["u1_globals"]
 
 
+def test_sanitize_preserves_singlets_when_present():
+    """Gauge singlets are physical content (their labels are structural,
+    like arrow labels); dropping them orphans the W terms that reference
+    them, which breaks the model prompt AND any sanitized round-trip
+    through the schema validator / verifier (the repair loop does both)."""
+
+    cand = _candidate_theory()
+    cand["singlets"] = [{"label": "S1[0]", "r_charge": "6/5"}]
+    cand["superpotential"] = list(cand["superpotential"]) + [
+        {"factors": ["S1[0]", "X10[0]", "X02[0]"], "coefficient": "1"},
+    ]
+    sanitized = sanitize_for_prompt(cand, theory_label="Theory B")
+    assert sanitized["singlets"] == [{"label": "S1[0]", "r_charge": "6/5"}]
+    # fresh dicts, not aliases
+    assert sanitized["singlets"][0] is not cand["singlets"][0]
+
+
+def test_sanitize_omits_singlets_key_when_absent():
+    """Singlet-free theories must sanitize byte-identically to before the
+    singlets key existed (committed fixture + canonical-hash stability)."""
+
+    sanitized = sanitize_for_prompt(_candidate_theory(), theory_label="Theory B")
+    assert "singlets" not in sanitized
+
+
 def test_sanitize_does_not_mutate_input():
     """Generator code may reuse the same theory dict across many fixtures —
     sanitize_for_prompt must produce a fresh dict (no aliasing)."""

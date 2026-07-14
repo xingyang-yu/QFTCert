@@ -175,10 +175,52 @@ dualitycert run-single-shot --manifest runs/mvp/manifest.jsonl \
     --config configs/mvp.json --model claude-sonnet-4-6 --out runs/mvp_live
 ```
 
-`--model <id>` (anything other than `dryrun`) uses
+`--model <id>` (anything other than `dryrun` or an `openai:` prefix) uses
 `dualitycert.agent.client.AnthropicAdapter`. Any object implementing the
 `LLMClient` protocol (`complete` + `complete_structured`) can be dropped
 in. Unit tests never hit the network.
+
+### OpenAI-compatible providers (incl. free tiers)
+
+`--model openai:<model-id>` uses
+`dualitycert.agent.client.OpenAICompatAdapter` (install with
+`pip install -e .[llm-openai]`), which talks to ANY OpenAI-compatible
+`/chat/completions` endpoint. Point it at a provider with two
+environment variables; the `<model-id>` after the prefix is sent as the
+model name:
+
+```bash
+# Groq (free tier; fast open models)
+export OPENAI_BASE_URL=https://api.groq.com/openai/v1
+export OPENAI_API_KEY=gsk_...
+dualitycert run-repair-loop ... --model openai:llama-3.3-70b-versatile
+
+# OpenRouter (many models, one key; some :free variants)
+export OPENAI_BASE_URL=https://openrouter.ai/api/v1
+export OPENAI_API_KEY=sk-or-...
+dualitycert run-repair-loop ... --model openai:qwen/qwen-2.5-72b-instruct
+
+# Gemini (free tier, OpenAI-compat layer; a frontier baseline for $0)
+export OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+export OPENAI_API_KEY=AIza...
+dualitycert run-repair-loop ... --model openai:gemini-2.5-flash
+```
+
+The structured (tool-use) calls force a single function call via
+`tool_choice`; a provider/model that refuses to call tools raises and is
+recorded as an invalid output, exactly like a malformed Anthropic reply.
+
+### Repair-loop copy-cheat guard
+
+The identity pair `(A, A)` trivially CERTIFIES (the verifier checks pair
+consistency, and every theory is consistent with itself), so replacing
+Theory B with a verbatim copy of Theory A would otherwise score as a
+successful "repair". The loop flags such a round (`copied_electric`,
+exact canonical-hash equality) and scores it as failure;
+`copied_electric_rate` appears in the summary. The check is deliberately
+NOT isomorphism-level: for a self-dual electric theory (e.g. dP_1 at its
+rank-preserving node) the true magnetic dual IS isomorphic to Theory A,
+and an isomorphism guard would reject correct repairs.
 
 ## Anti-gaming guardrail (chiral-ring cutoff L)
 
@@ -196,6 +238,14 @@ the feedback verifier but fails the final one, `success=False` and
 `generalization_to_final_check=False` flags the gap. The model never
 supplies verifier settings (they come only from config), and patches
 targeting verifier metadata are rejected.
+
+Cost caveat: under the R-GRADED chiral ring (`require_r_graded`), `L`
+bounds the operator's total R-charge, not its word length. Families
+with small per-field R admit much longer words than `L` letters — dp0's
+R=1/3 fields give ~18-letter words at R<=6, measured 56 s per verifier
+call at L=6 vs 0.02 s at L=5 (2026-07-14). Pick the final-eval L with
+that cliff in mind (the shipped repair configs use feedback L=3 /
+final L=5).
 
 ## Depth-K mutation chains (Phase 2d)
 

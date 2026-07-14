@@ -32,6 +32,7 @@ from typing import Any, Callable, Mapping, Sequence
 from dualitycert.agent.client import LLMClient
 from dualitycert.benchmark.fixtures import sanitize_for_prompt
 from dualitycert.core.objects import DualityClaim
+from dualitycert.experiments.chains import canonical_theory_hash
 from dualitycert.experiments.config import ExperimentConfig, VerifierConfig
 from dualitycert.experiments.jsonpatch import apply_patches
 from dualitycert.experiments.manifest import ManifestRecord
@@ -133,7 +134,11 @@ Theory B (preferred), or a full revised Theory B in `full_theory`;
   - action "abstain" if you believe no edit can make it consistent.
 
 You may only edit the physics of Theory B (ranks, arrows/R-charges, \
-superpotential). You cannot change the verifier or its settings."""
+superpotential). You cannot change the verifier or its settings. \
+Theory B must remain a genuine dual DESCRIPTION distinct from Theory A: \
+submitting a copy of Theory A as Theory B is not a repair (the identity \
+pair trivially satisfies every consistency condition) and is scored as \
+failure."""
 
 
 @dataclass(frozen=True)
@@ -195,6 +200,11 @@ class RepairResult:
     out_of_scope: bool
     verifier_calls: int
     edit_distance: int
+    # Copy-cheat guard: the identity pair (A, A) trivially CERTIFIES (the
+    # verifier checks pair consistency, and every theory is consistent with
+    # itself), so a model that replaces Theory B with a copy of Theory A
+    # would otherwise score as success. Flagged + scored as failure.
+    copied_electric: bool = False
     # do-no-harm challenge fields (None unless force_model_on_certified
     # and the candidate started consistent under the final verifier).
     started_certified: bool | None = None
@@ -220,6 +230,7 @@ class RepairResult:
             "out_of_scope": self.out_of_scope,
             "verifier_calls": self.verifier_calls,
             "edit_distance": self.edit_distance,
+            "copied_electric": self.copied_electric,
             "started_certified": self.started_certified,
             "harmed": self.harmed,
             "unnecessary_edit": self.unnecessary_edit,
@@ -511,6 +522,13 @@ def run_repair_loop(
         _load_theory(theory_root, record.theory_b_path), theory_label="Theory B"
     )
     current = json.loads(json.dumps(original_candidate))
+    # Copy-cheat guard baseline. Exact canonical hash, deliberately NOT the
+    # `theories_isomorphic` notion: for a self-dual electric (e.g. dP_1 at its
+    # rank-preserving node) the TRUE magnetic dual is isomorphic to Theory A,
+    # so an isomorphism-level guard would reject correct repairs. A verbatim
+    # copy is the degenerate strategy worth catching; node-permuted copies
+    # remain visible in the audit log.
+    electric_hash = canonical_theory_hash(electric)
 
     rounds_log: list[RepairRoundLog] = []
     verifier_calls = 0
@@ -521,6 +539,7 @@ def run_repair_loop(
     abstained = False
     invalid = False
     out_of_scope = False
+    copied_electric = False
     n_rounds = 0
     harmed: bool | None = None
     unnecessary_edit: bool | None = None
@@ -662,6 +681,27 @@ def run_repair_loop(
             )
             break
 
+        if canonical_theory_hash(new_candidate) == electric_hash:
+            copied_electric = True
+            rounds_log.append(
+                RepairRoundLog(
+                    round=r,
+                    feedback_status=fb_outcome.status,
+                    feedback_text=feedback_text,
+                    action=action.action,
+                    reasoning=action.reasoning,
+                    edit_applied=False,
+                    apply_error=(
+                        "copied_electric: the revised Theory B is a verbatim "
+                        "copy of Theory A; the identity pair trivially "
+                        "certifies, so this is not a repair"
+                    ),
+                    feedback_status_after=None,
+                    final_status_after=None,
+                )
+            )
+            break
+
         new_fb = run_verifier(electric, new_candidate, feedback_vcfg)
         new_final = run_verifier(electric, new_candidate, final_vcfg)
         verifier_calls += 2
@@ -725,6 +765,7 @@ def run_repair_loop(
         out_of_scope=out_of_scope,
         verifier_calls=verifier_calls,
         edit_distance=edit_distance,
+        copied_electric=copied_electric,
         started_certified=started_certified,
         harmed=harmed,
         unnecessary_edit=unnecessary_edit,
@@ -921,6 +962,9 @@ def score_repair(
         ),
         "abstention_rate": (
             sum(1 for r in results if r.abstained) / n if n else 0.0
+        ),
+        "copied_electric_rate": (
+            sum(1 for r in results if r.copied_electric) / n if n else 0.0
         ),
         "generalization_to_final_check_gap": gen_gap,
         "do_no_harm_rate": do_no_harm_rate,

@@ -1,6 +1,6 @@
 {
   "name": "paper_repair",
-  "notes": "Paper-scale repair loop. Main dataset = repairable negatives (drop_w_term, flip_w_sign, r_charge_perturb, rank_perturb). positive (do-no-harm) and wrong_pair (abstention) are secondary stress sets included via --include-non-repairable. Feedback verifier uses L=3; final-eval verifier uses the stricter L=6 (anti-gaming guardrail).",
+  "notes": "Paper-scale repair loop. Main dataset = repairable negatives (drop_w_term, flip_w_sign, r_charge_perturb, rank_perturb). positive (do-no-harm) and wrong_pair (abstention) are secondary stress sets included via --include-non-repairable. Feedback verifier uses L=3; final-eval verifier uses the stricter L=5 (anti-gaming guardrail: the R<=5 operator set strictly contains R<=3). NOT L=6: under the R-graded chiral ring L bounds total R, so families with R=1/3 fields (dp0) admit ~18-letter words at R<=6 -- measured 56s/verifier-call at L=6 vs 0.02s at L=5 on the dp0 depth-1 drop_w pair (2026-07-14); L=5 across all 31 depth-1 smoke pairs totals <1s.",
   "depths": [1, 2, 3, 4],
   "fixture_classes": [
     "positive",
@@ -35,7 +35,7 @@
     },
     "final_eval_verifier": {
       "duality_profile": "phase2c_a_detection",
-      "chiral_ring_max_length": 6,
+      "chiral_ring_max_length": 5,
       "require_r_graded": true
     }
   }
