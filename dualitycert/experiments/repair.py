@@ -48,7 +48,9 @@ from dualitycert.qft.pure_quiver_json import (
 __all__ = [
     "ARMS",
     "REPAIR_DECISION_SCHEMA",
+    "REPAIR_DECISION_SCHEMA_FULL",
     "REPAIR_SYSTEM_PROMPT",
+    "REPAIR_SYSTEM_PROMPT_FULL",
     "REPAIR_TOOL_NAME",
     "RepairAction",
     "RepairResult",
@@ -124,6 +126,42 @@ REPAIR_DECISION_SCHEMA: dict[str, Any] = {
 }
 
 
+REPAIR_DECISION_SCHEMA_FULL: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "action": {
+            "type": "string",
+            "enum": ["edit_candidate", "no_change", "abstain"],
+            "description": (
+                "edit_candidate: replace Theory B with full_theory. "
+                "no_change: leave Theory B as-is. abstain: give up "
+                "(repair impossible)."
+            ),
+        },
+        "full_theory": {
+            "type": "object",
+            "description": (
+                "The COMPLETE revised Theory B as one JSON object with the "
+                "same schema as the input (name, node_labels, ranks, "
+                "u1_globals, arrows, superpotential, and singlets when "
+                "present). Required when action is edit_candidate."
+            ),
+        },
+        "reasoning": {
+            "type": "string",
+            "maxLength": 300,
+            "description": (
+                "ONE short sentence (<200 characters) naming the edit. Do NOT "
+                "restate the theories or derive anything here — a long "
+                "reasoning string overflows the output budget and truncates "
+                "the whole tool call."
+            ),
+        },
+    },
+    "required": ["action", "reasoning"],
+}
+
+
 REPAIR_SYSTEM_PROMPT = """You are a theoretical physicist repairing a proposed 4d N=1 \
 supersymmetric gauge theory duality.
 
@@ -136,6 +174,32 @@ consistency, bounded chiral-ring multiplicity matching).
 Return your edit via the structured tool only:
   - action "edit_candidate" with a list of JSON Patch operations against \
 Theory B (preferred), or a full revised Theory B in `full_theory`;
+  - action "no_change" if Theory B is already correct;
+  - action "abstain" if you believe no edit can make it consistent.
+
+You may only edit the physics of Theory B (ranks, arrows/R-charges, \
+superpotential). You cannot change the verifier or its settings. \
+Theory B must remain a genuine dual DESCRIPTION distinct from Theory A: \
+submitting a copy of Theory A as Theory B is not a repair (the identity \
+pair trivially satisfies every consistency condition) and is scored as \
+failure. Keep `reasoning` to ONE short sentence -- do your thinking \
+silently; a long reasoning string overflows the output budget and \
+truncates your entire tool call."""
+
+
+REPAIR_SYSTEM_PROMPT_FULL = """You are a theoretical physicist repairing a proposed \
+4d N=1 supersymmetric gauge theory duality.
+
+You are given Theory A (electric) and Theory B (a candidate dual that is \
+NOT yet consistent). Edit Theory B so that it becomes a valid Seiberg \
+dual of Theory A under the verifier scope (gauge anomaly cancellation, \
+SU(N)^2 x U(1)_R mixed anomalies, R(W)=2 balance, F-term / superpotential \
+consistency, bounded chiral-ring multiplicity matching).
+
+Return your edit via the structured tool only:
+  - action "edit_candidate" with the COMPLETE revised Theory B in \
+`full_theory` (the whole JSON object, same schema as the input — not a \
+diff, not a fragment);
   - action "no_change" if Theory B is already correct;
   - action "abstain" if you believe no edit can make it consistent.
 
@@ -474,16 +538,21 @@ def _call_repair(
     round_idx: int,
     model: str,
     max_tokens: int,
+    edit_mode: str = "patches",
 ) -> tuple[RepairAction | None, str | None]:
     user = build_repair_user_message(
         electric, candidate, feedback_text, round_idx=round_idx
     )
+    if edit_mode == "full_theory":
+        system, schema = REPAIR_SYSTEM_PROMPT_FULL, REPAIR_DECISION_SCHEMA_FULL
+    else:
+        system, schema = REPAIR_SYSTEM_PROMPT, REPAIR_DECISION_SCHEMA
     try:
         response = client.complete_structured(
             model=model,
-            system=REPAIR_SYSTEM_PROMPT,
+            system=system,
             user=user,
-            schema=REPAIR_DECISION_SCHEMA,
+            schema=schema,
             tool_name=REPAIR_TOOL_NAME,
             max_tokens=max_tokens,
         )
@@ -627,6 +696,7 @@ def run_repair_loop(
             round_idx=r,
             model=model,
             max_tokens=max_tokens,
+            edit_mode=config.repair.edit_mode,
         )
         if action is None:
             invalid = True

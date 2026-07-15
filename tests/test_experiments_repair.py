@@ -99,6 +99,48 @@ def test_repair_abstain(tmp_path):
     assert r.success is False
 
 
+def test_repair_full_theory_mode_uses_full_schema_and_succeeds(tmp_path):
+    # edit_mode="full_theory": the model sees the full-rewrite schema (no
+    # patches property) + the full-mode system prompt, and an oracle that
+    # returns the stored positive as full_theory succeeds round 1.
+    cfg, res, root = _dp0_manifest(
+        tmp_path,
+        repair=RepairConfig(
+            max_rounds=5, feedback_mode="verifier_feedback",
+            edit_mode="full_theory",
+        ),
+    )
+    drop = _by_class(res.manifest, "drop_w_term")
+    pos = _by_class(res.manifest, "positive")
+    good = json.loads((Path(root) / pos.theory_b_path).read_text())
+
+    seen_schemas = []
+
+    def oracle(*, user, tool_name, schema):
+        seen_schemas.append(schema)
+        return {"action": "edit_candidate", "full_theory": good, "reasoning": "oracle"}
+
+    client = DryRunModelClient(structured_policy=oracle)
+    r = run_repair_loop(
+        drop, theory_root=root, client=client, config=cfg, arm="verifier_feedback"
+    )
+    assert r.success is True and r.success_round == 1
+    assert "patches" not in seen_schemas[0]["properties"]
+    assert "full_theory" in seen_schemas[0]["properties"]
+
+
+def test_repair_config_edit_mode_roundtrip_and_default_stable():
+    # Non-default-serialized: default configs keep a byte-stable dict.
+    d = RepairConfig().to_dict()
+    assert "edit_mode" not in d
+    assert RepairConfig.from_dict(d).edit_mode == "patches"
+    full = RepairConfig(edit_mode="full_theory")
+    assert full.to_dict()["edit_mode"] == "full_theory"
+    assert RepairConfig.from_dict(full.to_dict()).edit_mode == "full_theory"
+    with pytest.raises(ValueError):
+        RepairConfig(edit_mode="nonsense")
+
+
 def test_repair_copy_cheat_flagged_not_success(tmp_path):
     # The identity pair (A, A) trivially CERTIFIES, so replacing Theory B
     # with a copy of Theory A would otherwise be scored as a successful

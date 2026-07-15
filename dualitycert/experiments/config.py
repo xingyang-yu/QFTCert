@@ -386,6 +386,15 @@ class RepairConfig:
     max_rounds: int = 5
     feedback_mode: str = "verifier_feedback"
     feedback_detail: str = "medium"
+    # Edit interface the model repairs through:
+    #   "patches"     — RFC-6902 JSON Patch ops against Theory B (default;
+    #                   surgical, but weak/verbose models fail the surgery:
+    #                   index-out-of-range / malformed values dominated the
+    #                   invalid rate at ~50% in the 2026-07-15 n=145 run);
+    #   "full_theory" — the model returns a complete revised Theory B only
+    #                   (no patches), trading token cost for a far lower
+    #                   interface floor.
+    edit_mode: str = "patches"
     feedback_verifier: VerifierConfig | None = None
     final_eval_verifier: VerifierConfig | None = None
     # Challenge mode (do-no-harm measurement): when True the repair loop
@@ -410,6 +419,11 @@ class RepairConfig:
             raise ValueError(
                 f"RepairConfig.max_rounds must be >= 1; got {self.max_rounds}"
             )
+        if self.edit_mode not in ("patches", "full_theory"):
+            raise ValueError(
+                f"RepairConfig.edit_mode must be 'patches' or 'full_theory'; "
+                f"got {self.edit_mode!r}"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
@@ -418,6 +432,10 @@ class RepairConfig:
             "feedback_detail": self.feedback_detail,
             "force_model_on_certified": bool(self.force_model_on_certified),
         }
+        # Serialize only when non-default so existing configs keep a
+        # byte-for-byte identical dict (and config hash).
+        if self.edit_mode != "patches":
+            out["edit_mode"] = self.edit_mode
         if self.feedback_verifier is not None:
             out["feedback_verifier"] = self.feedback_verifier.to_dict()
         if self.final_eval_verifier is not None:
@@ -432,6 +450,7 @@ class RepairConfig:
             max_rounds=int(data.get("max_rounds", 5)),
             feedback_mode=str(data.get("feedback_mode", "verifier_feedback")),
             feedback_detail=str(data.get("feedback_detail", "medium")),
+            edit_mode=str(data.get("edit_mode", "patches")),
             feedback_verifier=VerifierConfig.from_dict(fb) if fb is not None else None,
             final_eval_verifier=(
                 VerifierConfig.from_dict(fe) if fe is not None else None
