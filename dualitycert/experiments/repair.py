@@ -111,7 +111,13 @@ REPAIR_DECISION_SCHEMA: dict[str, Any] = {
         },
         "reasoning": {
             "type": "string",
-            "description": "Brief explanation of the edit.",
+            "maxLength": 300,
+            "description": (
+                "ONE short sentence (<200 characters) naming the edit. Do NOT "
+                "restate the theories or derive anything here — a long "
+                "reasoning string overflows the output budget and truncates "
+                "the whole tool call."
+            ),
         },
     },
     "required": ["action", "reasoning"],
@@ -138,7 +144,9 @@ superpotential). You cannot change the verifier or its settings. \
 Theory B must remain a genuine dual DESCRIPTION distinct from Theory A: \
 submitting a copy of Theory A as Theory B is not a repair (the identity \
 pair trivially satisfies every consistency condition) and is scored as \
-failure."""
+failure. Keep `reasoning` to ONE short sentence -- do your thinking \
+silently; a long reasoning string overflows the output budget and \
+truncates your entire tool call."""
 
 
 @dataclass(frozen=True)
