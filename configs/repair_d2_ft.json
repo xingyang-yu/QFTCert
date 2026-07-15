@@ -1,0 +1,44 @@
+{
+  "name": "repair_d2_ft",
+  "notes": "Depth-2 repair, full_theory mode, medium feedback. Depth-2 duals via the standard multi-term-integration chain (dp0/f0/spp incl. singlet candidates) and the consistent-R fallback (dp1/dp2); c3_z2z2 legitimately has no depth-2 (attrition). Deterministic at seed 20260716.",
+  "depths": [
+    2
+  ],
+  "fixture_classes": [
+    "positive",
+    "drop_w_term",
+    "flip_w_sign",
+    "r_charge_perturb",
+    "rank_perturb"
+  ],
+  "n_per_cell": 4,
+  "seed": 20260716,
+  "split": "dev",
+  "output_dir": "runs/experiments/repair_d2",
+  "verifier": {
+    "duality_profile": "phase2c_a_detection",
+    "chiral_ring_max_length": 3,
+    "require_r_graded": true
+  },
+  "model": {
+    "provider": "openai_compat",
+    "model": "deepseek-chat",
+    "max_tokens": 8192
+  },
+  "repair": {
+    "max_rounds": 5,
+    "feedback_mode": "verifier_feedback",
+    "feedback_detail": "medium",
+    "edit_mode": "full_theory",
+    "feedback_verifier": {
+      "duality_profile": "phase2c_a_detection",
+      "chiral_ring_max_length": 3,
+      "require_r_graded": true
+    },
+    "final_eval_verifier": {
+      "duality_profile": "phase2c_a_detection",
+      "chiral_ring_max_length": 5,
+      "require_r_graded": true
+    }
+  }
+}
