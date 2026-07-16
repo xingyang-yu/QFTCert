@@ -1,0 +1,49 @@
+{
+  "R": 3,
+  "config_sha256": {
+    "configs/repair_d1_ft.json": "a6937c32115d6f622d973d3cfe5cf09e85cbd76c139c6758f264998237d78213"
+  },
+  "confirmatory_models": {
+    "deepseek-chat": {
+      "provider": "api.deepseek.com",
+      "route": "openai:deepseek-chat"
+    },
+    "qwen-plus": {
+      "provider": "dashscope compatible-mode",
+      "route": "openai:qwen-plus"
+    }
+  },
+  "fixture_manifest_sha256": "cd6f6766345abb4c346ff57105aa4ae7d63575ad1c8cdb8479dc8d731a934e3c",
+  "notes": "No fresh confirmatory model response exists at manifest time. Existing qwen2_*/glm5_* runs are exploratory pilot data per the protocol's evidence tiers.",
+  "offline_test_results": {
+    "e2e_dryrun": "5 policies x 18-fixture mini manifest offline; score-e4 deployed model calls exact at 18*11=198",
+    "fast_suite": "510 passed, 18 deselected (2026-07-16, pre-manifest)",
+    "new_suite": "tests/test_confirmatory_arms.py: 12 passed"
+  },
+  "policies_per_rep": [
+    "single_shot_repair",
+    "generic_retry",
+    "verifier_feedback",
+    "best_of_n",
+    "vf_masked"
+  ],
+  "prompt_hashes_sha256": {
+    "REPAIR_DECISION_SCHEMA": "58c1af233d8b4bea13a3bba752e46894a1ebb8ab7103893b88b5bdb03e5139b6",
+    "REPAIR_DECISION_SCHEMA_FULL": "06e5681aeaa47f19387d9b637e4608012e5f1b737aaaf27272591c08f425439a",
+    "REPAIR_SYSTEM_PROMPT": "ffa93ab72e435bae3391eb280151242f7918b4e1aa00459f8b18e2e1f885bb94",
+    "REPAIR_SYSTEM_PROMPT_FULL": "00f1e9e3d9af99087fed8cfb50a921265adfb34069bb83d8ff807d2332616eb8",
+    "REPAIR_TOOL_NAME": "1511b6f0c24ffd09b26eae2381b98ad41539453f43c0c9a4d8df9d62c311d9e2",
+    "generic_retry_feedback_string": "595f08e30fa4746ad295e8dca5f6f3913e3691d8c17d819252cc0bff5ef237fd",
+    "masked_bullet_template": "37602e705ae3affa9e6693ddeaa0d0706915f4abe51feb03043a89930f37e8d7"
+  },
+  "protocol": "paper/analysis_protocol.md",
+  "protocol_freeze_commit": "813fdb0befb84b4bc1eab8ef17ba325662a7c12b",
+  "sampling_parameters_sent": {
+    "client_timeout_s": 300,
+    "extra_body": "none for qwen/deepseek (thinking not enabled on these routes)",
+    "max_tokens": 8192,
+    "temperature": "provider default (not set by harness)",
+    "tool_choice": "forced function repair_action"
+  },
+  "tested_harness_commit": "26c5241e16082c20deca3bbbf6acc89467329341"
+}
