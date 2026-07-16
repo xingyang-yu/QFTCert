@@ -114,6 +114,15 @@ def add_subparsers(subparsers) -> None:
             "model to act so harm / unnecessary-edit rates are measurable."
         ),
     )
+    rep.add_argument(
+        "--resume",
+        action="store_true",
+        help=(
+            "Reuse fixtures already recorded in the run dir's "
+            "repair_results.jsonl (interrupted run, same --run-id) and run "
+            "only the rest."
+        ),
+    )
     rep.set_defaults(func=cmd_run_repair_loop)
 
     score_rep = subparsers.add_parser(
@@ -335,6 +344,7 @@ def cmd_run_repair_loop(args) -> int:
         model=model_name,
         repairable_only=not args.include_non_repairable,
         force_model_on_certified=args.force_model_on_certified,
+        resume=args.resume,
     )
     s = result.summary
     print(f"[run-repair-loop] arm={args.arm} run_dir={result.run_dir}")

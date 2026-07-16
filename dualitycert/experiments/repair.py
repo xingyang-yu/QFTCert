@@ -24,6 +24,7 @@ and patches targeting verifier metadata are rejected.
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -889,6 +890,7 @@ def run_repair_experiment(
     repairable_only: bool = True,
     force_model_on_certified: bool | None = None,
     timestamp_override: str | None = None,
+    resume: bool = False,
 ) -> RepairExperimentResult:
     """Run the repair loop over a manifest under `arm` and write artefacts."""
 
@@ -909,26 +911,71 @@ def run_repair_experiment(
     run_dir = Path(out_dir) / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    results = [
-        run_repair_loop(
-            rec,
-            theory_root=theory_root,
-            client=client,
-            config=config,
-            arm=arm,
-            model=model,
-            max_tokens=max_tokens,
-            critic_client=critic_client,
-            force_model_on_certified=force_model_on_certified,
+    # Results stream to disk as each fixture finishes (not in one dump at
+    # the end) so a killed/hung run keeps its progress inspectable:
+    # `wc -l repair_results.jsonl` is the live fixture count.
+    results_path = run_dir / "repair_results.jsonl"
+    results: list[RepairResult] = []
+    done_ids: set[str] = set()
+    if resume and results_path.exists():
+        # Recover completed fixtures from an interrupted run with the same
+        # run-id. `RepairResult(**d)` inverts `to_dict` (keys match fields
+        # 1:1). A partial trailing line (process killed mid-write) stops
+        # recovery there; that fixture and everything after it re-run.
+        selected_ids = {r.fixture_id for r in selected}
+        aliens = 0
+        for line in results_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                prior = RepairResult(**json.loads(line))
+            except (json.JSONDecodeError, TypeError):
+                break
+            if prior.fixture_id not in selected_ids:
+                aliens += 1
+                continue
+            if prior.fixture_id in done_ids:
+                continue
+            done_ids.add(prior.fixture_id)
+            results.append(prior)
+        msg = (
+            f"[run-repair-loop] resume: {len(done_ids)} fixtures already "
+            f"complete, running the remaining {len(selected) - len(done_ids)}"
         )
-        for rec in selected
-    ]
-    summary = score_repair(results, max_rounds=config.repair.max_rounds)
-
-    with (run_dir / "repair_results.jsonl").open("w", encoding="utf-8") as fh:
+        if aliens:
+            msg += f" (dropped {aliens} records not in this manifest)"
+        print(msg, file=sys.stderr, flush=True)
+    with results_path.open("w", encoding="utf-8") as fh:
         for res in results:
             fh.write(json.dumps(res.to_dict(), sort_keys=True, ensure_ascii=False))
             fh.write("\n")
+        fh.flush()
+        for i, rec in enumerate(selected, 1):
+            if rec.fixture_id in done_ids:
+                continue
+            res = run_repair_loop(
+                rec,
+                theory_root=theory_root,
+                client=client,
+                config=config,
+                arm=arm,
+                model=model,
+                max_tokens=max_tokens,
+                critic_client=critic_client,
+                force_model_on_certified=force_model_on_certified,
+            )
+            results.append(res)
+            fh.write(json.dumps(res.to_dict(), sort_keys=True, ensure_ascii=False))
+            fh.write("\n")
+            fh.flush()
+            print(
+                f"[run-repair-loop] {i}/{len(selected)} "
+                f"fixture={res.fixture_id} final_status={res.final_status}",
+                file=sys.stderr,
+                flush=True,
+            )
+    summary = score_repair(results, max_rounds=config.repair.max_rounds)
     (run_dir / "summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
