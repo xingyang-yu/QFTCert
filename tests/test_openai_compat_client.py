@@ -137,6 +137,24 @@ def test_complete_structured_raises_on_unparseable_arguments():
         )
 
 
+def test_extra_body_passthrough():
+    payload = {"action": "no_change", "reasoning": "r"}
+    fake = _FakeOpenAI(
+        _response(tool_calls=[_tool_call("repair_action", json.dumps(payload))])
+    )
+    adapter = OpenAICompatAdapter(fake, extra_body={"enable_thinking": False})
+    adapter.complete_structured(
+        model="m", system="s", user="u", schema={"type": "object"},
+        tool_name="repair_action", max_tokens=64,
+    )
+    assert fake.calls[0]["extra_body"] == {"enable_thinking": False}
+    fake2 = _FakeOpenAI(_response(content="x"))
+    OpenAICompatAdapter(fake2).complete(
+        model="m", system="s", user="u", max_tokens=64
+    )
+    assert fake2.calls[0]["extra_body"] is None  # default: no extensions
+
+
 def test_adapter_satisfies_llmclient_protocol():
     fake = _FakeOpenAI(_response(content="x"))
     assert isinstance(OpenAICompatAdapter(fake), LLMClient)

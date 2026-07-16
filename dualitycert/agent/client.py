@@ -233,7 +233,14 @@ class OpenAICompatAdapter:
         base_url: str | None = None,
         api_key: str | None = None,
         max_retries: int = 5,
+        extra_body: dict | None = None,
     ) -> None:
+        # Provider-specific request extensions, sent verbatim with every call
+        # (openai SDK `extra_body`). Main use: disabling hybrid-reasoning
+        # "thinking" modes that reject forced tool_choice — e.g. DashScope's
+        # {"enable_thinking": false} (MiniMax/qwen3 on Bailian), Zhipu/DeepSeek
+        # equivalents. The CLI wires this from DUALITYCERT_OPENAI_EXTRA_BODY.
+        self._extra_body = dict(extra_body) if extra_body else None
         if client is None:
             try:
                 from openai import OpenAI
@@ -269,6 +276,7 @@ class OpenAICompatAdapter:
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
+            extra_body=self._extra_body,
         )
         choices = getattr(response, "choices", None) or []
         if not choices:
@@ -310,6 +318,7 @@ class OpenAICompatAdapter:
                 }
             ],
             tool_choice={"type": "function", "function": {"name": tool_name}},
+            extra_body=self._extra_body,
         )
         # Some providers (e.g. Groq) return HTTP 400 when the MODEL emits a
         # malformed function call (code `tool_use_failed`, message "Failed to
@@ -324,6 +333,19 @@ class OpenAICompatAdapter:
                 break
             except Exception as exc:
                 msg = str(exc).lower()
+                # Some hosts hard-enable a "thinking" mode that rejects FORCED
+                # tool choice (e.g. Bailian's MiniMax: "tool_choice ... does not
+                # support being set to required or object in thinking mode").
+                # Fall back to "auto" once: the system prompt still demands the
+                # tool call, and a reply without one raises below — the Protocol
+                # contract (no silent empty structured reply) is preserved.
+                if (
+                    "tool_choice" in msg
+                    and "thinking" in msg
+                    and request.get("tool_choice") != "auto"
+                ):
+                    request["tool_choice"] = "auto"
+                    continue
                 transient = (
                     "tool_use_failed" in msg
                     or "failed to call a function" in msg

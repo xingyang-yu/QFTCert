@@ -147,6 +147,9 @@ def _build_client(model: str):
     if model == "dryrun":
         return DryRunModelClient(), "dryrun"
     if model.startswith("openai:"):
+        import json as _json
+        import os as _os
+
         from dualitycert.agent.client import OpenAICompatAdapter
 
         model_id = model[len("openai:"):]
@@ -155,7 +158,19 @@ def _build_client(model: str):
                 "--model openai: requires a model id, e.g. "
                 "openai:llama-3.3-70b-versatile"
             )
-        return OpenAICompatAdapter(), model_id
+        # Provider-specific request extensions (e.g. disabling a hybrid-
+        # reasoning "thinking" mode that rejects forced tool_choice):
+        #   DUALITYCERT_OPENAI_EXTRA_BODY='{"enable_thinking": false}'
+        extra_raw = _os.environ.get("DUALITYCERT_OPENAI_EXTRA_BODY")
+        extra_body = None
+        if extra_raw:
+            try:
+                extra_body = _json.loads(extra_raw)
+            except _json.JSONDecodeError as exc:
+                raise SystemExit(
+                    f"DUALITYCERT_OPENAI_EXTRA_BODY is not valid JSON: {exc}"
+                )
+        return OpenAICompatAdapter(extra_body=extra_body), model_id
     from dualitycert.agent.client import AnthropicAdapter
 
     return AnthropicAdapter(), model
