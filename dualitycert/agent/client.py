@@ -34,6 +34,7 @@ drop in. Three implementations ship here:
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
@@ -233,6 +234,7 @@ class OpenAICompatAdapter:
         base_url: str | None = None,
         api_key: str | None = None,
         max_retries: int = 5,
+        timeout: float | None = None,
         extra_body: dict | None = None,
     ) -> None:
         # Provider-specific request extensions, sent verbatim with every call
@@ -258,7 +260,23 @@ class OpenAICompatAdapter:
             # exponential backoff honors Retry-After on 429/5xx, so a
             # higher retry budget turns bursts into waits, not failures
             # (a raised call is recorded as an invalid fixture).
-            client = OpenAI(max_retries=max_retries, **kwargs)
+            #
+            # The SDK's default 600s/attempt read timeout lets one dead
+            # proxy connection stall a run for ~an hour per fixture; cap
+            # each attempt so a stalled socket raises and retries on a
+            # fresh connection instead. Override with
+            # DUALITYCERT_OPENAI_TIMEOUT (seconds).
+            if timeout is None:
+                timeout = float(
+                    os.environ.get("DUALITYCERT_OPENAI_TIMEOUT", "300")
+                )
+            import httpx
+
+            client = OpenAI(
+                max_retries=max_retries,
+                timeout=httpx.Timeout(timeout, connect=15.0),
+                **kwargs,
+            )
         self._client = client
 
     def complete(
@@ -378,9 +396,20 @@ class OpenAICompatAdapter:
             if tool_input is not None:
                 break
         if tool_input is None:
+            # finish_reason distinguishes "model ignored the tool" from
+            # "hybrid-reasoning thinking burned max_tokens before the call
+            # was emitted" (finish=length, empty tool_calls) — the latter
+            # needs extra_body to disable thinking, not a retry.
+            finish = (
+                ", ".join(
+                    str(getattr(c, "finish_reason", None)) for c in choices
+                )
+                or "no choices"
+            )
             raise RuntimeError(
                 f"OpenAI-compat response did not contain a tool call for "
-                f"{tool_name!r}; got tool calls {seen!r}"
+                f"{tool_name!r}; got tool calls {seen!r} "
+                f"(finish_reason: {finish})"
             )
 
         usage = getattr(response, "usage", None)
