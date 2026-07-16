@@ -72,6 +72,15 @@ ARMS: tuple[str, ...] = (
     "generic_retry",
     "llm_critic",
     "verifier_feedback",
+    # Confirmatory-phase additions (paper/analysis_protocol.md, frozen):
+    # vf_masked  — E5 control: vf-med prompt TEMPLATE with obligation
+    #              identities replaced by neutral positional placeholders.
+    # best_of_n  — E4 control: 2*max_rounds+1 mutually independent
+    #              single-shot draws from the unchanged original candidate,
+    #              no feedback, continue past invalid draws, stop at the
+    #              first FINAL certificate.
+    "vf_masked",
+    "best_of_n",
 )
 
 REPAIR_TOOL_NAME = "repair_action"
@@ -253,6 +262,17 @@ class RepairRoundLog:
     apply_error: str | None
     feedback_status_after: str | None
     final_status_after: str | None
+    # Instrumentation (protocol section 13): cost + mechanism audit fields.
+    # model_called=False marks verifier-only rounds (already-consistent
+    # short-circuit) so total-cost accounting can count model calls exactly.
+    model_called: bool = True
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    # JSON paths the applied edit changed (arrows keyed by label, ranks by
+    # index, superpotential as a section) + canonical hash of the candidate
+    # AFTER this round's edit. None when no edit was applied.
+    changed_paths: list[str] | None = None
+    candidate_hash: str | None = None
 
 
 @dataclass
@@ -316,8 +336,29 @@ class RepairResult:
 # ----------------------------------------------------------------------
 
 
+def round_model_called(round_dict: Mapping[str, Any]) -> bool:
+    """Whether a logged round made a model call.
+
+    Rounds from pre-instrumentation records lack `model_called`; every such
+    round made a model call except the already-consistent short-circuit
+    (identified by its marker text). Shared by score_repair and the E4
+    replay's deployed-cost accounting.
+    """
+    mc = round_dict.get("model_called")
+    if mc is not None:
+        return bool(mc)
+    return round_dict.get("feedback_text") != (
+        "(already consistent under feedback verifier)"
+    )
+
+
 def _arm_rounds(arm: str, max_rounds: int) -> int:
-    return 1 if arm == "single_shot_repair" else max_rounds
+    if arm == "single_shot_repair":
+        return 1
+    if arm == "best_of_n":
+        # Call-cap matched to the E4 portfolio ss(1) + gr(K) + vf(K).
+        return 2 * max_rounds + 1
+    return max_rounds
 
 
 def _feedback_kind(arm: str) -> str:
@@ -326,6 +367,8 @@ def _feedback_kind(arm: str) -> str:
         "generic_retry": "generic",
         "llm_critic": "critic",
         "verifier_feedback": "verifier",
+        "vf_masked": "masked",
+        "best_of_n": "none",
     }[arm]
 
 
@@ -358,6 +401,18 @@ def build_feedback(
         return _critic_feedback(
             electric, candidate, critic_client, model=model, max_tokens=max_tokens
         )
+    if kind == "masked":
+        # E5 control (protocol section 5): the vf-med preamble and bullet
+        # STRUCTURE, with every obligation identity replaced by a neutral
+        # placeholder that depends only on bullet position and count —
+        # never on obligation identity, the passed set, perturbation
+        # class, model output, or fixture identity.
+        lines = ["The candidate failed verification. Failed obligations:"]
+        for i, _ in enumerate(outcome.failed_obligations, 1):
+            lines.append(f"  - obligation-{i} (category: category-{i})")
+        if not outcome.failed_obligations:
+            lines.append("  - (verifier reported no obligation names)")
+        return "\n".join(lines)
     # verifier feedback at the configured detail level.
     if detail == "coarse":
         cats = ", ".join(outcome.failed_categories) or "(none reported)"
@@ -540,7 +595,12 @@ def _call_repair(
     model: str,
     max_tokens: int,
     edit_mode: str = "patches",
-) -> tuple[RepairAction | None, str | None]:
+) -> tuple[RepairAction | None, str | None, tuple[int | None, int | None]]:
+    """One structured repair call.
+
+    Returns (action, error, (input_tokens, output_tokens)); tokens are None
+    when the provider reports no usage or the call raised.
+    """
     user = build_repair_user_message(
         electric, candidate, feedback_text, round_idx=round_idx
     )
@@ -557,9 +617,92 @@ def _call_repair(
             tool_name=REPAIR_TOOL_NAME,
             max_tokens=max_tokens,
         )
-        return RepairAction.from_data(response.data), None
+        usage = (
+            getattr(response, "input_tokens", None),
+            getattr(response, "output_tokens", None),
+        )
+        return RepairAction.from_data(response.data), None, usage
     except Exception as exc:
-        return None, f"{type(exc).__name__}: {exc}"
+        return None, f"{type(exc).__name__}: {exc}", (None, None)
+
+
+def _changed_paths(
+    before: Mapping[str, Any], after: Mapping[str, Any], *, cap: int = 64
+) -> list[str]:
+    """Semantic JSON paths on which two theory documents differ.
+
+    Arrows/singlets are keyed by label (order-insensitive; duplicate labels
+    fall back to a whole-section path), ranks by node index, the
+    superpotential by multiset of (coefficient, factors). Used for the
+    changed-path instrumentation required by the frozen protocol; the paths
+    are audit metadata, never inputs to scoring.
+    """
+
+    paths: list[str] = []
+
+    def _by_label(items: Any) -> dict[str, Any] | None:
+        if not isinstance(items, list):
+            return None
+        out: dict[str, Any] = {}
+        for it in items:
+            if not isinstance(it, Mapping) or "label" not in it:
+                return None
+            if it["label"] in out:
+                return None  # duplicate labels: not keyable
+            out[str(it["label"])] = it
+        return out
+
+    keys = set(before) | set(after)
+    for key in sorted(keys):
+        b, a = before.get(key), after.get(key)
+        if b == a:
+            continue
+        if key == "ranks" and isinstance(b, list) and isinstance(a, list):
+            if len(b) != len(a):
+                paths.append("ranks")
+            else:
+                paths.extend(
+                    f"ranks[{i}]" for i, (x, y) in enumerate(zip(b, a)) if x != y
+                )
+            continue
+        if key in ("arrows", "singlets"):
+            bmap, amap = _by_label(b), _by_label(a)
+            if bmap is None or amap is None:
+                paths.append(key)
+                continue
+            for lbl in sorted(set(bmap) | set(amap)):
+                if lbl not in amap:
+                    paths.append(f"{key}[-{lbl}]")
+                elif lbl not in bmap:
+                    paths.append(f"{key}[+{lbl}]")
+                elif bmap[lbl] != amap[lbl]:
+                    attrs = [
+                        k
+                        for k in set(bmap[lbl]) | set(amap[lbl])
+                        if bmap[lbl].get(k) != amap[lbl].get(k)
+                    ]
+                    paths.extend(f"{key}[{lbl}].{k}" for k in sorted(attrs))
+            continue
+        if key == "superpotential" and isinstance(b, list) and isinstance(a, list):
+            def _terms(ts: list) -> list[tuple]:
+                out = []
+                for t in ts:
+                    if isinstance(t, Mapping):
+                        out.append(
+                            (str(t.get("coefficient")), tuple(t.get("factors") or ()))
+                        )
+                    else:
+                        out.append((str(t),))
+                return sorted(out)
+
+            if _terms(b) != _terms(a):
+                paths.append("superpotential")
+            continue
+        paths.append(key)
+
+    if len(paths) > cap:
+        paths = paths[:cap] + [f"...(+{len(paths) - cap} more)"]
+    return paths
 
 
 # ----------------------------------------------------------------------
@@ -617,6 +760,25 @@ def run_repair_loop(
     # remain visible in the audit log.
     electric_hash = canonical_theory_hash(electric)
 
+    if arm == "best_of_n":
+        if force_certified:
+            raise ValueError(
+                "best_of_n does not support force_model_on_certified"
+            )
+        return _run_best_of_control(
+            record,
+            electric=electric,
+            original_candidate=original_candidate,
+            electric_hash=electric_hash,
+            client=client,
+            config=config,
+            model=model,
+            max_tokens=max_tokens,
+            rounds=rounds,
+            feedback_vcfg=feedback_vcfg,
+            final_vcfg=final_vcfg,
+        )
+
     rounds_log: list[RepairRoundLog] = []
     verifier_calls = 0
     success = False
@@ -668,6 +830,7 @@ def run_repair_loop(
                     apply_error=None,
                     feedback_status_after=fb_outcome.status,
                     final_status_after=final_outcome.status,
+                    model_called=False,
                 )
             )
             break
@@ -689,7 +852,7 @@ def run_repair_loop(
                 model=model,
                 max_tokens=max_tokens,
             )
-        action, call_err = _call_repair(
+        action, call_err, usage = _call_repair(
             client,
             electric,
             current,
@@ -699,6 +862,7 @@ def run_repair_loop(
             max_tokens=max_tokens,
             edit_mode=config.repair.edit_mode,
         )
+        in_tok, out_tok = usage
         if action is None:
             invalid = True
             rounds_log.append(
@@ -712,6 +876,8 @@ def run_repair_loop(
                     apply_error=call_err,
                     feedback_status_after=None,
                     final_status_after=None,
+                    input_tokens=in_tok,
+                    output_tokens=out_tok,
                 )
             )
             break
@@ -729,6 +895,8 @@ def run_repair_loop(
                     apply_error=None,
                     feedback_status_after=None,
                     final_status_after=None,
+                    input_tokens=in_tok,
+                    output_tokens=out_tok,
                 )
             )
             break
@@ -747,6 +915,8 @@ def run_repair_loop(
                     apply_error=apply_err,
                     feedback_status_after=None,
                     final_status_after=None,
+                    input_tokens=in_tok,
+                    output_tokens=out_tok,
                 )
             )
             break
@@ -765,6 +935,8 @@ def run_repair_loop(
                     apply_error=f"schema_invalid: {schema_err}",
                     feedback_status_after=None,
                     final_status_after=None,
+                    input_tokens=in_tok,
+                    output_tokens=out_tok,
                 )
             )
             break
@@ -786,6 +958,8 @@ def run_repair_loop(
                     ),
                     feedback_status_after=None,
                     final_status_after=None,
+                    input_tokens=in_tok,
+                    output_tokens=out_tok,
                 )
             )
             break
@@ -807,8 +981,6 @@ def run_repair_loop(
                 if not new_final.is_certified:
                     harmed = True
 
-        current = new_candidate
-
         rounds_log.append(
             RepairRoundLog(
                 round=r,
@@ -820,8 +992,13 @@ def run_repair_loop(
                 apply_error=None,
                 feedback_status_after=new_fb.status,
                 final_status_after=new_final.status,
+                input_tokens=in_tok,
+                output_tokens=out_tok,
+                changed_paths=_changed_paths(current, new_candidate),
+                candidate_hash=canonical_theory_hash(new_candidate),
             )
         )
+        current = new_candidate
 
         final_status = new_final.status
         if new_fb.is_certified:
@@ -857,6 +1034,196 @@ def run_repair_loop(
         started_certified=started_certified,
         harmed=harmed,
         unnecessary_edit=unnecessary_edit,
+        rounds=[_round_to_dict(rl) for rl in rounds_log],
+    )
+
+
+def _run_best_of_control(
+    record: ManifestRecord,
+    *,
+    electric: dict[str, Any],
+    original_candidate: dict[str, Any],
+    electric_hash: str,
+    client: LLMClient,
+    config: ExperimentConfig,
+    model: str,
+    max_tokens: int,
+    rounds: int,
+    feedback_vcfg: Any,
+    final_vcfg: Any,
+) -> RepairResult:
+    """E4 control policy (protocol section 4, frozen wording).
+
+    At most `rounds` (= 2*max_rounds+1) mutually independent single-shot
+    draws, each repairing the UNCHANGED original candidate with no failure
+    feedback. `round_idx` is pinned to 1 so every draw sees the byte-identical
+    prompt; draws differ only through sampling randomness. The policy
+    CONTINUES after invalid draws and stops at the first FINAL certificate.
+
+    The feedback verifier (L=3) screens each valid draw before the final
+    (L=5) verifier runs; this is sound because the final obligations are a
+    superset (fb-fail implies final-fail), and it mirrors the portfolio
+    arms' per-round verifier usage.
+
+    Record-level flags are POLICY-level: `invalid` is True only when no draw
+    ever reached verification and at least one was invalid; `abstained` only
+    when every non-invalid draw abstained and none reached verification;
+    `copied_electric` if ANY draw copied Theory A. Per-draw detail stays in
+    `rounds`. `out_of_scope` stays False (per-draw scope is in the log).
+    `edit_distance` is measured on the winning draw, 0 without a success.
+    """
+
+    rounds_log: list[RepairRoundLog] = []
+    verifier_calls = 0
+    success = False
+    success_round: int | None = None
+    final_status: str | None = None
+    gen_to_final: bool | None = None
+    copied_electric = False
+    n_rounds = 0
+    n_invalid = 0
+    n_abstain = 0
+    had_valid = False
+    winning: dict[str, Any] | None = None
+
+    for r in range(1, rounds + 1):
+        n_rounds = r
+        action, call_err, usage = _call_repair(
+            client,
+            electric,
+            json.loads(json.dumps(original_candidate)),
+            "",
+            round_idx=1,
+            model=model,
+            max_tokens=max_tokens,
+            edit_mode=config.repair.edit_mode,
+        )
+        in_tok, out_tok = usage
+
+        def _log(
+            action_name: str,
+            reasoning: str = "",
+            apply_error: str | None = None,
+            edit_applied: bool = False,
+            fb_after: str | None = None,
+            final_after: str | None = None,
+            changed: list[str] | None = None,
+            cand_hash: str | None = None,
+        ) -> None:
+            rounds_log.append(
+                RepairRoundLog(
+                    round=r,
+                    feedback_status="NOT_EVALUATED",
+                    feedback_text="",
+                    action=action_name,
+                    reasoning=reasoning,
+                    edit_applied=edit_applied,
+                    apply_error=apply_error,
+                    feedback_status_after=fb_after,
+                    final_status_after=final_after,
+                    input_tokens=in_tok,
+                    output_tokens=out_tok,
+                    changed_paths=changed,
+                    candidate_hash=cand_hash,
+                )
+            )
+
+        if action is None:
+            n_invalid += 1
+            _log("call_error", apply_error=call_err)
+            continue
+        if action.action == "abstain":
+            n_abstain += 1
+            _log("abstain", reasoning=action.reasoning)
+            continue
+
+        new_candidate, apply_err = apply_repair_action(
+            json.loads(json.dumps(original_candidate)), action
+        )
+        if apply_err is not None:
+            n_invalid += 1
+            _log(action.action, reasoning=action.reasoning, apply_error=apply_err)
+            continue
+        schema_err = validate_theory_schema(new_candidate)
+        if schema_err is not None:
+            n_invalid += 1
+            _log(
+                action.action,
+                reasoning=action.reasoning,
+                apply_error=f"schema_invalid: {schema_err}",
+            )
+            continue
+        if canonical_theory_hash(new_candidate) == electric_hash:
+            copied_electric = True
+            _log(
+                action.action,
+                reasoning=action.reasoning,
+                apply_error=(
+                    "copied_electric: the revised Theory B is a verbatim "
+                    "copy of Theory A; the identity pair trivially "
+                    "certifies, so this is not a repair"
+                ),
+            )
+            continue
+
+        had_valid = True
+        changed = _changed_paths(original_candidate, new_candidate)
+        cand_hash = canonical_theory_hash(new_candidate)
+        fb = run_verifier(electric, new_candidate, feedback_vcfg)
+        verifier_calls += 1
+        if not fb.is_certified:
+            _log(
+                action.action,
+                reasoning=action.reasoning,
+                edit_applied=True,
+                fb_after=fb.status,
+                changed=changed,
+                cand_hash=cand_hash,
+            )
+            continue
+        final = run_verifier(electric, new_candidate, final_vcfg)
+        verifier_calls += 1
+        final_status = final.status
+        _log(
+            action.action,
+            reasoning=action.reasoning,
+            edit_applied=True,
+            fb_after=fb.status,
+            final_after=final.status,
+            changed=changed,
+            cand_hash=cand_hash,
+        )
+        if final.is_certified:
+            success = True
+            success_round = r
+            gen_to_final = True
+            winning = new_candidate
+            break
+        gen_to_final = False  # fb-certified draw failed the final verifier
+
+    return RepairResult(
+        fixture_id=record.fixture_id,
+        depth=record.depth,
+        perturbation_class=record.perturbation_class,
+        repairable=record.repairable,
+        label=record.label,
+        arm="best_of_n",
+        success=success,
+        success_round=success_round,
+        n_rounds=n_rounds,
+        final_status=final_status,
+        generalization_to_final_check=gen_to_final,
+        abstained=(not had_valid) and n_invalid == 0 and n_abstain > 0,
+        invalid=(not had_valid) and n_invalid > 0,
+        out_of_scope=False,
+        verifier_calls=verifier_calls,
+        edit_distance=(
+            theory_edit_distance(original_candidate, winning) if winning else 0
+        ),
+        copied_electric=copied_electric,
+        started_certified=None,
+        harmed=None,
+        unnecessary_edit=None,
         rounds=[_round_to_dict(rl) for rl in rounds_log],
     )
 
@@ -1035,6 +1402,22 @@ def score_repair(
     verifier_calls_total = sum(r.verifier_calls for r in results)
     verifier_calls_success = sum(r.verifier_calls for r in successes)
 
+    # Total-cost accounting over ALL records including failures (protocol
+    # section 11).
+    total_model_calls = 0
+    total_input_tokens = 0
+    total_output_tokens = 0
+    tokens_known_rounds = 0
+    for r in results:
+        for rd in r.rounds:
+            if round_model_called(rd):
+                total_model_calls += 1
+            if rd.get("input_tokens") is not None:
+                total_input_tokens += rd["input_tokens"]
+                tokens_known_rounds += 1
+            if rd.get("output_tokens") is not None:
+                total_output_tokens += rd["output_tokens"]
+
     final_status_counts: dict[str, int] = {}
     for r in results:
         key = r.final_status or "none"
@@ -1085,9 +1468,16 @@ def score_repair(
             else None
         ),
         "verifier_calls_total": verifier_calls_total,
+        # Legacy metric (success-only denominator); kept for old-run
+        # comparability but NOT used for efficiency claims — use the
+        # total_* fields (protocol section 11).
         "verifier_calls_per_success": (
             verifier_calls_success / n_success if n_success else None
         ),
+        "total_model_calls": total_model_calls,
+        "total_input_tokens": total_input_tokens,
+        "total_output_tokens": total_output_tokens,
+        "token_usage_known_rounds": tokens_known_rounds,
         "invalid_json_rate": (
             sum(1 for r in results if r.invalid) / n if n else 0.0
         ),
@@ -1168,6 +1558,11 @@ def _round_to_dict(rl: RepairRoundLog) -> dict[str, Any]:
         "apply_error": rl.apply_error,
         "feedback_status_after": rl.feedback_status_after,
         "final_status_after": rl.final_status_after,
+        "model_called": rl.model_called,
+        "input_tokens": rl.input_tokens,
+        "output_tokens": rl.output_tokens,
+        "changed_paths": rl.changed_paths,
+        "candidate_hash": rl.candidate_hash,
     }
 
 

@@ -92,7 +92,12 @@ def add_subparsers(subparsers) -> None:
     rep.add_argument(
         "--arm",
         default="verifier_feedback",
-        help="single_shot_repair | generic_retry | llm_critic | verifier_feedback.",
+        help=(
+            "single_shot_repair | generic_retry | llm_critic | "
+            "verifier_feedback | vf_masked (E5 control: neutral positional "
+            "placeholders) | best_of_n (E4 control: 2*max_rounds+1 "
+            "independent single-shot draws, stop at first final cert)."
+        ),
     )
     rep.add_argument(
         "--model",
@@ -133,6 +138,21 @@ def add_subparsers(subparsers) -> None:
     score_rep.add_argument("--model", default="model")
     score_rep.add_argument("--max-rounds", type=int, default=5)
     score_rep.set_defaults(func=cmd_score_repair)
+
+    e4 = subparsers.add_parser(
+        "score-e4",
+        help=(
+            "E4 stop-first portfolio replay (ss -> gr -> vf) over complete "
+            "component runs, optionally paired against a best_of_n control "
+            "run (paper/analysis_protocol.md section 4)."
+        ),
+    )
+    e4.add_argument("--ss", required=True, help="single_shot_repair run dir.")
+    e4.add_argument("--gr", required=True, help="generic_retry run dir.")
+    e4.add_argument("--vf", required=True, help="verifier_feedback run dir.")
+    e4.add_argument("--control", default=None, help="best_of_n run dir.")
+    e4.add_argument("--out", required=True, help="Output directory.")
+    e4.set_defaults(func=cmd_score_e4)
 
 
 # ----------------------------------------------------------------------
@@ -354,6 +374,32 @@ def cmd_run_repair_loop(args) -> int:
         f"@5={s['success_at_5']:.3f} invalid={s['invalid_json_rate']:.3f} "
         f"abstain={s['abstention_rate']:.3f}"
     )
+    return 0
+
+
+def cmd_score_e4(args) -> int:
+    from dualitycert.experiments.e4_replay import score_e4
+
+    summary = score_e4(
+        ss_dir=args.ss,
+        gr_dir=args.gr,
+        vf_dir=args.vf,
+        control_dir=args.control,
+        out_dir=args.out,
+    )
+    print(f"[score-e4] {summary['n_fixtures']} fixtures -> {args.out}")
+    print(
+        f"  portfolio={summary['portfolio_n_success']}/{summary['n_fixtures']}"
+        f" ({summary['portfolio_success_rate']:.3f})"
+        f" deployed_model_calls={summary['portfolio_deployed_model_calls']}"
+    )
+    if args.control:
+        print(
+            f"  control={summary['control_n_success']}/{summary['n_fixtures']}"
+            f" ({summary['control_success_rate']:.3f})"
+            f" paired={summary['paired']}"
+            f" McNemar_p={summary['mcnemar_exact_p']:.4f}"
+        )
     return 0
 
 
