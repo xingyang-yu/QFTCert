@@ -86,6 +86,13 @@ def main(argv: list[str] | None = None) -> int:
         try:
             return handler(args)
         except Exception as exc:  # clean message, matching the CLI's style
+            # Long-running experiment commands need the WHERE, not just the
+            # message: a bare "[Errno 60] Operation timed out" once cost an
+            # hour of diagnosis (an iCloud-evicted fixture file failing in
+            # _load_theory, nowhere near the network client).
+            import traceback
+
+            traceback.print_exc(file=sys.stderr)
             print(f"dualitycert: {exc}", file=sys.stderr)
             return 2
 
