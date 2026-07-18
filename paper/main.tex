@@ -1,0 +1,165 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1.1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{xcolor}
+
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\dscode}{\textsc{deepseek-chat}}
+\newcommand{\qwcode}{\textsc{qwen-plus}}
+
+\title{A Lean-Style Verifier for Seiberg Dualities Turns Weak Language
+Models into Auditable Repair Agents\\
+{\large\todo{working title, iterate with author}}}
+\author{Xingyang Yu}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present \textsc{QFTCert}, a symbolic verifier that certifies
+consistency of proposed Seiberg-duality claims in four-dimensional
+$\mathcal{N}=1$ gauge theories (anomaly matching, superpotential
+$R$-charges, central charges, bounded chiral-ring consistency), and use
+it as an interaction environment for language-model agents that must
+\emph{repair} deliberately broken duality claims. On a fixed benchmark of
+145 depth-one perturbed claims, under a pre-registered analysis protocol
+frozen before data collection, we find: (i) verifier-gated iteration
+lifts repair success over single-shot attempts on both models tested
+($+8.3$\,pp on \dscode{}, $+7.1$\,pp on \qwcode{}, Holm-adjusted
+$p<0.002$); (ii) the \emph{optimal verifier-exploitation strategy is
+model-dependent, with confirmatory significance in opposite directions}:
+for \dscode{}, feedback content adds nothing over content-free retry and
+independent verifier-filtered resampling dominates a strategy portfolio
+($-10.3$\,pp), while for \qwcode{}, category-level feedback is worth
+$+8.7$\,pp, interpretable obligation identities alone are worth
+$+6.4$\,pp over structurally identical masked feedback, and the
+portfolio dominates resampling ($+14.7$\,pp); (iii) the invariant across
+both regimes is the verifier's cheap, machine-checkable certificate,
+which powers whichever search strategy wins. The entire confirmatory
+phase cost roughly \$11 of public API credit; all code, fixtures, frozen
+protocol, and per-round audit logs are released.
+\todo{finalize abstract wording after prose pass}
+\end{abstract}
+
+\section{Introduction}
+\todo{motivation: proof assistants ground LLM reasoning in mathematics;
+physics lacks the analogous machine-checkable substrate. QFTCert as a
+domain proof-of-concept: consistency CERTIFICATES for duality claims
+(Lean-style, not Lean-equivalent — no proof terms; the verifier
+auto-judges). Honest scope: certificates of consistency, not proofs of
+duality. Contributions list mirroring abstract claims (i)-(iii) +
+benchmark + open release.}
+
+\section{Consistency certificates for Seiberg duality}
+\todo{summarize the verifier: pure-quiver claims, obligations
+(anomaly matching, W R-charge = 2, ABJ anomaly freedom, central-charge
+matching, R-graded bounded chiral-ring consistency at length L),
+judge modes, out-of-scope semantics. Point to appendix for full
+obligation list. Emphasize L=3 feedback / L=5 final anti-gaming pair.}
+
+\section{Benchmark: perturbed duals at fixed depth}
+\todo{seed families (dP0, dP1, dP2, F0, SPP, C3/Z2xZ2 + nodes),
+mutation engine for ground-truth duals, four perturbation classes
+(drop\_w\_term 38, flip\_w\_sign 13, r\_charge\_perturb 52,
+rank\_perturb 42; n=145 repairable), deterministic regeneration
+(seed 20260715), anti-memorization rationale, copy-cheat guard
+(verbatim Theory-A copy trivially certifies; guard fired in live runs).}
+
+\section{Experimental design and frozen protocol}
+\todo{arms: single-shot, generic retry (K=5), verifier feedback
+medium (K=5), masked feedback (E5 control, neutral positional
+placeholders), best-of-11 (E4 control, independent draws, stop at first
+final certificate); full-theory edit mode; complete component collection
++ deterministic stop-first portfolio replay (protocol section 4).
+Endpoints E1--E5; paper-wide Holm over \{E1,E2,E4\}x\{2 models\};
+logit-link GEE, fixture-clustered sandwich, standardized marginal risk
+difference. Protocol frozen at commit 813fdb0 BEFORE any confirmatory
+response; execution manifest with prompt/config/fixture hashes.
+R=3 replications per cell. Disclosure: the class-level ``two-regime''
+hypothesis from the pilot was post hoc and is NOT a confirmatory claim.}
+
+\section{Pilot phase (exploratory)}
+\todo{auditable qwen pilot (ss 13/145, gr 19, vf 21, det 32; paired
+tables) in one subsection; UNVERIFIABLE legacy deepseek aggregates
+(records lost) in a separate subsection, labeled as such, excluded from
+inference. Frozen pilot top-line sentence goes here verbatim. The pilot
+motivated: E5 masked control, E4 call-cap control, invalid-decomposition
+reporting.}
+
+\section{Confirmatory results}
+
+Table~\ref{tab:primary} reports the frozen endpoints; Table~\ref{tab:perrep}
+the underlying per-replication success counts.
+
+\begin{table}[t]
+\centering
+\input{tables/primary}
+\caption{Frozen GEE endpoints (standardized marginal risk differences in
+percentage points, fixture-clustered robust 95\% CIs). The primary family
+\{E1, E2, E4\} $\times$ \{\dscode{}, \qwcode{}\} carries one paper-wide
+Holm adjustment; E5 has its own two-hypothesis family;
+$\dagger$: E3 is reported descriptively (unadjusted).}
+\label{tab:primary}
+\end{table}
+
+\begin{table}[t]
+\centering
+\input{tables/per_rep}
+\caption{Per-replication verifier-certified repair counts (out of 145)
+for every policy, model, and replication.}
+\label{tab:perrep}
+\end{table}
+
+\todo{prose for the three claims: (1) E2 replicated on both models;
+(2) opposite-signed E1/E4/E5 => sampler-type (deepseek) vs
+feedback-follower (qwen); note deepseek E5 RD exactly 0.0 (64 vs 64);
+(3) certificate-as-invariant framing. Report validity-discordance
+decomposition and per-class descriptive tables (appendix) with NO
+significance language. Budget: Table~\ref{tab:cost}.}
+
+\begin{table}[t]
+\centering
+\input{tables/cost}
+\caption{Confirmatory-campaign compute accounting (all calls including
+failures; protocol section 11).}
+\label{tab:cost}
+\end{table}
+
+\section{Exploratory extensions}
+\todo{depth-2 collapse (difficulty dial; all strategies to the floor);
+frustration cheating (copy-rate explodes with difficulty, guard
+integrity); interface floor across model ladder (gemini-lite/8B below
+floor; frontier-lite pilot: gemini-3.5-flash 0/17 single-shot; Sonnet
+4.6 blind-detection degeneracy); per-class heterogeneity descriptive
+forest plot; MiniMax scout/extension IF the scout is clean
+\todo{pending scout}.}
+
+\section{Related work}
+\todo{AI4Math verifier-in-the-loop (AlphaProof, LeanDojo lineage);
+LLM self-correction literature (intrinsic self-correction fails;
+external verifiers help); rejection sampling / best-of-N with reward
+models vs our exact symbolic filter; physics-domain LLM benchmarks.}
+
+\section{Limitations and outlook}
+\todo{two models => existence claim only, no strategy typology;
+single benchmark domain (4d N=1 pure-quiver Seiberg); certificates not
+proofs; depth-2 unsolved by all tested strategies; frontier suite not
+run (cost symmetry argument + pilot exhibits); masked-feedback
+placeholder-attention caveat (protocol wording verbatim).}
+
+\appendix
+\section{Frozen analysis protocol}
+\todo{include paper/analysis\_protocol.md verbatim or as artifact
+pointer + freeze/manifest commit hashes 813fdb0 / c155cff.}
+\section{Reproduction}
+\todo{commands, seeds, config hashes, expected costs; artifact layout.}
+
+\bibliographystyle{unsrtnat}
+\bibliography{refs}
+
+\end{document}
