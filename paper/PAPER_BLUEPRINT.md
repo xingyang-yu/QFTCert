@@ -83,15 +83,31 @@ primary family, and is never pooled into a three-model multiplicity family.
 
   | MiniMax endpoint | rd (p: Holm-adjusted for E1/E2/E4; unadjusted for E5) | 95% CI |
   |---|---|---|
-  | E2 gr−ss | +11.0 pp (0.0003, sig) | [+5.5, +16.6] |
-  | E4 portfolio−control | −8.0 pp (0.018, sig; reproduced the negative E4 ordering observed on DeepSeek) | [−14.1, −2.0] |
-  | E1 vf−gr | +3.2 pp (0.18, ns) | [−1.5, +8.0] |
-  | E5 vf−masked (secondary, unadjusted) | −0.5 pp (0.84, ns — no detected difference) | [−5.1, +4.1] |
+  | E2 gr−ss | +11.5 pp (0.0002, sig) | [+5.9, +17.1] |
+  | E4 portfolio−control | −9.0 pp (0.009, sig; reproduced the negative E4 ordering observed on DeepSeek) | [−15.2, −2.7] |
+  | E1 vf−gr | +2.8 pp (0.26, ns) | [−2.0, +7.5] |
+  | E5 vf−masked (secondary, unadjusted) | −0.7 pp (0.77, ns — no detected difference) | [−5.3, +3.9] |
 
-  All five arms 145×3; E4 per-rep signs consistent (−9.0/−8.3/−6.9 pp). Caveat
+  All five arms 145×3; E4 per-rep signs consistent (−11.0/−9.7/−6.2 pp). Caveat
   (goes in Limitations): provider-forced thinking; invalid rates higher than the two
-  primary models (vf 46%, gr 39%). Reported alongside but SEPARATELY from the
+  primary models (vf 45%, gr 38%). Reported alongside but SEPARATELY from the
   two-model primary family, per the amendment's preregistered claims language.
+
+  **Contamination cleaning (appendix material; full transcript
+  `minimax_data_audit.md`, artifacts `runs/experiments/repair_d1/
+  quarantine_preclean_20260721/`):** 45 fixture-reps total (43 in the initial scan
+  + 2 recurrences during reruns) contained exogenous API-transport errors
+  (APIConnectionError/APITimeoutError) and were quarantined and replaced under the
+  frozen filter-and-resume rule; selection was outcome-independent; deepseek/qwen
+  contain 0 such rows. Two converged disclosure sentences for the appendix:
+  (i) "All MiniMax contamination-cleaning reruns, including the third rerun of
+  `spp_N2_d1_node2_rank_perturb_00`, retained the pre-data-recorded 300-second
+  client timeout; rows containing exogenous transport timeouts were quarantined and
+  replaced under the unchanged filter-and-resume rule." (ii) "For pass 3 and any
+  subsequent contamination-cleaning reruns, requests to `dashscope.aliyuncs.com`
+  bypassed the shell's local HTTP(S) proxy via `NO_PROXY`, while the frozen
+  300-second client timeout, provider endpoint, model, prompts, fixtures, policies,
+  and sampling parameters remained unchanged."
 - **Exploratory — depth-2 axis:** deepseek, single-rep; a difficulty dial on which all
   strategies collapse to the floor. Appendix. glm/gemini scout runs = provider noise, excluded.
 
