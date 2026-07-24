@@ -8,12 +8,13 @@
 \usepackage{xcolor}
 
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\dualitycert}{\textsc{DualityCert}}
 \newcommand{\dscode}{\textsc{deepseek-chat}}
 \newcommand{\qwcode}{\textsc{qwen-plus}}
+\newcommand{\mmcode}{\textsc{MiniMax-M2.5}}
 
-\title{A Lean-Style Verifier for Seiberg Dualities Turns Weak Language
-Models into Auditable Repair Agents\\
-{\large\todo{working title, iterate with author}}}
+\title{\dualitycert{}: Verifier-Gated Language-Model Repair of Broken
+Duality Claims in Quantum Field Theory}
 \author{Xingyang Yu}
 \date{\today}
 
@@ -21,77 +22,154 @@ Models into Auditable Repair Agents\\
 \maketitle
 
 \begin{abstract}
-We present \textsc{QFTCert}, a symbolic verifier that certifies
+% ABSTRACT IS REWRITTEN LAST, per PAPER_BLUEPRINT.md section 5 (six-element
+% spec + two verbatim converged sentences). The text below is the OLD draft,
+% kept only as a placeholder; its E1-centered framing is superseded.
+We present \dualitycert{}, a symbolic verifier that certifies
 consistency of proposed Seiberg-duality claims in four-dimensional
 $\mathcal{N}=1$ gauge theories (anomaly matching, superpotential
 $R$-charges, central charges, bounded chiral-ring consistency), and use
 it as an interaction environment for language-model agents that must
-\emph{repair} deliberately broken duality claims. On a fixed benchmark of
-145 depth-one perturbed claims, under a pre-registered analysis protocol
-frozen before data collection, we find: (i) verifier-gated iteration
-lifts repair success over single-shot attempts on both models tested
-($+8.3$\,pp on \dscode{}, $+7.1$\,pp on \qwcode{}, Holm-adjusted
-$p<0.002$); (ii) the \emph{optimal verifier-exploitation strategy is
-model-dependent, with confirmatory significance in opposite directions}:
-for \dscode{}, feedback content adds nothing over content-free retry and
-independent verifier-filtered resampling dominates a strategy portfolio
-($-10.3$\,pp), while for \qwcode{}, category-level feedback is worth
-$+8.7$\,pp, interpretable obligation identities alone are worth
-$+6.4$\,pp over structurally identical masked feedback, and the
-portfolio dominates resampling ($+14.7$\,pp); (iii) the invariant across
-both regimes is the verifier's cheap, machine-checkable certificate,
-which powers whichever search strategy wins. The entire confirmatory
-phase cost roughly \$11 of public API credit; all code, fixtures, frozen
-protocol, and per-round audit logs are released.
-\todo{finalize abstract wording after prose pass}
+\emph{repair} deliberately broken duality claims.
+\todo{rewrite abstract LAST per blueprint \S5 spec; old draft removed}
 \end{abstract}
 
 \section{Introduction}
-\todo{motivation: proof assistants ground LLM reasoning in mathematics;
-physics lacks the analogous machine-checkable substrate. QFTCert as a
-domain proof-of-concept: consistency CERTIFICATES for duality claims
-(Lean-style, not Lean-equivalent — no proof terms; the verifier
-auto-judges). Honest scope: certificates of consistency, not proofs of
-duality. Contributions list mirroring abstract claims (i)-(iii) +
-benchmark + open release.}
+\label{sec:intro}
 
-\section{Consistency certificates for Seiberg duality}
-\todo{summarize the verifier: pure-quiver claims, obligations
-(anomaly matching, W R-charge = 2, ABJ anomaly freedom, central-charge
-matching, R-graded bounded chiral-ring consistency at length L),
-judge modes, out-of-scope semantics. Point to appendix for full
-obligation list. Emphasize L=3 feedback / L=5 final anti-gaming pair.}
+Large language models are increasingly used to carry out multi-step
+derivations in theoretical physics, but their output is usually not
+checked by any machine. The situation in mathematics is different:
+proof assistants provide an exact target for language-model agents to
+search against, and systems built on them have progressed from
+olympiad-level problem solving
+\cite{Yang:2023leandojo,Trinh:2024alphageometry,Hubert:2025alphaproof}
+to research-level results, including machine-verified solutions of
+decades-open problems \cite{Sothanaphan:2026erdos728} and formally
+verified counterexamples \cite{Li:2026disprove}.
 
-\section{Benchmark: perturbed duals at fixed depth}
-\todo{seed families (dP0, dP1, dP2, F0, SPP, C3/Z2xZ2 + nodes),
-mutation engine for ground-truth duals, four perturbation classes
-(drop\_w\_term 38, flip\_w\_sign 13, r\_charge\_perturb 52,
-rank\_perturb 42; n=145 repairable), deterministic regeneration
-(seed 20260715), anti-memorization rationale, copy-cheat guard
-(verbatim Theory-A copy trivially certifies; guard fired in live runs).}
+However, this approach
+cannot be directly copied to physics. Mathematics is built on an
+axiomatic foundation, where a statement is settled by a proof. Formal
+quantum field theory (QFT) and string theory, although more rigorous
+than most other areas of physics, are largely driven by physical
+intuition, and many of their central results are not derived from a
+fixed set of axioms. In this regime, where experimental data is
+typically unavailable, consistency checks are the main tool by which
+physicists judge whether a proposal is correct. Seiberg duality
+\cite{Seiberg:1994pq,Intriligator:1995au}, which states that two
+different four-dimensional $\mathcal{N}=1$ gauge theories flow to the
+same infrared physics, is a representative example: there is no proof
+assistant that formalizes this statement, and the original evidence for
+it consists precisely of such consistency checks. A verifier for this
+kind of physics should therefore be built on the consistency checks of
+the research field itself, rather than as an imitation of a proof
+assistant.
 
-\section{Experimental design and frozen protocol}
-\todo{arms: single-shot, generic retry (K=5), verifier feedback
-medium (K=5), masked feedback (E5 control, neutral positional
-placeholders), best-of-11 (E4 control, independent draws, stop at first
-final certificate); full-theory edit mode; complete component collection
-+ deterministic stop-first portfolio replay (protocol section 4).
-Endpoints E1--E5; paper-wide Holm over \{E1,E2,E4\}x\{2 models\};
-logit-link GEE, fixture-clustered sandwich, standardized marginal risk
-difference. Protocol frozen at commit 813fdb0 BEFORE any confirmatory
-response; execution manifest with prompt/config/fixture hashes.
-R=3 replications per cell. Disclosure: the class-level ``two-regime''
-hypothesis from the pilot was post hoc and is NOT a confirmatory claim.}
+A substantial part of these checks
+can be made fully mechanical: whether the 't~Hooft anomalies of a
+proposed pair of theories match, whether the superpotential (the
+holomorphic interaction terms of the theory) is consistent with the
+assigned $R$-charges (the charges under the distinguished $U(1)_R$
+symmetry), whether the central charges agree, and whether bounded data
+of protected gauge-invariant operators (the chiral ring) coincide. Each
+of these is a finite, exact, symbolic computation, and is cheap enough
+to run thousands of times.
 
-\section{Pilot phase (exploratory)}
-\todo{auditable qwen pilot (ss 13/145, gr 19, vf 21, det 32; paired
-tables) in one subsection; UNVERIFIABLE legacy deepseek aggregates
-(records lost) in a separate subsection, labeled as such, excluded from
-inference. Frozen pilot top-line sentence goes here verbatim. The pilot
-motivated: E5 masked control, E4 call-cap control, invalid-decomposition
-reporting.}
+We present \dualitycert{}, a symbolic verifier based on this layer of
+consistency checks. A \emph{candidate duality claim} is an ordered pair
+of quiver gauge theories, and \dualitycert{} evaluates four families of
+\emph{consistency obligations}: 't~Hooft anomaly matching,
+superpotential $R$-charge consistency, central-charge matching, and
+$R$-graded bounded chiral-ring consistency. A claim that passes every
+obligation receives a \emph{consistency certificate}. The certificate
+states that no tested inconsistency was found; it is not a proof of
+duality, and a failed obligation rules out the claim only within the
+encoded scope. We then use the verifier to construct a repair
+environment: an agent is given a deliberately broken candidate claim,
+proposes edits, and each attempt is judged by the verifier. The final
+acceptance check is stricter than the checks whose outcomes the agent
+saw during the interaction.
+
+We use this environment for a preregistered study of how language-model
+agents exploit an exact symbolic verifier. The benchmark consists of 145
+repairable claims, obtained by perturbing verified dual pairs at depth
+one in four classes (deleting a superpotential term, flipping a
+coefficient sign, perturbing $R$-charges, and changing a gauge-node
+rank), and every model receives exactly the same set of claims. The analysis protocol,
+the endpoints, the statistical model, and the multiplicity correction
+were frozen before the first confirmatory API call. The confirmatory
+analysis covers two publicly available models, \dscode{} and \qwcode{}, with
+three replications per policy; effects are estimated by
+generalized-estimating-equation (GEE) analysis with fixture-level
+clustering under a Holm adjustment and reported as risk differences in
+percentage points (pp). Separately, \mmcode{} is evaluated under a
+preregistered extension with its own three-hypothesis Holm family
+(Section~\ref{sec:results}).
+
+Our contributions are threefold. First, we release \dualitycert{}, the
+repair environment, the benchmark, and the frozen protocol. Second,
+verifier-gated iteration improves repair success over single-shot
+attempts on both confirmatory models ($+8.3$\,pp on \dscode{}, $+7.1$\,pp on
+\qwcode{}; Holm-adjusted $p<0.002$). Third, under an equal budget of eleven
+verifier-judged calls, the ordering of the two tested exploitation
+policies, a stop-first \emph{strategy portfolio} and \emph{independent
+verifier-filtered resampling}, reverses between the two named models
+($-10.3$\,pp for the portfolio on \dscode{}, $+14.7$\,pp on \qwcode{};
+both Holm-significant). Endpoints that isolate the effect of feedback
+content show gains only on \qwcode{}: category-level verifier feedback is worth
+$+8.7$\,pp over content-free retry, and interpretable obligation
+identities are worth $+6.4$\,pp over structurally identical masked
+feedback. Our claim is non-universality of the tested policies across
+the two evaluated models, not a general classification of models.
+
+The closest related work grounds language-model reasoning in proof
+assistants and symbolic engines: AlphaProof couples an agent to a formal
+checker \cite{Hubert:2025alphaproof}, LeanDojo opens the proof-assistant
+interaction loop to language models \cite{Yang:2023leandojo}, and
+AlphaGeometry pairs a generator with a symbolic deduction engine
+\cite{Trinh:2024alphageometry}. In parallel, it is known that unaided
+self-correction of model reasoning is unreliable
+\cite{Huang:2023selfcorrect}, while external checkers help: learned
+verifiers rerank candidate solutions \cite{Cobbe:2021verifiers}, and
+execution feedback drives program repair \cite{Chen:2023selfdebug}.
+\dualitycert{} differs from these works in two ways: the checker is an
+exact, domain-specific symbolic verifier for a QFT duality rather than
+a learned reward model, and the object under repair is a physics claim
+rather than a program or a formal proof.
+
+The rest of the paper is organized as follows. Section~2 describes the
+verifier and the repair interface, Section~3 the benchmark and the
+frozen protocol, and Section~4 the confirmatory results. Sections~5
+and~6 contain the discussion, limitations, and outlook.
+
+\section{\dualitycert{}: certificates and repair interface}
+\label{sec:system}
+\todo{six paragraphs per PAPER\_OUTLINE.md v3 \S2: P1 claim
+representation (+ electric/magnetic are labels, not outcomes); P2
+obligation families COMPRESSED (names + one physical-role sentence +
+necessary/sufficient contract; judge semantics CERTIFIED/FAILED/
+invalid/out-of-scope; extended rationale lives in App.~A primer); P3 one
+representative obligation mathematically (anomaly equality + residual to
+feedback projection); P4 anti-gaming $L{=}3$ feedback vs $L{=}5$ final
+judge; P5 repair interface (full-theory JSON edit, $K\le5$, per-arm
+feedback projections, copy-cheat guard); P6 extracted design pattern as
+INLINE list (claim schema / obligations / certificate / feedback
+projection / strict final judge), pattern not framework.}
+
+\section{Benchmark and preregistered experiment}
+\label{sec:design}
+\todo{four paragraphs per outline \S3: P1 fixtures (seed families +
+D3-branes at toric CY3 one-liner with primer cross-ref; 4 classes with
+counts 38/13/52/42; verifier-gated n=145; seed 20260715; attrition to
+appendix); P2 arms + collection discipline (complete ss/gr/vf components;
+E4 = deterministic stop-first replay vs best-of-11 under equal 11-call
+cap); P3 endpoint map E1..E5; P4 models/reps/frozen protocol
+(commit 813fdb0), GEE/Holm spec, exogenous-contamination rule pointer.
+NO MiniMax in this section. Config minutiae to App.~I.}
 
 \section{Confirmatory results}
+\label{sec:results}
 
 Table~\ref{tab:primary} reports the frozen endpoints; Table~\ref{tab:perrep}
 the underlying per-replication success counts.
@@ -103,7 +181,10 @@ the underlying per-replication success counts.
 percentage points, fixture-clustered robust 95\% CIs). The primary family
 \{E1, E2, E4\} $\times$ \{\dscode{}, \qwcode{}\} carries one paper-wide
 Holm adjustment; E5 has its own two-hypothesis family;
-$\dagger$: E3 is reported descriptively (unadjusted).}
+$\dagger$: E3 is reported descriptively (unadjusted).
+\todo{regenerate table with separated \mmcode{} extension block
+(three-hypothesis Holm family; E5 row labeled secondary/unadjusted) per
+blueprint; scripts/paper\_tables.py update}}
 \label{tab:primary}
 \end{table}
 
@@ -115,12 +196,14 @@ for every policy, model, and replication.}
 \label{tab:perrep}
 \end{table}
 
-\todo{prose for the three claims: (1) E2 replicated on both models;
-(2) opposite-signed E1/E4/E5 => sampler-type (deepseek) vs
-feedback-follower (qwen); note deepseek E5 RD exactly 0.0 (64 vs 64);
-(3) certificate-as-invariant framing. Report validity-discordance
-decomposition and per-class descriptive tables (appendix) with NO
-significance language. Budget: Table~\ref{tab:cost}.}
+\todo{five units per outline \S4: P1 two-model E2 anchor; P2 two-model
+E4 reversal + Figure~1 (horizontal forest plot of E4 rd $\pm$95\% CI,
+zero line, "resampling higher"/"portfolio higher" annotations, divider
+before extension row, faint per-rep points); P3 two-model E1/E5; P4
+DEDICATED \mmcode{} extension unit (E2 $+11.5$ p=2e-4; E4 $-9.0$
+p=0.009 reproduces the negative ordering observed on \dscode{}; E1
+$+2.8$ ns; E5 $-0.7$ ns secondary); P5 certificate-as-invariant
+synthesis (no "all three models" phrasing). Budget table stays:}
 
 \begin{table}[t]
 \centering
@@ -130,36 +213,92 @@ failures; protocol section 11).}
 \label{tab:cost}
 \end{table}
 
-\section{Exploratory extensions}
-\todo{depth-2 collapse (difficulty dial; all strategies to the floor);
-frustration cheating (copy-rate explodes with difficulty, guard
-integrity); interface floor across model ladder (gemini-lite/8B below
-floor; frontier-lite pilot: gemini-3.5-flash 0/17 single-shot; Sonnet
-4.6 blind-detection degeneracy); per-class heterogeneity descriptive
-forest plot; MiniMax scout/extension IF the scout is clean
-\todo{pending scout}.}
+\section{Discussion and limitations}
+\label{sec:discussion}
+\todo{four short beats per outline \S5: P1 what E4 does/doesn't identify
+(bundles feedback content + sequential dependence + call allocation; no
+mechanism attribution; tested policies, named models, no typology); P2
+masked-feedback placeholder-attention caveat (protocol wording) +
+interpretability premium is a named-model finding; P3 extension caveats
+(forced thinking; invalid rates vf 45\%/gr 38\%; transport-error
+cleaning one-liner with App.~G pointer); P4 scope (two-model existence/
+non-universality only; single domain; depth-2 collapse one-liner with
+App.~H pointer; certificate-vs-proof boundary restated).}
 
-\section{Related work}
-\todo{AI4Math verifier-in-the-loop (AlphaProof, LeanDojo lineage);
-LLM self-correction literature (intrinsic self-correction fails;
-external verifiers help); rejection sampling / best-of-N with reward
-models vs our exact symbolic filter; physics-domain LLM benchmarks.}
-
-\section{Limitations and outlook}
-\todo{two models => existence claim only, no strategy typology;
-single benchmark domain (4d N=1 pure-quiver Seiberg); certificates not
-proofs; depth-2 unsolved by all tested strategies; frontier suite not
-run (cost symmetry argument + pilot exhibits); masked-feedback
-placeholder-attention caveat (protocol wording verbatim).}
+\section{Conclusion, artifact statement, and outlook}
+\label{sec:conclusion}
+\todo{two paragraphs per outline \S6: P1 recap ladder (2 sentences) +
+artifact statement (GitHub, frozen manifests/protocol/amendment, per-run
+JSONL, quarantine/audit trail, exact commands); P2 the ONLY QFTCert
+paragraph: prospective program, DualityCert as first cert, candidate
+future certs (bootstrap, amplitudes, SUSY localization/resurgence,
+string field theory), extracted design pattern as the reuse surface,
+invitation to domain experts.}
 
 \appendix
-\section{Frozen analysis protocol}
-\todo{include paper/analysis\_protocol.md verbatim or as artifact
-pointer + freeze/manifest commit hashes 813fdb0 / c155cff.}
-\section{Reproduction}
-\todo{commands, seeds, config hashes, expected costs; artifact layout.}
+
+\section{Physics primer: Seiberg duality and the consistency obligations}
+\label{app:primer}
+\todo{EXACTLY seven beats, hard cap 800 words / 1.5 pp, $\le$2 displayed
+equations, no floats, per PAPER\_OUTLINE.md v3 App.~A spec (incl. the
+must-not-contain list). Audience: hep-th reader from another subfield.}
+
+\section{Verifier detail}
+\label{app:verifier}
+\todo{obligation definitions, certificate schema, R-graded chiral-ring
+bounds, $L{=}3$/$L{=}5$ judge split.}
+
+\section{Benchmark construction}
+\label{app:benchmark}
+\todo{seed catalog, mutation/perturbation generation, verifier-gating,
+attrition table, byte-identical regeneration, copy-cheat guard.}
+
+\section{Prompts and policies}
+\label{app:prompts}
+\todo{full prompts, arm pseudocode, invalid/abstain definitions.}
+
+\section{Statistical specification}
+\label{app:stats}
+\todo{GEE estimator details, Holm procedure, E3 results, per-rep tables.}
+
+\section{Per-class descriptive tables}
+\label{app:perclass}
+\todo{per-perturbation-class outcomes per model; descriptive only, no
+inferential claims.}
+
+\section{\mmcode{} extension detail}
+\label{app:minimax}
+\todo{amendment summary, full clean GEE table, invalid decomposition,
+forced-thinking disclosure, contamination cleaning (45 fixture-reps,
+quarantine artifacts, the two converged disclosure sentences: 300\,s
+timeout retained; NO\_PROXY direct connection).}
+
+\section{Exploratory depth-2 and excluded scouts}
+\label{app:depth2}
+\todo{depth-2 collapse (difficulty dial); glm/gemini provider-noise
+exclusions.}
+
+\section{Reproduction and configuration}
+\label{app:repro}
+\todo{costs, manifests, hashes, exact commands; config minutiae
+(temperature = provider default, max\_tokens 8192, client timeout 300\,s
+frozen).}
 
 \bibliographystyle{unsrtnat}
 \bibliography{refs}
+
+% ------------------------------------------------------------------
+% PARKED material from the pre-blueprint skeleton (not in the converged
+% architecture; kept for reference only, do not resurrect without a
+% structure decision):
+% - Pilot phase section (qwen pilot ss 13/145, gr 19, vf 21, det 32;
+%   legacy deepseek aggregates with lost records, excluded from
+%   inference). If a referee asks, this belongs in an appendix with
+%   explicit exploratory labeling.
+% - Exploratory extensions section (frustration cheating / copy-rate;
+%   interface floor across model ladder; per-class heterogeneity forest
+%   plot). Some of this is routed to App.~F/H; the rest is out.
+% - Standalone Related-work section (folded into \S1 P5).
+% ------------------------------------------------------------------
 
 \end{document}
