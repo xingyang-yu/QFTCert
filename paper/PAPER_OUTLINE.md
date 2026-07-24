@@ -100,9 +100,9 @@ convention), Figure 2 = the E4 forest plot in §4. No second table in the main t
 
 ## §3 Benchmark and preregistered experiment — 1.1–1.3 pp
 - **P1 (fixtures).** Seed families (dP0, dP1, dP2, F0, SPP, C3/Z2×Z2 + node
-  choices) + one converged sentence: these are toric quiver gauge theories
-  associated with D3-branes at Calabi–Yau threefold singularities (primer
-  cross-reference); depth-1 perturbations in 4 classes with counts (drop_w 38,
+  choices) + one converged sentence: these are quiver gauge theories associated
+  with D3-branes at toric Calabi–Yau threefold singularities (primer
+  cross-reference; "toric" modifies the geometry, per author 2026-07-25); depth-1 perturbations in 4 classes with counts (drop_w 38,
   flip_w 13, r_charge 52, rank 42); verifier-gated repairability (n=145);
   byte-identical regeneration (seed 20260715); attrition to appendix.
 - **P2 (arms + collection discipline).** ss; gr (content-free retry, K≤5); vf
