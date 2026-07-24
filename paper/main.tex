@@ -6,6 +6,8 @@
 \usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
 \usepackage[numbers,sort&compress]{natbib}
 \usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit}
 
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 \newcommand{\dualitycert}{\textsc{DualityCert}}
@@ -147,8 +149,57 @@ and~6 contain the discussion, limitations, and outlook.
 \section{\dualitycert{}: certificates and repair interface}
 \label{sec:system}
 
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize,
+  box/.style={draw, rounded corners=1pt, align=center, inner sep=4pt},
+  proj/.style={draw, align=left, inner sep=4pt, fill=black!4},
+  arr/.style={-{Stealth[length=2.2mm]}, semithick}]
+
+\node[box, align=center] (claim) at (0,0)
+  {candidate claim\\ $(T_A,\,T_B)$\\ \scriptsize quiver JSON};
+\node[box, align=center] (ver) at (5.3,0)
+  {\textbf{\dualitycert{} verifier}\\[1pt]
+   \scriptsize gauge and ABJ anomaly cancellation\\
+   \scriptsize 't~Hooft anomaly matching\\
+   \scriptsize $W$ gauge invariance, $R(W)=2$\\
+   \scriptsize central charge $a$ matching\\
+   \scriptsize bounded chiral-ring proxy};
+\node[box, align=center] (cert) at (11.3,0)
+  {consistency certificate\\
+   \scriptsize final judge at least as strict\\
+   \scriptsize ($L{=}5$ vs.\ $L{=}3$, singlet-free part)};
+\node[box, align=center] (agent) at (0,-3.2)
+  {language-model agent\\ \scriptsize full-theory edit of $T_B$};
+\node[proj] (fb) at (5.3,-3.2)
+  {\textbf{feedback projection} (per arm)\\
+   \scriptsize verifier: obligation names $+$ categories\\
+   \scriptsize masked: positional placeholders\\
+   \scriptsize generic: ``failed, try again''};
+
+\draw[arr] (claim) -- (ver);
+\draw[arr] (ver) -- (cert) node[midway, above]{\scriptsize pass};
+\draw[arr] (ver) -- (fb) node[midway, right]{\scriptsize fail};
+\draw[arr] (fb) -- (agent);
+\draw[arr] (agent) -- (claim)
+  node[midway, right]{\scriptsize revised $T_B$};
+\node[below=1.5mm of agent, inner sep=0pt, align=center]
+  {\scriptsize at most $K=5$ rounds;\\[-1pt]
+   \scriptsize verbatim copy of $T_A$ rejected};
+\end{tikzpicture}
+\caption{The \dualitycert{} repair environment. A candidate claim is
+judged by the verifier; failed obligations pass through an
+arm-dependent feedback projection to the agent, which returns a
+complete revised $T_B$ (at most $K=5$ rounds; verbatim copies of $T_A$
+are rejected). Final acceptance uses a configuration at least as strict
+as the interaction-time verifier (Section~\ref{sec:system}).}
+\label{fig:overview}
+\end{figure}
+
 A candidate duality claim in \dualitycert{} is an ordered pair of
-theories $(T_A, T_B)$, conventionally called electric and magnetic.
+theories $(T_A, T_B)$, conventionally called electric and magnetic;
+Figure~\ref{fig:overview} summarizes the construction.
 Each theory is specified in a small JSON schema as a quiver gauge
 theory: a list of gauge nodes with ranks (e.g.\ $SU(2)_0, SU(2)_1,
 \dots$), a list of arrows (bifundamental or adjoint chiral multiplets)
@@ -166,19 +217,24 @@ anomaly family requires the cubic gauge anomaly to cancel at every node
 of both theories,\footnote{For $SU(2)$ nodes the implemented cubic
 condition is a chirality-balance convention rather than a physical
 anomaly constraint, since the cubic anomaly of $SU(2)$ vanishes
-identically; the $\mathbb{Z}_2$ Witten anomaly is not checked.
-Section~\ref{sec:discussion} returns to this point.} the mixed
-gauge--global anomalies to cancel in each theory, and the global
-'t~Hooft anomaly table of $T_A$ to match that of $T_B$. The
+identically; the $\mathbb{Z}_2$ Witten anomaly \cite{Witten:1982fp} is
+not checked. Section~\ref{sec:discussion} returns to this point.} the mixed anomaly
+between each gauge node and every encoded global $U(1)$ to cancel in
+each theory,\footnote{The benchmark encodes only $U(1)_R$, so this is
+the condition that the $R$-symmetry is free of ABJ anomalies, with the
+gaugino contribution included.} and the global 't~Hooft anomaly table
+of $T_A$ to match that of $T_B$ \cite{tHooft:1979rat}. The
 superpotential family requires every superpotential term to be gauge
 invariant and to carry $R$-charge two. The $R$-charge family requires
-the trial central charge $a$, evaluated on the encoded $R$-symmetry
-(no $a$-maximization is performed), to agree between the two theories.
+the trial central charge $a$ \cite{Anselmi:1997am}, evaluated on the
+encoded $R$-symmetry (no $a$-maximization \cite{Intriligator:2003jj} is
+performed), to agree between the two theories.
 The chiral-ring family compares bounded classical data: gauge-invariant
 single-trace words modulo truncated $F$-term relations, graded by word
 length or, when gauge singlets are present, by $R$-charge. This is a
-bounded classical proxy for the chiral ring rather than the ring
-itself, and Appendix~\ref{app:verifier} states its exact scope. A claim
+bounded classical proxy for the chiral ring \cite{Cachazo:2002ry}
+rather than the ring itself, and Appendix~\ref{app:verifier} states its
+exact scope. A claim
 for which at least one obligation is judged and none fails is
 \textsc{certified} and receives a consistency certificate recording the
 outcome of every obligation, including those the verifier cannot judge
@@ -212,9 +268,10 @@ variable.
 
 The environment runs the verifier in two configurations. For fixtures
 without gauge singlets (111 of 145), the chiral-ring proxy is evaluated
-up to word length $L=3$ during the interaction and up to $L=5$ in the
-final acceptance check, so the agent never observes the outcome of the
-exact check it must eventually pass. When singlets are present (34 of
+up to word length $L=3$ (the number of arrow factors in the operator)
+during the interaction and up to $L=5$ in the final acceptance check,
+so the agent never observes the outcome of the exact check it must
+eventually pass. When singlets are present (34 of
 145), the automatic $R$-charge grading derives its own cutoffs and the
 two configurations coincide; for these fixtures the protection rests on
 the withheld numerical residuals and on the copy guard. The copy guard
@@ -241,8 +298,9 @@ obligations; a certificate recording per-obligation outcomes; a
 feedback projection that controls what the agent sees; and a final
 judge at least as strict as the interaction-time checks. We regard this as a
 design pattern extracted from one implementation, not a validated
-general framework; Section~\ref{sec:conclusion} discusses prospective
-instantiations in other areas of formal QFT and string theory.
+general framework; Section~\ref{sec:conclusion} discusses prospects for
+building similar verifiers in other areas of formal QFT and string
+theory.
 
 \section{Benchmark and preregistered experiment}
 \label{sec:design}

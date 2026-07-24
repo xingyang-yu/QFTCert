@@ -17,8 +17,9 @@ Quantum Field Theory" — name+colon system format (AI-native); QFT concept in t
 description half per author preference (Seiberg moves to abstract/§1);
 "Language-Model" kept as the venue/routing signal. Supersedes the earlier T2.
 
-**Main-text budget:** ~6–7.5 pp, 6 sections, ONE table (Table 1) + ONE figure
-(Figure 1). No second table anywhere in the main text.
+**Main-text budget:** ~6–7.5 pp, 6 sections, ONE table (Table 1) + TWO figures:
+Figure 1 = system-overview diagram in §2 (TikZ, added per author 2026-07-24; AI-venue
+convention), Figure 2 = the E4 forest plot in §4. No second table in the main text.
 
 ---
 
@@ -130,7 +131,7 @@ description half per author preference (Seiberg moves to abstract/§1);
   two frozen GEE artifacts.
 - **P1 (two-model E2 anchor).** Verifier-gated iteration beats single shot on both
   confirmatory models (+8.3 deepseek / +7.1 qwen, Holm p<0.002). TWO-MODEL ONLY.
-- **P2 + FIGURE 1 (two-model E4 reversal — the surprise).** FIGURE 1 = horizontal
+- **P2 + FIGURE 2 (two-model E4 reversal — the surprise).** FIGURE 2 = horizontal
   FOREST PLOT of the E4 risk difference (portfolio − independent resampling, pp):
   vertical zero line; left annotation "resampling higher", right "portfolio
   higher"; DeepSeek and Qwen grouped as the primary family; visible divider before
@@ -244,7 +245,7 @@ MiniMax "Separately, …" sentence, first-to-cut rule).
 ## Cross-cutting rules while writing (blueprint §6 + outline round + physics round)
 - Named-model language only; forbidden-phrasings list applies everywhere;
   never "all three models" unqualified.
-- MiniMax appears ONLY: Table 1 extension block, Figure 1 extension row (below
+- MiniMax appears ONLY: Table 1 extension block, Figure 2 extension row (below
   divider), §4 P4 extension unit, §5 P3, abstract sentence, Appendix G, AND (Round 7
   amendment) one §1 P3 design-transparency sentence, verbatim: "Separately,
   \mmcode{} is evaluated under a preregistered extension with its own
