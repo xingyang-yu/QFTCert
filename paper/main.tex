@@ -406,47 +406,91 @@ Appendix~\ref{app:repro}.
 \section{Confirmatory results}
 \label{sec:results}
 
-Table~\ref{tab:primary} reports the frozen endpoints; Table~\ref{tab:perrep}
-the underlying per-replication success counts.
+Table~\ref{tab:primary} collects the frozen endpoints. The
+per-replication success counts behind the primary entries are listed in
+Appendix~\ref{app:stats} and those of the extension in
+Appendix~\ref{app:minimax}; the compute budget of the primary campaigns
+is in Appendix~\ref{app:repro}. The table and the figure of this
+section are generated directly from the released run artifacts by a
+single script, and every number quoted in the text below is taken from
+them.
 
 \begin{table}[t]
 \centering
 \input{tables/primary}
-\caption{Frozen GEE endpoints (standardized marginal risk differences in
-percentage points, fixture-clustered robust 95\% CIs). The primary family
-\{E1, E2, E4\} $\times$ \{\dscode{}, \qwcode{}\} carries one paper-wide
-Holm adjustment; E5 has its own two-hypothesis family;
-$\dagger$: E3 is reported descriptively (unadjusted).
-\todo{regenerate table with separated \mmcode{} extension block
-(three-hypothesis Holm family; E5 row labeled secondary/unadjusted) per
-blueprint; scripts/paper\_tables.py update}}
+\caption{Frozen GEE endpoints: standardized marginal risk differences
+in percentage points, with fixture-clustered robust 95\% CIs. Rows
+follow the ladder order of Section~\ref{sec:design}. The upper block
+reports the primary two-model campaign: its first six rows form the
+primary family with one paper-wide Holm adjustment, E5 forms a
+separate two-hypothesis family, and E3 is descriptive. The lower block
+is the separately preregistered \mmcode{} extension with its own
+three-hypothesis Holm family. $\dagger$: unadjusted $p$ (E3 is
+descriptive; the extension E5 is secondary).}
 \label{tab:primary}
 \end{table}
 
-\begin{table}[t]
+\begin{figure}[t]
 \centering
-\input{tables/per_rep}
-\caption{Per-replication verifier-certified repair counts (out of 145)
-for every policy, model, and replication.}
-\label{tab:perrep}
-\end{table}
+\input{figures/e4_forest}
+\caption{The E4 contrast: success-rate difference between the
+stop-first strategy portfolio and independent verifier-filtered
+resampling under the same budget of eleven attempts. Filled points are
+the GEE estimates, horizontal bars the fixture-clustered 95\% CIs, and
+small open circles the three per-replication differences. Negative
+values favor resampling, positive values favor the portfolio. The
+separately preregistered extension model appears below the dotted
+divider.}
+\label{fig:e4forest}
+\end{figure}
 
-\todo{five units per outline \S4: P1 two-model E2 anchor; P2 two-model
-E4 reversal + Figure~1 (horizontal forest plot of E4 rd $\pm$95\% CI,
-zero line, "resampling higher"/"portfolio higher" annotations, divider
-before extension row, faint per-rep points); P3 two-model E1/E5; P4
-DEDICATED \mmcode{} extension unit (E2 $+11.5$ p=2e-4; E4 $-9.0$
-p=0.009 reproduces the negative ordering observed on \dscode{}; E1
-$+2.8$ ns; E5 $-0.7$ ns secondary); P5 certificate-as-invariant
-synthesis (no "all three models" phrasing). Budget table stays:}
+The most stable result is E2. Content-free retry improves final repair
+success over a single attempt by $+8.3$\,pp on \dscode{} (Holm
+$p=0.0015$) and $+7.1$\,pp on \qwcode{} ($p=0.0016$), with the same
+sign in every replication of both models. Whatever else differs between
+the two models, several verifier-judged attempts are reliably worth
+several percentage points over one attempt on this benchmark.
 
-\begin{table}[t]
-\centering
-\input{tables/cost}
-\caption{Confirmatory-campaign compute accounting (all calls including
-failures; protocol section 11).}
-\label{tab:cost}
-\end{table}
+The central result is E4, shown in Figure~\ref{fig:e4forest}. Under
+the same budget of eleven attempts, the strategy portfolio loses to
+independent verifier-filtered resampling by $10.3$\,pp on \dscode{}
+($p=0.0016$) and beats it by $14.7$\,pp on \qwcode{} ($p<10^{-4}$),
+again with consistent per-replication signs on both models. The
+ordering of the two tested exploitation policies therefore reverses
+between the two named models: on \dscode{} the better use of the
+eleven attempts is to sample independently and let the verifier
+filter, while on \qwcode{} it is to escalate through the feedback
+policies.
+
+The narrower endpoints locate the difference in the feedback channel.
+On \qwcode{}, structured verifier feedback is worth $+8.7$\,pp over
+content-free retry (E1, $p=0.0016$), and interpretable obligation
+identities alone are worth $+6.4$\,pp over structurally identical
+masked feedback (E5, $p=0.0065$). On \dscode{} neither effect is
+detected: E1 is $-1.8$\,pp ($p=0.45$) and E5 is $+0.0$\,pp ($p=1.0$).
+The first-attempt contrast E3 is small on both models ($+0.5$ and
+$+1.8$\,pp, descriptive).
+
+Separately, the preregistered \mmcode{} extension (lower block of
+Table~\ref{tab:primary}; below the divider in
+Figure~\ref{fig:e4forest}) is analyzed under its own three-hypothesis
+Holm family. It reproduces the E2 anchor, $+11.5$\,pp
+($p=2\times10^{-4}$), and it reproduces the negative E4 ordering
+observed on \dscode{}: the portfolio loses to resampling by
+$9.0$\,pp ($p=0.0094$), with consistent per-replication signs. The
+feedback endpoints are not significant on this model (E1 $+2.8$\,pp;
+E5 $-0.7$\,pp, secondary). Provider-forced reasoning, elevated invalid
+rates, and the transport-error cleaning behind these numbers are
+discussed in Section~\ref{sec:discussion} and
+Appendix~\ref{app:minimax}.
+
+In every case above, the higher-performing of the two E4 policies
+uses the same object: the verifier's cheap consistency certificate,
+either as a filter over independent samples or as a source of
+feedback. What changes between the named models is which
+exploitation policy wins. The data support non-universality of the
+tested policies across the two evaluated models, and they do not
+support a general classification of models.
 
 \section{Discussion and limitations}
 \label{sec:discussion}
@@ -494,7 +538,17 @@ attrition table, byte-identical regeneration, copy-cheat guard.}
 
 \section{Statistical specification}
 \label{app:stats}
-\todo{GEE estimator details, Holm procedure, E3 results, per-rep tables.}
+
+\begin{table}[t]
+\centering
+\input{tables/per_rep}
+\caption{Per-replication verifier-certified repair counts (out of 145)
+for every policy, model, and replication of the primary campaign.}
+\label{tab:perrep}
+\end{table}
+
+\todo{GEE estimator details, Holm procedure, E3 results; extension
+per-rep counts.}
 
 \section{Per-class descriptive tables}
 \label{app:perclass}
@@ -515,9 +569,18 @@ exclusions.}
 
 \section{Reproduction and configuration}
 \label{app:repro}
-\todo{costs, manifests, hashes, exact commands; config minutiae
-(temperature = provider default, max\_tokens 8192, client timeout 300\,s
-frozen).}
+
+\begin{table}[t]
+\centering
+\input{tables/cost}
+\caption{Confirmatory-campaign compute accounting for the primary
+models (all calls including failures).}
+\label{tab:cost}
+\end{table}
+
+\todo{costs incl.\ extension, manifests, hashes, exact commands; config
+minutiae (temperature = provider default, max\_tokens 8192, client
+timeout 300\,s frozen); quarantine/audit-trail layout.}
 
 \bibliographystyle{unsrtnat}
 \bibliography{refs}

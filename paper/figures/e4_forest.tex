@@ -1,0 +1,37 @@
+\begin{tikzpicture}[font=\footnotesize]
+\draw[dashed, gray] (4.40,-0.15) -- (4.40,2.45);
+\draw (0.00,-0.25) -- (9.20,-0.25);
+\draw (0.40,-0.25) -- (0.40,-0.32) node[below] {\scriptsize $-20$};
+\draw (2.40,-0.25) -- (2.40,-0.32) node[below] {\scriptsize $-10$};
+\draw (4.40,-0.25) -- (4.40,-0.32) node[below] {\scriptsize $0$};
+\draw (6.40,-0.25) -- (6.40,-0.32) node[below] {\scriptsize $+10$};
+\draw (8.40,-0.25) -- (8.40,-0.32) node[below] {\scriptsize $+20$};
+\node[below] at (4.60,-0.62) {\scriptsize E4: portfolio $-$ \texttt{best\_of\_n} (pp)};
+\node[anchor=east, gray] at (3.80,2.62) {\scriptsize resampling higher $\leftarrow$};
+\node[anchor=west, gray] at (5.00,2.62) {\scriptsize $\rightarrow$ portfolio higher};
+\draw[dotted, gray] (0.00,0.75) -- (9.20,0.75) node[pos=1, right] {\scriptsize extension};
+\node[anchor=east] at (-0.15,2.0) {\textsc{deepseek-chat}};
+\draw[gray!60] (1.78,2.0) circle (0.045);
+\draw[gray!60] (1.78,2.0) circle (0.045);
+\draw[gray!60] (3.43,2.0) circle (0.045);
+\draw[thick] (1.15,2.0) -- (3.51,2.0);
+\draw[thick] (1.15,1.93) -- (1.15,2.07);
+\draw[thick] (3.51,1.93) -- (3.51,2.07);
+\fill (2.33,2.0) circle (0.06);
+\node[anchor=east] at (-0.15,1.2) {\textsc{qwen-plus}};
+\draw[gray!60] (7.43,1.2) circle (0.045);
+\draw[gray!60] (7.16,1.2) circle (0.045);
+\draw[gray!60] (7.43,1.2) circle (0.045);
+\draw[thick] (6.09,1.2) -- (8.60,1.2);
+\draw[thick] (6.09,1.13) -- (6.09,1.27);
+\draw[thick] (8.60,1.13) -- (8.60,1.27);
+\fill (7.34,1.2) circle (0.06);
+\node[anchor=east] at (-0.15,0.3) {\textsc{MiniMax-M2.5}};
+\draw[gray!60] (2.19,0.3) circle (0.045);
+\draw[gray!60] (2.47,0.3) circle (0.045);
+\draw[gray!60] (3.16,0.3) circle (0.045);
+\draw[thick] (1.36,0.3) -- (3.85,0.3);
+\draw[thick] (1.36,0.22999999999999998) -- (1.36,0.37);
+\draw[thick] (3.85,0.22999999999999998) -- (3.85,0.37);
+\fill (2.61,0.3) circle (0.06);
+\end{tikzpicture}

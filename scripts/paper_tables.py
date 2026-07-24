@@ -16,10 +16,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 RUNS = ROOT / "runs/experiments/repair_d1/runs"
 ANALYSIS = ROOT / "runs/experiments/repair_d1/confirmatory_analysis/confirmatory_analysis.json"
+MM_ANALYSIS = (
+    ROOT
+    / "runs/experiments/repair_d1/confirmatory_analysis/minimax_extension/confirmatory_analysis.json"
+)
 OUT = ROOT / "paper/tables"
+FIG_OUT = ROOT / "paper/figures"
 
 MODELS = {"deepseek": "conf_deepseek", "qwen": "conf_qwen"}
-MODEL_LABEL = {"deepseek": r"\textsc{deepseek-chat}", "qwen": r"\textsc{qwen-plus}"}
+MODEL_LABEL = {
+    "deepseek": r"\textsc{deepseek-chat}",
+    "qwen": r"\textsc{qwen-plus}",
+    "minimax": r"\textsc{MiniMax-M2.5}",
+}
+# Ladder order of section 3 (E2 before E1), used for row ordering.
+LADDER = {"E2_gr_vs_ss": 0, "E1_vf_vs_gr": 1, "E4_portfolio_vs_control": 2}
 ARMS = [
     ("single_shot_repair", "single-shot"),
     ("generic_retry", "generic retry"),
@@ -30,11 +41,11 @@ ARMS = [
 REPS = (1, 2, 3)
 
 ENDPOINT_LABEL = {
-    "E1_vf_vs_gr": r"E1: feedback content (vf $-$ gr)",
-    "E2_gr_vs_ss": r"E2: iteration+filter (gr $-$ ss)",
-    "E4_portfolio_vs_control": r"E4: portfolio $-$ best-of-11",
-    "E5_vf_vs_masked": r"E5: obligation identity (vf $-$ masked)",
-    "E3_vf_at1_vs_gr_at1": r"E3: round-1 content (vf@1 $-$ gr@1)",
+    "E1_vf_vs_gr": r"E1 (\texttt{vf} $-$ \texttt{gr})",
+    "E2_gr_vs_ss": r"E2 (\texttt{gr} $-$ \texttt{ss})",
+    "E4_portfolio_vs_control": r"E4 (portfolio $-$ \texttt{best\_of\_n})",
+    "E5_vf_vs_masked": r"E5 (\texttt{vf} $-$ \texttt{vf\_masked})",
+    "E3_vf_at1_vs_gr_at1": r"E3 (\texttt{vf}@1 $-$ \texttt{gr}@1)",
 }
 
 
@@ -84,19 +95,122 @@ def primary_table() -> str:
                 else "--"
             )
             p = r.get("holm_adjusted_p")
-            ptxt = f"{p:.4f}" if p is not None else f"{r['p']:.3f}$^\\dagger$"
+            if p is not None:
+                ptxt = "$<10^{-4}$" if p < 5e-5 else f"{p:.4f}"
+            else:
+                ptxt = f"{r['p']:.3f}$^\\dagger$"
             out.append(
                 f"{MODEL_LABEL[r['model']]} & {ENDPOINT_LABEL[r['endpoint']]} & "
                 f"{rd:+.1f} & {ci} & {ptxt} \\\\"
             )
         return out
 
-    lines += rows(rep["primary_family_holm"], "primary")
+    primary_sorted = sorted(
+        rep["primary_family_holm"],
+        key=lambda r: (r["model"], LADDER.get(r["endpoint"], 9)),
+    )
+    lines += rows(primary_sorted, "primary")
     lines.append(r"\midrule")
     lines += rows(rep["secondary_e5_family_holm"], "e5")
     lines += rows(rep["secondary_e3_descriptive"], "e3")
+
+    # Separately preregistered MiniMax-M2.5 extension (own Holm family).
+    mm = json.loads(MM_ANALYSIS.read_text())
+    lines += [
+        r"\midrule",
+        r"\multicolumn{5}{l}{\emph{preregistered \textsc{MiniMax-M2.5} extension"
+        r" (separate three-hypothesis Holm family)}} \\",
+        r"\midrule",
+    ]
+    mm_primary = sorted(
+        mm["primary_family_holm"], key=lambda r: LADDER.get(r["endpoint"], 9)
+    )
+    lines += rows(mm_primary, "primary")
+    # Extension E5 is secondary and unadjusted: report raw p with dagger.
+    for r in mm["secondary_e5_family_holm"]:
+        rd = 100 * r["rd"]
+        ci = f"[{100*r['ci_lo']:+.1f}, {100*r['ci_hi']:+.1f}]"
+        lines.append(
+            f"{MODEL_LABEL[r['model']]} & {ENDPOINT_LABEL[r['endpoint']]} & "
+            f"{rd:+.1f} & {ci} & {r['p']:.3f}$^\\dagger$ \\\\"
+        )
     lines += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(lines)
+
+
+def e4_forest_figure() -> str:
+    """TikZ forest plot of the E4 risk differences (primary + extension)."""
+    rep = json.loads(ANALYSIS.read_text())
+    mm = json.loads(MM_ANALYSIS.read_text())
+
+    def e4_row(report, model):
+        for r in report["primary_family_holm"]:
+            if r["endpoint"] == "E4_portfolio_vs_control" and r["model"] == model:
+                return r
+        raise KeyError(model)
+
+    entries = [
+        ("deepseek", e4_row(rep, "deepseek"), 2.0),
+        ("qwen", e4_row(rep, "qwen"), 1.2),
+        ("minimax", e4_row(mm, "minimax"), 0.3),
+    ]
+    # Per-replication sign check (asserted so prose claims stay honest).
+    for name, r, _ in entries:
+        signs = {v > 0 for v in r["per_rep_rd"]}
+        assert len(signs) == 1, f"E4 per-rep signs mixed for {name}: {r['per_rep_rd']}"
+
+    xmin, xmax, scale = -22.0, 24.0, 0.20  # pp range; cm per pp
+
+    def x(pp: float) -> float:
+        return (pp - xmin) * scale
+
+    L = [r"\begin{tikzpicture}[font=\footnotesize]"]
+    # Zero line and axis.
+    L.append(
+        rf"\draw[dashed, gray] ({x(0):.2f},-0.15) -- ({x(0):.2f},2.45);"
+    )
+    L.append(rf"\draw ({x(xmin):.2f},-0.25) -- ({x(xmax):.2f},-0.25);")
+    for t in (-20, -10, 0, 10, 20):
+        L.append(
+            rf"\draw ({x(t):.2f},-0.25) -- ({x(t):.2f},-0.32)"
+            rf" node[below] {{\scriptsize ${t:+d}$}};"
+            if t
+            else rf"\draw ({x(t):.2f},-0.25) -- ({x(t):.2f},-0.32)"
+            rf" node[below] {{\scriptsize $0$}};"
+        )
+    L.append(
+        rf"\node[below] at ({x(1):.2f},-0.62) {{\scriptsize E4: portfolio $-$ "
+        rf"\texttt{{best\_of\_n}} (pp)}};"
+    )
+    # Direction annotations.
+    L.append(
+        rf"\node[anchor=east, gray] at ({x(-3):.2f},2.62) "
+        r"{\scriptsize resampling higher $\leftarrow$};"
+    )
+    L.append(
+        rf"\node[anchor=west, gray] at ({x(3):.2f},2.62) "
+        r"{\scriptsize $\rightarrow$ portfolio higher};"
+    )
+    # Divider between primary family and extension.
+    L.append(
+        rf"\draw[dotted, gray] ({x(xmin):.2f},0.75) -- ({x(xmax):.2f},0.75)"
+        r" node[pos=1, right] {\scriptsize extension};"
+    )
+    for name, r, y in entries:
+        lo, hi, rd = 100 * r["ci_lo"], 100 * r["ci_hi"], 100 * r["rd"]
+        L.append(rf"\node[anchor=east] at ({x(xmin)-0.15:.2f},{y}) {{{MODEL_LABEL[name]}}};")
+        for pr in r["per_rep_rd"]:
+            L.append(
+                rf"\draw[gray!60] ({x(100*pr):.2f},{y}) circle (0.045);"
+            )
+        L.append(
+            rf"\draw[thick] ({x(lo):.2f},{y}) -- ({x(hi):.2f},{y});"
+        )
+        L.append(rf"\draw[thick] ({x(lo):.2f},{y-0.07}) -- ({x(lo):.2f},{y+0.07});")
+        L.append(rf"\draw[thick] ({x(hi):.2f},{y-0.07}) -- ({x(hi):.2f},{y+0.07});")
+        L.append(rf"\fill ({x(rd):.2f},{y}) circle (0.06);")
+    L.append(r"\end{tikzpicture}")
+    return "\n".join(L)
 
 
 def cost_table() -> str:
@@ -124,10 +238,13 @@ def cost_table() -> str:
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
+    FIG_OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "per_rep.tex").write_text(per_rep_table() + "\n")
     (OUT / "primary.tex").write_text(primary_table() + "\n")
     (OUT / "cost.tex").write_text(cost_table() + "\n")
+    (FIG_OUT / "e4_forest.tex").write_text(e4_forest_figure() + "\n")
     print(f"wrote {len(list(OUT.glob('*.tex')))} tables to {OUT}")
+    print(f"wrote e4_forest.tex to {FIG_OUT}")
 
 
 if __name__ == "__main__":
