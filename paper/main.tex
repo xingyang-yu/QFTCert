@@ -304,14 +304,77 @@ theory.
 
 \section{Benchmark and preregistered experiment}
 \label{sec:design}
-\todo{four paragraphs per outline \S3: P1 fixtures (seed families +
-D3-branes at toric CY3 one-liner with primer cross-ref; 4 classes with
-counts 38/13/52/42; verifier-gated n=145; seed 20260715; attrition to
-appendix); P2 arms + collection discipline (complete ss/gr/vf components;
-E4 = deterministic stop-first replay vs best-of-11 under equal 11-call
-cap); P3 endpoint map E1..E5; P4 models/reps/frozen protocol
-(commit 813fdb0), GEE/Holm spec, exogenous-contamination rule pointer.
-NO MiniMax in this section. Config minutiae to App.~I.}
+
+The benchmark is built from six seed families of toric quiver gauge
+theories associated with D3-branes probing Calabi--Yau threefold
+singularities: $dP_0$, $dP_1$, $dP_2$, $F_0$, the suspended pinch point
+(SPP), and $\mathbb{C}^3/(\mathbb{Z}_2\times\mathbb{Z}_2)$
+(Appendix~\ref{app:primer} reviews their origin). For each family we
+fix one or more dualized-node choices and gauge ranks (fourteen
+seed/node cells in total, with seed ranks between $2$ and $4$; dual
+ranks then follow from the Seiberg move), and produce
+a consistency-certified dual pair by applying the corresponding Seiberg
+move to the chosen node. A broken claim is then obtained by perturbing
+the magnetic side $T_B$ at depth one, in one of four classes: deleting
+a superpotential term (38 fixtures), flipping the sign of one
+coefficient (13), perturbing $R$-charges (52), or changing one
+gauge-node rank (42). Every candidate fixture is verifier-gated: it is
+kept only if the perturbed pair fails in scope, so that a repair is
+needed, while the unperturbed seed pair certifies, so that a certified
+repair exists; generation attrition is recorded
+(Appendix~\ref{app:benchmark}). The resulting 145 repairable fixtures
+are generated deterministically at seed 20260715 and regenerate
+byte-for-byte, and the frozen manifest hash is recorded in the
+execution manifest.
+
+Five policies are run for every model. Single-shot repair (ss) makes
+one attempt with no feedback. Generic retry (gr) allows up to $K=5$
+rounds and tells the agent only that verification failed. Verifier
+feedback (vf) allows the same $K=5$ rounds and reports the failed
+obligation names and categories of Section~\ref{sec:system}. Masked
+feedback (vf\_masked) is structurally identical to vf with every
+obligation identity replaced by a positional placeholder. The
+\emph{independent verifier-filtered resampling} policy (best-of-eleven
+for short) draws up to $2K+1=11$ independent single-shot attempts,
+stopping at the first final certificate. The ss, gr, and vf components are
+collected completely for every fixture and replication; the stop-first
+\emph{strategy portfolio} (ss, then gr, then vf, under the same budget
+of eleven attempts) is constructed afterwards by a deterministic replay
+over these complete components and paired against best-of-eleven, so
+the portfolio itself makes no new model calls.
+
+The confirmatory endpoints are pairwise contrasts of final success.
+E1 $=$ vf $-$ gr estimates the value of the structured verifier
+feedback over content-free retry. E2 $=$ gr $-$ ss measures the gain
+from content-free retry over a single attempt. E4 $=$ portfolio $-$
+best-of-eleven compares the two budget-matched exploitation policies.
+E5 $=$ vf $-$ vf\_masked (secondary) estimates the value of
+interpretable obligation identities within a fixed prompt structure.
+E3 compares first-attempt success under the vf and gr prompts
+(descriptive only).
+
+The confirmatory campaign runs \dscode{} and \qwcode{} with $R=3$
+replications per policy, $R$ having been selected prospectively from
+$\{2,3\}$ by a minimum-detectable-effect calculation. The full analysis
+protocol was frozen at commit \texttt{813fdb0} before the first
+confirmatory response: endpoint definitions, the statistical model, the
+multiplicity correction, and the contamination rules. Effects are
+estimated by a binomial generalized-estimating-equation model with
+logit link \cite{Liang:1986gee}, arm and replication fixed effects,
+fixture as the clustering unit, exchangeable working correlation, and
+robust sandwich covariance; the reported effect is a standardized
+marginal risk difference with delta-method confidence intervals. The
+primary family $\{$E1, E2, E4$\}\times\{$\dscode{}, \qwcode{}$\}$
+carries one paper-wide Holm adjustment \cite{Holm:1979seq}; E5 forms
+its own two-hypothesis family; E3 is reported with effect and interval
+only. Provider-fault API failures matching a prespecified predicate
+(balance-exhaustion responses and documented provider outages) are
+treated as exogenous: the affected fixtures are filtered and re-run
+under the frozen resume rule, with byte-exact quarantine of the
+replaced records (Appendix~\ref{app:repro}); malformed model output is
+never excluded and always counts as an outcome. Sampling parameters,
+token caps, and the client timeout are listed in
+Appendix~\ref{app:repro}.
 
 \section{Confirmatory results}
 \label{sec:results}
