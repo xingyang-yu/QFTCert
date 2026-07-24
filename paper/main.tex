@@ -44,9 +44,9 @@ proof assistants provide an exact target for language-model agents to
 search against, and systems built on them have progressed from
 olympiad-level problem solving
 \cite{Yang:2023leandojo,Trinh:2024alphageometry,Hubert:2025alphaproof}
-to research-level results, including machine-verified solutions of
-decades-open problems \cite{Sothanaphan:2026erdos728} and formally
-verified counterexamples \cite{Li:2026disprove}.
+to research-level results such as a machine-verified solution of a
+decades-open problem \cite{Sothanaphan:2026erdos728}, together with
+formally verified counterexample generation \cite{Li:2026disprove}.
 
 However, this approach
 cannot be directly copied to physics. Mathematics is built on an
@@ -59,8 +59,8 @@ typically unavailable, consistency checks are the main tool by which
 physicists judge whether a proposal is correct. Seiberg duality
 \cite{Seiberg:1994pq,Intriligator:1995au}, which states that two
 different four-dimensional $\mathcal{N}=1$ gauge theories flow to the
-same infrared physics, is a representative example: there is no proof
-assistant that formalizes this statement, and the original evidence for
+same infrared physics, is a representative example: to our knowledge no
+proof assistant formalizes this statement, and the original evidence for
 it consists precisely of such consistency checks. A verifier for this
 kind of physics should therefore be built on the consistency checks of
 the research field itself, rather than as an imitation of a proof
@@ -71,8 +71,8 @@ can be made fully mechanical: whether the 't~Hooft anomalies of a
 proposed pair of theories match, whether the superpotential (the
 holomorphic interaction terms of the theory) is consistent with the
 assigned $R$-charges (the charges under the distinguished $U(1)_R$
-symmetry), whether the central charges agree, and whether bounded data
-of protected gauge-invariant operators (the chiral ring) coincide. Each
+symmetry), whether the central charges agree, and whether bounded
+chiral-ring data agree in a controlled classical approximation. Each
 of these is a finite, exact, symbolic computation, and is cheap enough
 to run thousands of times.
 
@@ -81,20 +81,21 @@ consistency checks. A \emph{candidate duality claim} is an ordered pair
 of quiver gauge theories, and \dualitycert{} evaluates four families of
 \emph{consistency obligations}: 't~Hooft anomaly matching,
 superpotential $R$-charge consistency, central-charge matching, and
-$R$-graded bounded chiral-ring consistency. A claim that passes every
-obligation receives a \emph{consistency certificate}. The certificate
-states that no tested inconsistency was found; it is not a proof of
-duality, and a failed obligation rules out the claim only within the
-encoded scope. We then use the verifier to construct a repair
+$R$-graded bounded chiral-ring consistency. A claim for which no tested
+obligation fails receives a \emph{consistency certificate}. The
+certificate states that no tested inconsistency was found; it is not a
+proof of duality, and a failed obligation rules out the claim only
+within the encoded scope. We then use the verifier to construct a repair
 environment: an agent is given a deliberately broken candidate claim,
 proposes edits, and each attempt is judged by the verifier. The final
-acceptance check is stricter than the checks whose outcomes the agent
-saw during the interaction.
+acceptance check is at least as strict as, and for most of the benchmark
+stricter than, the checks whose outcomes the agent saw during the
+interaction.
 
 We use this environment for a preregistered study of how language-model
 agents exploit an exact symbolic verifier. The benchmark consists of 145
-repairable claims, obtained by perturbing verified dual pairs at depth
-one in four classes (deleting a superpotential term, flipping a
+repairable claims, obtained by perturbing consistency-certified seed
+pairs at depth one in four classes (deleting a superpotential term, flipping a
 coefficient sign, perturbing $R$-charges, and changing a gauge-node
 rank), and every model receives exactly the same set of claims. The analysis protocol,
 the endpoints, the statistical model, and the multiplicity correction
@@ -111,8 +112,8 @@ Our contributions are threefold. First, we release \dualitycert{}, the
 repair environment, the benchmark, and the frozen protocol. Second,
 verifier-gated iteration improves repair success over single-shot
 attempts on both confirmatory models ($+8.3$\,pp on \dscode{}, $+7.1$\,pp on
-\qwcode{}; Holm-adjusted $p<0.002$). Third, under an equal budget of eleven
-verifier-judged calls, the ordering of the two tested exploitation
+\qwcode{}; Holm-adjusted $p<0.002$). Third, under an equal budget of
+eleven model attempts, the ordering of the two tested exploitation
 policies, a stop-first \emph{strategy portfolio} and \emph{independent
 verifier-filtered resampling}, reverses between the two named models
 ($-10.3$\,pp for the portfolio on \dscode{}, $+14.7$\,pp on \qwcode{};
@@ -145,17 +146,103 @@ and~6 contain the discussion, limitations, and outlook.
 
 \section{\dualitycert{}: certificates and repair interface}
 \label{sec:system}
-\todo{six paragraphs per PAPER\_OUTLINE.md v3 \S2: P1 claim
-representation (+ electric/magnetic are labels, not outcomes); P2
-obligation families COMPRESSED (names + one physical-role sentence +
-necessary/sufficient contract; judge semantics CERTIFIED/FAILED/
-invalid/out-of-scope; extended rationale lives in App.~A primer); P3 one
-representative obligation mathematically (anomaly equality + residual to
-feedback projection); P4 anti-gaming $L{=}3$ feedback vs $L{=}5$ final
-judge; P5 repair interface (full-theory JSON edit, $K\le5$, per-arm
-feedback projections, copy-cheat guard); P6 extracted design pattern as
-INLINE list (claim schema / obligations / certificate / feedback
-projection / strict final judge), pattern not framework.}
+
+A candidate duality claim in \dualitycert{} is an ordered pair of
+theories $(T_A, T_B)$, conventionally called electric and magnetic.
+Each theory is specified in a small JSON schema as a quiver gauge
+theory: a list of gauge nodes with ranks (e.g.\ $SU(2)_0, SU(2)_1,
+\dots$), a list of arrows (bifundamental or adjoint chiral multiplets)
+with their $R$-charges, and a superpotential given as a list of terms,
+each a coefficient together with an ordered list of arrow labels. A
+theory may also contain gauge-singlet chiral fields, which enter the
+superpotential in the same way. The labels electric and magnetic only
+name the two encoded descriptions; they are part of the input, not an
+outcome of the verification.
+
+\dualitycert{} evaluates the claim against a registry of consistency
+obligations; the obligations relevant to this study fall into four
+families, and Appendix~\ref{app:verifier} lists the full registry. The
+anomaly family requires the cubic gauge anomaly to cancel at every node
+of both theories,\footnote{For $SU(2)$ nodes the implemented cubic
+condition is a chirality-balance convention rather than a physical
+anomaly constraint, since the cubic anomaly of $SU(2)$ vanishes
+identically; the $\mathbb{Z}_2$ Witten anomaly is not checked.
+Section~\ref{sec:discussion} returns to this point.} the mixed
+gauge--global anomalies to cancel in each theory, and the global
+'t~Hooft anomaly table of $T_A$ to match that of $T_B$. The
+superpotential family requires every superpotential term to be gauge
+invariant and to carry $R$-charge two. The $R$-charge family requires
+the trial central charge $a$, evaluated on the encoded $R$-symmetry
+(no $a$-maximization is performed), to agree between the two theories.
+The chiral-ring family compares bounded classical data: gauge-invariant
+single-trace words modulo truncated $F$-term relations, graded by word
+length or, when gauge singlets are present, by $R$-charge. This is a
+bounded classical proxy for the chiral ring rather than the ring
+itself, and Appendix~\ref{app:verifier} states its exact scope. A claim
+for which at least one obligation is judged and none fails is
+\textsc{certified} and receives a consistency certificate recording the
+outcome of every obligation, including those the verifier cannot judge
+(unknown, not applicable, or not implemented); a claim with a failing
+in-scope obligation is \textsc{failed}. The certificate therefore
+states that no tested obligation failed, not that every conceivable
+check was performed, and a failed obligation rules out the claim only
+within the encoded scope.
+
+As a concrete example, consider the global 't~Hooft anomaly matching
+obligation. For the $U(1)_R$ symmetry, the verifier computes in each
+theory the exact rational number
+\begin{equation}
+\operatorname{Tr} R^3 \;=\; \sum_{a} \bigl(N_a^2-1\bigr)
+\;+\; \sum_{X} \dim(\mathcal{R}_X)\,\bigl(R_X-1\bigr)^3 ,
+\label{eq:trR3}
+\end{equation}
+where the first sum runs over the gauge nodes $SU(N_a)$ (the gauginos
+carry $R=1$) and the second over the chiral multiplets $X$ in
+representation $\mathcal{R}_X$ with $R$-charge $R_X$ (the fermion
+component carries $R_X-1$). The obligation holds when the anomaly
+tables computed in $T_A$ and $T_B$ agree entry by entry; the linear
+trace $\operatorname{Tr} R$ and the mixed global entries are compared in
+the same way, while the gauge--global mixed anomalies are separately
+required to cancel within each theory. When an entry disagrees, the verifier stores both values
+internally, but the repair environment does not show them to the agent:
+the feedback reports only the obligation name and its category, in this
+case ``global anomaly matching (category: anomaly)''. This projection
+is deliberate, and Section~\ref{sec:design} uses it as an experimental
+variable.
+
+The environment runs the verifier in two configurations. For fixtures
+without gauge singlets (111 of 145), the chiral-ring proxy is evaluated
+up to word length $L=3$ during the interaction and up to $L=5$ in the
+final acceptance check, so the agent never observes the outcome of the
+exact check it must eventually pass. When singlets are present (34 of
+145), the automatic $R$-charge grading derives its own cutoffs and the
+two configurations coincide; for these fixtures the protection rests on
+the withheld numerical residuals and on the copy guard. The copy guard
+applies throughout: a candidate that is a verbatim copy of $T_A$ is
+rejected by construction, since the identity pair trivially passes all
+matching obligations and is not a repair.
+
+The repair interaction itself is simple. In each round the agent
+receives $T_A$, the current broken $T_B$, and the feedback from the
+previous round, and must return a complete revised $T_B$ in the same
+JSON schema (a full-theory edit rather than a patch). Up to $K=5$
+rounds are allowed. The content of the feedback depends on the policy:
+verifier feedback reports the failed obligation names and categories as
+above; masked feedback keeps the same structure but replaces every
+obligation identity by a neutral positional placeholder; generic retry
+states only that verification failed. These feedback projections,
+together with the control policies of Section~\ref{sec:design}, define
+the experimental arms.
+
+Nothing in this construction is specific to Seiberg duality except the
+obligations themselves. The construction uses five reusable
+ingredients: a serializable claim schema; a set of consistency
+obligations; a certificate recording per-obligation outcomes; a
+feedback projection that controls what the agent sees; and a final
+judge at least as strict as the interaction-time checks. We regard this as a
+design pattern extracted from one implementation, not a validated
+general framework; Section~\ref{sec:conclusion} discusses prospective
+instantiations in other areas of formal QFT and string theory.
 
 \section{Benchmark and preregistered experiment}
 \label{sec:design}

@@ -167,9 +167,19 @@ description half per author preference (Seiberg moves to abstract/§1);
 - **P3 (extension caveats).** Provider-forced thinking; higher invalid rates
   (vf 45%, gr 38%); transport-error cleaning under the frozen exogenous rule (one
   sentence, appendix pointer).
-- **P4 (scope).** Two-model primary family ⇒ existence/non-universality only;
-  single physics domain; depth-2 exploratory collapse (difficulty dial) one
-  sentence with appendix pointer; certificate-vs-proof boundary restated.
+- **P4 (scope + verifier-scope disclosures, expanded per prose-review 2026-07-24).**
+  Two-model primary family ⇒ existence/non-universality only; single physics
+  domain; depth-2 exploratory collapse (difficulty dial) one sentence with
+  appendix pointer; certificate-vs-proof boundary restated. PLUS the four
+  code-truth disclosures (already stated in §2, recapped here as limitations):
+  (i) SU(2) cubic condition = chirality-balance convention (SU(2)³ anomaly
+  vanishes identically; Witten Z₂ anomaly not checked; 70/145 fixtures have an
+  SU(2) node); (ii) CERTIFIED = "no tested obligation fails" (unknown /
+  not-applicable / not-implemented obligations recorded, not blocking);
+  (iii) chiral-ring check = bounded classical single-trace proxy (no baryons /
+  multi-trace / quantum relations; word length not duality invariant);
+  (iv) L=3/L=5 separation applies to the 111 singlet-free fixtures; the two
+  configurations coincide for the 34 singlet-containing ones.
 
 ## §6 Conclusion, artifact statement, and outlook — 0.3–0.5 pp
 - **P1 (conclusion + artifact).** Recap ladder in 2 sentences. Artifact:
