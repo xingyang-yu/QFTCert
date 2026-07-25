@@ -28,9 +28,9 @@ We present \dualitycert{}, a symbolic verifier for candidate
 Seiberg-duality claims in four-dimensional $\mathcal{N}=1$ quiver gauge
 theories. The verifier evaluates 't~Hooft anomaly matching,
 superpotential $R$-charge consistency, central-charge matching, and a
-bounded chiral-ring proxy, and issues consistency certificates: a
-certificate states that no tested inconsistency was found, not that
-the duality is proven. We use the verifier as a repair environment for
+bounded chiral-ring proxy. A claim that passes receives a consistency
+certificate, which states that no tested inconsistency was found, not
+that the duality is proven. We use the verifier as a repair environment for
 language-model agents, which receive a deliberately broken claim and
 must edit it until it certifies. On a preregistered benchmark of 145
 broken claims, with the analysis fixed before the first confirmatory
@@ -620,9 +620,97 @@ used for substantial derivational work.
 
 \section{Physics primer: Seiberg duality and the consistency obligations}
 \label{app:primer}
-\todo{EXACTLY seven beats, hard cap 800 words / 1.5 pp, $\le$2 displayed
-equations, no floats, per PAPER\_OUTLINE.md v3 App.~A spec (incl. the
-must-not-contain list). Audience: hep-th reader from another subfield.}
+
+Seiberg duality \cite{Seiberg:1994pq} is the statement that two
+different four-dimensional $\mathcal{N}=1$ gauge theories can flow to
+the same infrared physics. In the original example the electric theory
+is $SU(N_c)$ QCD with $N_f$ flavors, and the magnetic theory is
+$SU(N_f-N_c)$ with $N_f$ flavors, gauge-singlet mesons, and a cubic
+superpotential. The two descriptions can be weakly or strongly coupled
+in different regimes, which makes the proposal powerful but also hard
+to test directly. The original evidence consists of consistency
+checks: matching of 't~Hooft anomalies, matching of gauge-invariant
+chiral operators and of moduli spaces of vacua, and consistent
+behavior under mass deformations
+\cite{Seiberg:1994pq,Intriligator:1995au}.
+
+The theories in this paper are quiver gauge theories. A quiver is a
+directed graph. Each node carries a gauge factor $SU(N_a)$, each arrow
+from node $a$ to node $b$ is a chiral multiplet in the bifundamental
+representation $(N_a,\bar N_b)$, an arrow from a node to itself is an
+adjoint, and gauge-singlet chiral fields may also be present. The
+interactions are encoded in a superpotential $W$, a holomorphic
+polynomial in the fields, here built from closed cycles of the quiver.
+Each chiral field carries a charge under the global $U(1)_R$ symmetry,
+its $R$-charge, and the simplest gauge-invariant chiral operators are
+built from closed paths and singlets.
+
+The logic of the verifier rests on necessary conditions. If two
+theories really flow to the same infrared physics, every quantity
+protected along the renormalization-group flow must agree between
+them. A disagreement in a protected quantity therefore rules out the
+proposed equivalence, within the scope of what is encoded. Agreement
+in finitely many protected quantities, however, is never a proof. It
+only says that the proposal survived the tests it was given, and this
+is the precise content of a consistency certificate.
+
+The sharpest such protected quantities are the 't~Hooft anomalies of
+global symmetries \cite{tHooft:1979rat}. Their coefficients are
+one-loop exact and invariant along the flow, so they must agree
+between dual descriptions. The anomalies can be computed in either
+description and at any scale, and if both flows end at the same
+infrared physics the results have to coincide. For the $U(1)_R$ symmetry the relevant
+traces are $\operatorname{Tr}R$ and $\operatorname{Tr}R^3$ over the
+fermions, computed as in Eq.~\eqref{eq:trR3}, with gauginos entering
+at $R=1$. The same traces determine the conformal central charge,
+\begin{equation}
+a \;=\; \frac{3}{32}\left(3\operatorname{Tr}R^3
+- \operatorname{Tr}R\right) ,
+\label{eq:centralcharge}
+\end{equation}
+which gives the physical central charge of the infrared fixed point
+only when evaluated on the exact superconformal $R$-symmetry
+\cite{Anselmi:1997am}. \dualitycert{} evaluates these quantities on
+the $R$-charges encoded in the claim. It checks the assignment, and it
+does not derive it.
+
+A consistent $R$-assignment must satisfy two further conditions. Every
+superpotential term must carry $R$-charge exactly two, because $W$
+enters the action through an integral over half of superspace. The
+$R$-symmetry must also be free of mixed anomalies with every gauge
+factor, with the gaugino contribution included, or it is not a
+symmetry of the quantum theory. At an infrared fixed point the exact
+superconformal $R$-symmetry is singled out among all consistent
+assignments by $a$-maximization \cite{Intriligator:2003jj}. The
+verifier does not perform this maximization. It tests the encoded
+assignment against the two conditions above.
+
+The classical chiral ring consists of the gauge-invariant chiral
+operators modulo the $F$-term relations of the superpotential, and
+quantum effects can deform these relations \cite{Cachazo:2002ry}.
+Dual descriptions of the same infrared physics should agree on this
+protected data. A full comparison would involve baryons, products of
+traces, finite-$N$ trace identities, and quantum-corrected relations.
+\dualitycert{} instead compares a bounded classical piece:
+single-trace cyclic words modulo truncated $F$-term relations, counted
+by word length up to a cutoff, or by $R$-charge when gauge singlets
+are present. Word length is not invariant across a duality, so this
+comparison is a proxy within the encoded scope rather than a physical
+necessary condition. The roles of the two cutoffs $L=3$ and $L=5$ in
+the experiment are described in Section~\ref{sec:system}.
+
+The seed theories of the benchmark describe D3-branes probing toric
+Calabi--Yau threefold singularities \cite{Douglas:1996sw,Feng:2000mi},
+with quivers and superpotentials conveniently encoded by brane tilings
+\cite{Hanany:2005ve,Franco:2005rj}. Here $dP_0$, $dP_1$, and $dP_2$
+denote the complex cones over del Pezzo surfaces ($\mathbb{P}^2$ blown
+up at zero, one, and two points), $F_0$ the cone over
+$\mathbb{P}^1\times\mathbb{P}^1$, SPP the suspended pinch point, and
+$\mathbb{C}^3/(\mathbb{Z}_2\times\mathbb{Z}_2)$ an abelian orbifold of
+flat space. At suitable nodes, Seiberg duality acts on a single gauge factor of
+such a quiver and relates different toric phases of the same
+singularity \cite{Beasley:2001zp}. The benchmark construction on top of these
+seeds is described in Appendix~\ref{app:benchmark}.
 
 \section{Verifier detail}
 \label{app:verifier}
