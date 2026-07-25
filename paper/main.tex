@@ -85,7 +85,7 @@ of quiver gauge theories, and \dualitycert{} evaluates four families of
 superpotential $R$-charge consistency, central-charge matching, and
 $R$-graded bounded chiral-ring consistency. A claim for which no tested
 obligation fails receives a \emph{consistency certificate}. The
-certificate states that no tested inconsistency was found; it is not a
+certificate states that no tested inconsistency was found. It is not a
 proof of duality, and a failed obligation rules out the claim only
 within the encoded scope. We then use the verifier to construct a repair
 environment: an agent is given a deliberately broken candidate claim,
@@ -101,9 +101,9 @@ pairs at depth one in four classes (deleting a superpotential term, flipping a
 coefficient sign, perturbing $R$-charges, and changing a gauge-node
 rank), and every model receives exactly the same set of claims. The analysis protocol,
 the endpoints, the statistical model, and the multiplicity correction
-were frozen before the first confirmatory API call. The confirmatory
+were fixed before the first confirmatory API call. The confirmatory
 analysis covers two publicly available models, \dscode{} and \qwcode{}, with
-three replications per policy; effects are estimated by
+three replications per policy. Effects are estimated by
 generalized-estimating-equation (GEE) analysis with fixture-level
 clustering under a Holm adjustment and reported as risk differences in
 percentage points (pp). Separately, \mmcode{} is evaluated under a
@@ -111,7 +111,7 @@ preregistered extension with its own three-hypothesis Holm family
 (Section~\ref{sec:results}).
 
 Our contributions are threefold. First, we release \dualitycert{}, the
-repair environment, the benchmark, and the frozen protocol. Second,
+repair environment, the benchmark, and the preregistered protocol. Second,
 verifier-gated iteration improves repair success over single-shot
 attempts on both confirmatory models ($+8.3$\,pp on \dscode{}, $+7.1$\,pp on
 \qwcode{}; Holm-adjusted $p<0.002$). Third, under an equal budget of
@@ -143,7 +143,7 @@ rather than a program or a formal proof.
 
 The rest of the paper is organized as follows. Section~2 describes the
 verifier and the repair interface, Section~3 the benchmark and the
-frozen protocol, and Section~4 the confirmatory results. Sections~5
+preregistered protocol, and Section~4 the confirmatory results. Sections~5
 and~6 contain the discussion, limitations, and outlook.
 
 \section{\dualitycert{}: certificates and repair interface}
@@ -201,23 +201,24 @@ A candidate duality claim in \dualitycert{} is an ordered pair of
 theories $(T_A, T_B)$, conventionally called electric and magnetic;
 Figure~\ref{fig:overview} summarizes the construction.
 Each theory is specified in a small JSON schema as a quiver gauge
-theory: a list of gauge nodes with ranks (e.g.\ $SU(2)_0, SU(2)_1,
-\dots$), a list of arrows (bifundamental or adjoint chiral multiplets)
+theory: a list of gauge nodes with ranks (labeled
+\texttt{SU(2)\_0}, \texttt{SU(2)\_1}, \dots{} in the schema),
+a list of arrows (bifundamental or adjoint chiral multiplets)
 with their $R$-charges, and a superpotential given as a list of terms,
 each a coefficient together with an ordered list of arrow labels. A
 theory may also contain gauge-singlet chiral fields, which enter the
 superpotential in the same way. The labels electric and magnetic only
-name the two encoded descriptions; they are part of the input, not an
+name the two encoded descriptions. They are part of the input, not an
 outcome of the verification.
 
 \dualitycert{} evaluates the claim against a registry of consistency
-obligations; the obligations relevant to this study fall into four
+obligations. The obligations relevant to this study fall into four
 families, and Appendix~\ref{app:verifier} lists the full registry. The
 anomaly family requires the cubic gauge anomaly to cancel at every node
 of both theories,\footnote{For $SU(2)$ nodes the implemented cubic
 condition is a chirality-balance convention rather than a physical
 anomaly constraint, since the cubic anomaly of $SU(2)$ vanishes
-identically; the $\mathbb{Z}_2$ Witten anomaly \cite{Witten:1982fp} is
+identically. The $\mathbb{Z}_2$ Witten anomaly \cite{Witten:1982fp} is
 not checked. Section~\ref{sec:discussion} returns to this point.} the mixed anomaly
 between each gauge node and every encoded global $U(1)$ to cancel in
 each theory,\footnote{The benchmark encodes only $U(1)_R$, so this is
@@ -256,7 +257,7 @@ where the first sum runs over the gauge nodes $SU(N_a)$ (the gauginos
 carry $R=1$) and the second over the chiral multiplets $X$ in
 representation $\mathcal{R}_X$ with $R$-charge $R_X$ (the fermion
 component carries $R_X-1$). The obligation holds when the anomaly
-tables computed in $T_A$ and $T_B$ agree entry by entry; the linear
+tables computed in $T_A$ and $T_B$ agree entry by entry. The linear
 trace $\operatorname{Tr} R$ and the mixed global entries are compared in
 the same way, while the gauge--global mixed anomalies are separately
 required to cancel within each theory. When an entry disagrees, the verifier stores both values
@@ -313,8 +314,8 @@ superpotentials are conveniently encoded by brane tilings
 (SPP), and $\mathbb{C}^3/(\mathbb{Z}_2\times\mathbb{Z}_2)$
 (Appendix~\ref{app:primer} reviews their origin). For each family we
 fix one or more dualized-node choices and gauge ranks (fourteen
-seed/node cells in total, with seed ranks between $2$ and $4$; the dual
-ranks then follow from the dualization), and produce a
+seed/node cells in total, with seed ranks between $2$ and $4$, and the
+dual ranks then follow from the dualization), and produce a
 consistency-certified dual pair by dualizing the chosen node
 \cite{Beasley:2001zp}.
 
@@ -355,7 +356,7 @@ these complete components and paired against best-of-eleven, so the
 portfolio itself makes no new model calls.
 
 The confirmatory endpoints are pairwise contrasts of final success,
-with labels fixed by the frozen protocol. E2 $=$ \texttt{gr} $-$
+with labels fixed by the preregistered protocol. E2 $=$ \texttt{gr} $-$
 \texttt{ss} measures the gain from content-free retry over a single
 attempt. E1 $=$ \texttt{vf} $-$ \texttt{gr} estimates the value of the
 structured verifier feedback over content-free retry. E4 $=$ portfolio
@@ -382,13 +383,13 @@ uncertainty estimates must account for this. Effects are therefore
 estimated by a binomial generalized-estimating-equation model with
 logit link \cite{Liang:1986gee}, arm and replication fixed effects,
 fixture as the clustering unit, exchangeable working correlation, and
-robust sandwich covariance; the reported effect is a standardized
+robust sandwich covariance. The reported effect is a standardized
 marginal risk difference with delta-method confidence intervals.
 Second, testing several hypotheses at once inflates the chance of a
 spurious positive, so the primary family $\{$E1, E2,
 E4$\}\times\{$\dscode{}, \qwcode{}$\}$ carries one paper-wide Holm
 adjustment \cite{Holm:1979seq}, which controls the probability of even
-a single false positive across all six tests; E5 forms its own
+a single false positive across all six tests. E5 forms its own
 two-hypothesis family, and E3 is reported with effect and interval
 only.
 
@@ -396,7 +397,7 @@ The contamination rules distinguish failures of the
 infrastructure from failures of the model. Provider-fault API failures
 matching a prespecified predicate (balance-exhaustion responses and
 documented provider outages) are treated as exogenous: the affected
-fixtures are filtered and re-run under the frozen resume rule, with
+fixtures are filtered and re-run under the protocol's resume rule, with
 byte-exact quarantine of the replaced records
 (Appendix~\ref{app:repro}). Malformed model output is never excluded
 and always counts as an outcome. Sampling parameters,
@@ -406,11 +407,11 @@ Appendix~\ref{app:repro}.
 \section{Confirmatory results}
 \label{sec:results}
 
-Table~\ref{tab:primary} collects the frozen endpoints. The
-per-replication success counts behind the primary entries are listed in
-Appendix~\ref{app:stats} and those of the extension in
-Appendix~\ref{app:minimax}; the compute budget of the primary campaigns
-is in Appendix~\ref{app:repro}. The table and the figure of this
+Table~\ref{tab:primary} collects the preregistered endpoints.
+Appendix~\ref{app:stats} lists the per-replication success counts for
+the two primary models, and Appendix~\ref{app:minimax} lists those for
+the extension. Appendix~\ref{app:repro} records the compute budget of
+the primary campaigns. The table and the figure of this
 section are generated directly from the released run artifacts by a
 single script, and every number quoted in the text below is taken from
 them.
@@ -418,7 +419,7 @@ them.
 \begin{table}[t]
 \centering
 \input{tables/primary}
-\caption{Frozen GEE endpoints: standardized marginal risk differences
+\caption{Preregistered GEE endpoints: standardized marginal risk differences
 in percentage points, with fixture-clustered robust 95\% CIs. Rows
 follow the ladder order of Section~\ref{sec:design}. The upper block
 reports the primary two-model campaign: its first six rows form the
@@ -426,7 +427,7 @@ primary family with one paper-wide Holm adjustment, E5 forms a
 separate two-hypothesis family, and E3 is descriptive. The lower block
 is the separately preregistered \mmcode{} extension with its own
 three-hypothesis Holm family. $\dagger$: unadjusted $p$ (E3 is
-descriptive; the extension E5 is secondary).}
+descriptive, and the extension E5 is secondary).}
 \label{tab:primary}
 \end{table}
 
@@ -435,7 +436,8 @@ descriptive; the extension E5 is secondary).}
 \input{figures/e4_forest}
 \caption{The E4 contrast: success-rate difference between the
 stop-first strategy portfolio and independent verifier-filtered
-resampling under the same budget of eleven attempts. Filled points are
+resampling (\texttt{best\_of\_n}) under the same budget of eleven
+attempts. Filled points are
 the GEE estimates, horizontal bars the fixture-clustered 95\% CIs, and
 small open circles the three per-replication differences. Negative
 values favor resampling, positive values favor the portfolio. The
