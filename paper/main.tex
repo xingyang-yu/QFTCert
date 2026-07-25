@@ -693,7 +693,8 @@ Dual descriptions of the same infrared physics should agree on this
 protected data. A full comparison would involve baryons, products of
 traces, finite-$N$ trace identities, and quantum-corrected relations.
 \dualitycert{} instead compares a bounded classical piece:
-single-trace cyclic words modulo truncated $F$-term relations, counted
+single-trace cyclic words, that is closed arrow paths counted up to
+cyclic rotation, modulo truncated $F$-term relations, counted
 by word length up to a cutoff, or by $R$-charge when gauge singlets
 are present. Word length is not invariant across a duality (a
 singlet meson on one side maps to a two-arrow composite on the
@@ -747,8 +748,9 @@ Section~\ref{sec:system}. The certificate records the status and
 message of every obligation together with detailed numerical tables,
 for example the full anomaly tables of both sides.
 
-The chiral-ring comparison enumerates single-trace cyclic words modulo
-the truncated $F$-term ideal. In word-length mode the interaction-time
+The chiral-ring comparison enumerates single-trace cyclic words
+(closed arrow paths counted up to cyclic rotation) modulo the
+truncated $F$-term ideal. In word-length mode the interaction-time
 verifier uses $L=3$ and the final judge $L=5$. When either side
 contains gauge singlets, the comparison switches automatically to
 $R$-charge grading with maximal $R$-charge $2$, and the per-side depth
@@ -758,22 +760,32 @@ Section~\ref{sec:system}.
 
 \section{Benchmark construction}
 \label{app:benchmark}
-The seed catalog covers fourteen family/rank/node cells:
-\texttt{c3\_z2z2} at $N=2$ (nodes 0, 1), \texttt{dp0\_toric} at
-$N=3$ (nodes 0, 1, 2) and $N=4$ (node 0), \texttt{dp1} at $N=2$
-(nodes 0, 1), \texttt{dp2\_phase1} at $N=2$ (nodes 3, 4),
-\texttt{f0\_phase\_ii} at $N=3$ (nodes 0, 2), and \texttt{spp} at
-$N=2$ (nodes 0, 2). For each cell the electric theory comes from the
-seed catalog, the magnetic side is produced by dualizing the chosen
-node with the package's mutation engine, and the pair is kept only if
-it certifies.
+Table~\ref{tab:seeds} lists the seed catalog: the six geometries of
+Appendix~\ref{app:primer} with their artifact labels, seed ranks,
+dualized nodes, and fixture counts, fourteen family/rank/node cells in
+total. For each cell the electric theory comes from the seed catalog,
+the magnetic side is produced by dualizing the chosen node with the
+package's mutation engine, and the pair is kept only if it certifies.
+
+\begin{table}[t]
+\centering
+\input{tables/seeds}
+\caption{The seed catalog behind the benchmark. Geometry names follow
+Appendix~\ref{app:primer}, artifact labels follow the released code,
+and the dualized-node column lists the nodes used across the seed
+ranks of that family.}
+\label{tab:seeds}
+\end{table}
 
 The four perturbation operators act on the magnetic side and record
-their action in the manifest. \texttt{drop\_w\_term} removes one
-superpotential term. \texttt{flip\_w\_sign} negates one coefficient.
-\texttt{r\_charge\_perturb} shifts the $R$-charge of one field by a
-recorded rational amount (for example $-1/3$).
-\texttt{rank\_perturb} changes one gauge rank by one unit. A
+their action in the manifest:
+\begin{itemize}
+\item \texttt{drop\_w\_term} removes one superpotential term;
+\item \texttt{flip\_w\_sign} negates one coefficient;
+\item \texttt{r\_charge\_perturb} shifts the $R$-charge of one
+      field by a recorded rational amount (for example $-1/3$);
+\item \texttt{rank\_perturb} changes one gauge rank by one unit.
+\end{itemize} A
 candidate fixture is kept only if the perturbed pair fails in scope
 while the seed pair certifies. Of the generated candidates, 79 were
 dropped and recorded: 27 duplicates and 52 whose verifier label did

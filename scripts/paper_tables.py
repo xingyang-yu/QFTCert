@@ -414,6 +414,45 @@ def registry_table() -> str:
     return "\n".join(lines)
 
 
+
+def seeds_table() -> str:
+    """Seed catalog: geometry, artifact label, ranks, dualized nodes, counts."""
+    import re as _re
+
+    GEOM = {
+        "dp0_toric": r"$dP_0$ (cone over $\mathbb{P}^2$)",
+        "dp1": r"$dP_1$",
+        "dp2_phase1": r"$dP_2$",
+        "f0_phase_ii": r"$F_0$ ($\mathbb{P}^1\times\mathbb{P}^1$)",
+        "spp": r"SPP",
+        "c3_z2z2": r"$\mathbb{C}^3/(\mathbb{Z}_2\times\mathbb{Z}_2)$",
+    }
+    rows: dict[str, dict] = {}
+    for line in (ROOT / "runs/experiments/repair_d1/fixtures/manifest.jsonl").read_text().splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        if not rec.get("repairable"):
+            continue
+        fam, N, node = _re.match(r"(.+?)_N(\d+)_d1_node(\d+)", rec["fixture_id"]).groups()
+        e = rows.setdefault(fam, {"N": set(), "nodes": set(), "n": 0})
+        e["N"].add(int(N)); e["nodes"].add(int(node)); e["n"] += 1
+    order = ["dp0_toric", "dp1", "dp2_phase1", "f0_phase_ii", "spp", "c3_z2z2"]
+    lines = [r"\begin{tabular}{llccc}", r"\toprule",
+             r"geometry & artifact label & seed ranks $N$ & dualized nodes & fixtures \\",
+             r"\midrule"]
+    for fam in order:
+        e = rows[fam]
+        Ns = ", ".join(str(x) for x in sorted(e["N"]))
+        nodes = ", ".join(str(x) for x in sorted(e["nodes"]))
+        label = r"\texttt{" + fam.replace("_", r"\_") + "}"
+        lines.append(f"{GEOM[fam]} & {label} & {Ns} & {nodes} & {e['n']} " + r"\\")
+    lines += [r"\midrule",
+              r"total & 14 family/rank/node cells & & & 145 \\",
+              r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(lines)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     FIG_OUT.mkdir(parents=True, exist_ok=True)
@@ -425,6 +464,7 @@ def main() -> None:
     (OUT / "per_rep_minimax.tex").write_text(per_rep_minimax_table() + "\n")
     (FIG_OUT / "e4_forest.tex").write_text(e4_forest_figure() + "\n")
     (OUT / "registry.tex").write_text(registry_table() + "\n")
+    (OUT / "seeds.tex").write_text(seeds_table() + "\n")
     print(f"wrote {len(list(OUT.glob('*.tex')))} tables to {OUT}")
     print(f"wrote e4_forest.tex to {FIG_OUT}")
 
