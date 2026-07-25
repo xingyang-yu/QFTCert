@@ -170,7 +170,10 @@ convention), Figure 2 = the E4 forest plot in §4. No second table in the main t
   corrected 2026-07-25 from the earlier higher-than-primary claim);
   transport-error cleaning under the preregistered exogenous rule (one sentence,
   appendix pointer).
-- **P4 (scope + verifier-scope disclosures, expanded per prose-review 2026-07-24).**
+- **P4 (scope + verifier-scope disclosures, expanded per prose-review 2026-07-24;
+  a-maximization item added per author 2026-07-25: R-charge obligations test the
+  encoded assignment, no a-max derivation of the superconformal R although seeds
+  flow to SCFT fixed points, so compared central charges are trial values).**
   Two-model primary family ⇒ existence/non-universality only; single physics
   domain; depth-2 exploratory collapse (difficulty dial) one sentence with
   appendix pointer; certificate-vs-proof boundary restated. PLUS the four
