@@ -715,8 +715,12 @@ such a quiver and relates different toric phases of the same
 singularity \cite{Beasley:2001zp}. The benchmark construction on top of these
 seeds is described in Appendix~\ref{app:benchmark}.
 
-\section{Verifier detail}
+\section{Verifier, benchmark, and interface details}
+\label{app:system-detail}
+
+\subsection{The verifier}
 \label{app:verifier}
+
 The verifier evaluates a registry of twenty-three obligations under
 the profile used throughout this paper. Table~\ref{tab:registry}
 lists every obligation together with the status it receives on a
@@ -758,8 +762,9 @@ cutoffs are then derived from the $R$-charge range, which makes the
 two configurations coincide, as disclosed in
 Section~\ref{sec:system}.
 
-\section{Benchmark construction}
+\subsection{The benchmark}
 \label{app:benchmark}
+
 Table~\ref{tab:seeds} lists the seed catalog: the six geometries of
 Appendix~\ref{app:primer} with their artifact labels, seed ranks,
 dualized nodes, and fixture counts, fourteen family/rank/node cells in
@@ -798,8 +803,12 @@ generation provenance (a timestamp and a code commit), so reproducing
 the manifest file itself byte for byte requires fixing these
 provenance fields.
 
-\section{Prompts and policies}
+\subsection{Prompts and policies}
 \label{app:prompts}
+
+This subsection records the exact agent interface for
+auditability, as reference material.
+
 The agent is addressed by a fixed system prompt that begins ``You are a theoretical physicist repairing a proposed 4d N=1
 supersymmetric gauge theory duality''
 and receives Theory A, the current Theory B, and the feedback text of
@@ -830,6 +839,12 @@ no draw reached verification and at least one draw was invalid.
 
 \section{Statistical specification}
 \label{app:stats}
+
+This appendix records the preregistered analysis at estimator
+level. It is reference material for checking the reported
+numbers, and the plain-language summary is in
+Section~\ref{sec:design}.
+
 
 \begin{table}[t]
 \centering
@@ -870,8 +885,12 @@ $7.5$\,pp at $R=3$. The protocol labels these values an optimistic
 independence bound: positive within-fixture correlation $\rho$
 inflates them by $\sqrt{1+(R-1)\rho}$.
 
-\section{Per-class descriptive tables}
+\section{Additional descriptive results}
+\label{app:descriptive}
+
+\subsection{Per-class outcomes}
 \label{app:perclass}
+
 Table~\ref{tab:perclass} lists verifier-certified repair counts per
 perturbation class for the \texttt{gr} and \texttt{vf} policies,
 summed over the three replications (out of three times the class
@@ -887,6 +906,27 @@ retry (\texttt{gr}) and verifier feedback (\texttt{vf}), summed over
 three replications. Descriptive only.}
 \label{tab:perclass}
 \end{table}
+
+\subsection{Depth-2 and excluded runs}
+\label{app:depth2}
+
+A single exploratory \dscode{} campaign was run on 120 fixtures built
+with two perturbations instead of one, with one replication per
+policy. Verifier-certified repairs were 7/120 for single-shot, 8/120
+for content-free retry, 5/120 for category-level feedback, and 2/120
+for a detailed-feedback variant. All tested policies sit near the
+floor, the ordering carries no inferential weight at one replication,
+and no depth-two result enters any confirmatory claim. The benchmark
+therefore contains substantial headroom above the depth-one instances
+used in the main experiment.
+
+Two early scouting runs were excluded before the confirmatory phase
+for infrastructure reasons. A free-tier deployment of an unrelated
+model produced heavy provider-side throttling noise, and a
+lightweight commercial model returned unusable output on every
+fixture. Both exclusions predate the protocol freeze, and neither run
+enters any analysis. The single \mmcode{} scout run is disclosed in
+the amendment and is excluded from every confirmatory calculation.
 
 \section{\mmcode{} extension detail}
 \label{app:minimax}
@@ -947,26 +987,6 @@ contamination-cleaning reruns, requests to
 proxy via \texttt{NO\_PROXY}, while the frozen 300-second client
 timeout, provider endpoint, model, prompts, fixtures, policies, and
 sampling parameters remained unchanged.''
-
-\section{Exploratory depth-2 and excluded scouts}
-\label{app:depth2}
-A single exploratory \dscode{} campaign was run on 120 fixtures built
-with two perturbations instead of one, with one replication per
-policy. Verifier-certified repairs were 7/120 for single-shot, 8/120
-for content-free retry, 5/120 for category-level feedback, and 2/120
-for a detailed-feedback variant. All tested policies sit near the
-floor, the ordering carries no inferential weight at one replication,
-and no depth-two result enters any confirmatory claim. The benchmark
-therefore contains substantial headroom above the depth-one instances
-used in the main experiment.
-
-Two early scouting runs were excluded before the confirmatory phase
-for infrastructure reasons. A free-tier deployment of an unrelated
-model produced heavy provider-side throttling noise, and a
-lightweight commercial model returned unusable output on every
-fixture. Both exclusions predate the protocol freeze, and neither run
-enters any analysis. The single \mmcode{} scout run is disclosed in
-the amendment and is excluded from every confirmatory calculation.
 
 \section{Reproduction and configuration}
 \label{app:repro}
