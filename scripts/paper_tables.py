@@ -95,7 +95,9 @@ def primary_table() -> str:
                 else "--"
             )
             p = r.get("holm_adjusted_p")
-            if p is not None:
+            if r["endpoint"] == "E3_vf_at1_vs_gr_at1":
+                ptxt = "--"  # E3: effect and interval only (protocol section 6)
+            elif p is not None:
                 ptxt = "$<10^{-4}$" if p < 5e-5 else f"{p:.4f}"
             else:
                 ptxt = f"{r['p']:.3f}$^\\dagger$"
@@ -236,12 +238,134 @@ def cost_table() -> str:
     return "\n".join(lines)
 
 
+def _manifest_classes() -> dict[str, str]:
+    man = ROOT / "runs/experiments/repair_d1/fixtures/manifest.jsonl"
+    out: dict[str, str] = {}
+    for line in man.read_text().splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        if rec.get("repairable"):
+            out[rec["fixture_id"]] = rec["perturbation_class"]
+    return out
+
+
+def _results(run_id: str) -> list[dict]:
+    path = RUNS / run_id / "repair_results.jsonl"
+    return [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+
+
+CLASS_LABEL = {
+    "drop_w_term": r"\texttt{drop\_w\_term}",
+    "flip_w_sign": r"\texttt{flip\_w\_sign}",
+    "r_charge_perturb": r"\texttt{r\_charge\_perturb}",
+    "rank_perturb": r"\texttt{rank\_perturb}",
+}
+ALL_MODELS = {**MODELS, "minimax": "conf_minimax"}
+
+
+def per_class_table() -> str:
+    """Per-perturbation-class success counts for gr/vf (descriptive)."""
+    classes = _manifest_classes()
+    order = ["drop_w_term", "flip_w_sign", "r_charge_perturb", "rank_perturb"]
+    counts: dict = {m: {a: {} for a in ("generic_retry", "verifier_feedback")} for m in ALL_MODELS}
+    for m, prefix in ALL_MODELS.items():
+        for arm in ("generic_retry", "verifier_feedback"):
+            succ: dict[str, int] = {c: 0 for c in order}
+            tot: dict[str, int] = {c: 0 for c in order}
+            for r in REPS:
+                for rec in _results(f"{prefix}_{arm}_r{r}"):
+                    c = classes.get(rec["fixture_id"])
+                    if c:
+                        tot[c] += 1
+                        succ[c] += 1 if rec.get("success") else 0
+            counts[m][arm] = {c: (succ[c], tot[c]) for c in order}
+    lines = [
+        r"\begin{tabular}{lcccccc}",
+        r"\toprule",
+        r" & \multicolumn{2}{c}{\dscode{}} & \multicolumn{2}{c}{\qwcode{}}"
+        r" & \multicolumn{2}{c}{\mmcode{} (ext.)} \\",
+        r"class & \texttt{gr} & \texttt{vf} & \texttt{gr} & \texttt{vf}"
+        r" & \texttt{gr} & \texttt{vf} \\",
+        r"\midrule",
+    ]
+    for c in order:
+        cells = []
+        for m in ("deepseek", "qwen", "minimax"):
+            for arm in ("generic_retry", "verifier_feedback"):
+                s, t = counts[m][arm][c]
+                cells.append(f"{s}/{t}")
+        lines.append(f"{CLASS_LABEL[c]} & " + " & ".join(cells) + r" \\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(lines)
+
+
+def minimax_ext_table() -> str:
+    """Full extension GEE table incl. E3 (descriptive)."""
+    mm = json.loads(MM_ANALYSIS.read_text())
+    lines = [
+        r"\begin{tabular}{lrrr}",
+        r"\toprule",
+        r"endpoint & RD (pp) & 95\% CI & $p$ \\",
+        r"\midrule",
+    ]
+
+    def row(r, holm: bool):
+        rd = 100 * r["rd"]
+        ci = f"[{100*r['ci_lo']:+.1f}, {100*r['ci_hi']:+.1f}]"
+        if r["endpoint"] == "E3_vf_at1_vs_gr_at1":
+            ptxt = "--"  # E3: effect and interval only
+        elif holm:
+            p = r["holm_adjusted_p"]
+            ptxt = "$<10^{-4}$" if p < 5e-5 else f"{p:.4f}"
+        else:
+            ptxt = f"{r['p']:.3f}$^\\dagger$"
+        return f"{ENDPOINT_LABEL[r['endpoint']]} & {rd:+.1f} & {ci} & {ptxt} \\\\"
+
+    for r in sorted(mm["primary_family_holm"], key=lambda x: LADDER.get(x["endpoint"], 9)):
+        lines.append(row(r, holm=True))
+    for r in mm["secondary_e5_family_holm"]:
+        lines.append(row(r, holm=False))
+    for r in mm["secondary_e3_descriptive"]:
+        lines.append(row(r, holm=False))
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(lines)
+
+
+def per_rep_minimax_table() -> str:
+    """Extension per-replication success counts (plus invalid rates)."""
+    lines = [
+        r"\begin{tabular}{lcccc}",
+        r"\toprule",
+        r"policy & rep 1 & rep 2 & rep 3 & invalid \\",
+        r"\midrule",
+    ]
+    for arm, label in ARMS:
+        cells = []
+        inv = tot = 0
+        for r in REPS:
+            recs = _results(f"conf_minimax_{arm}_r{r}")
+            n_succ = sum(1 for x in recs if x.get("success"))
+            cells.append(f"{n_succ}/{len(recs)}")
+            inv += sum(1 for x in recs if x.get("invalid"))
+            tot += len(recs)
+        arm_tex = arm.replace("_", r"\_")
+        lines.append(
+            f"\\texttt{{{arm_tex}}} & " + " & ".join(cells) + f" & {100*inv/tot:.0f}\\% \\\\"
+        )
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(lines)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     FIG_OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "per_rep.tex").write_text(per_rep_table() + "\n")
     (OUT / "primary.tex").write_text(primary_table() + "\n")
     (OUT / "cost.tex").write_text(cost_table() + "\n")
+    (OUT / "per_class.tex").write_text(per_class_table() + "\n")
+    (OUT / "minimax_ext.tex").write_text(minimax_ext_table() + "\n")
+    (OUT / "per_rep_minimax.tex").write_text(per_rep_minimax_table() + "\n")
     (FIG_OUT / "e4_forest.tex").write_text(e4_forest_figure() + "\n")
     print(f"wrote {len(list(OUT.glob('*.tex')))} tables to {OUT}")
     print(f"wrote e4_forest.tex to {FIG_OUT}")

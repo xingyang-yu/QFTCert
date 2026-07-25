@@ -443,8 +443,9 @@ reports the primary two-model campaign: its first six rows form the
 primary family with one paper-wide Holm adjustment, E5 forms a
 separate two-hypothesis family, and E3 is descriptive. The lower block
 is the separately preregistered \mmcode{} extension with its own
-three-hypothesis Holm family. $\dagger$: unadjusted $p$ (E3 is
-descriptive, and the extension E5 is secondary).}
+three-hypothesis Holm family. $\dagger$: unadjusted $p$ (the extension
+E5 is secondary). E3 is descriptive and reported with effect and
+interval only.}
 \label{tab:primary}
 \end{table}
 
@@ -738,29 +739,134 @@ for every policy, model, and replication of the primary campaign.}
 \label{tab:perrep}
 \end{table}
 
-\todo{GEE estimator details, Holm procedure, E3 results; extension
-per-rep counts.}
+For each model and endpoint the protocol specifies a marginal binomial
+generalized-estimating-equation fit with logit link, arm and
+replication fixed effects, fixture identity as the clustering unit,
+exchangeable working correlation, and robust sandwich covariance. The
+reported effect is a standardized marginal risk difference: each arm
+is predicted at every observed replication level, predictions are
+averaged equally over replication levels and the 145 fixtures, and the
+two arm averages are subtracted. Confidence intervals come from the
+delta method on the robust covariance. If the exchangeable fit fails
+numerically, the same mean model is refit with independence working
+correlation and the same robust covariance, and this fallback is
+triggered only by a logged solver failure. Identity-link fits and
+fixture bootstraps are excluded by the protocol.
+
+The primary family consists of the six hypotheses \{E1, E2,
+E4\}$\times$\{\dscode{}, \qwcode{}\} under one Holm adjustment: the
+six $p$-values are sorted, the smallest is compared against $0.05/6$,
+the next against $0.05/5$, and so on, stopping at the first failure.
+E5 forms its own two-hypothesis family, and E3 is reported with effect
+and interval only (Table~\ref{tab:primary}).
+
+The replication count $R=3$ was selected from $\{2,3\}$ before the
+protocol freeze, using a prospective minimum-detectable-effect table
+and the observed cost per replication. For success-probability
+variance bounds $q\in\{0.10, 0.15, 0.20\}$, at two-sided level
+$0.05/6$ and $80\%$ power, the detectable risk differences are
+$6.5$, $7.9$, and $9.1$\,pp at $R=2$, and $5.3$, $6.5$, and
+$7.5$\,pp at $R=3$. The protocol labels these values an optimistic
+independence bound: positive within-fixture correlation $\rho$
+inflates them by $\sqrt{1+(R-1)\rho}$.
 
 \section{Per-class descriptive tables}
 \label{app:perclass}
-\todo{per-perturbation-class outcomes per model; descriptive only, no
-inferential claims.}
+Table~\ref{tab:perclass} lists verifier-certified repair counts per
+perturbation class for the \texttt{gr} and \texttt{vf} policies,
+summed over the three replications (out of three times the class
+size). These counts are descriptive. The per-class pattern varies
+between models and classes, and no per-class hypothesis was
+preregistered, so we draw no inference from this table.
+
+\begin{table}[t]
+\centering
+\input{tables/per_class}
+\caption{Per-class verifier-certified repair counts for content-free
+retry (\texttt{gr}) and verifier feedback (\texttt{vf}), summed over
+three replications. Descriptive only.}
+\label{tab:perclass}
+\end{table}
 
 \section{\mmcode{} extension detail}
 \label{app:minimax}
-\todo{amendment summary, full clean GEE table, extension per-rep
-counts, invalid decomposition, forced-thinking disclosure,
-contamination cleaning with the EXACT accounting (45 replaced records
-covering 43 distinct fixture-replications, one fixture replaced across
-successive passes; transport-error predicate; audited application of
-the filter-and-resume rule; byte-exact quarantine), the two converged
-disclosure sentences: 300\,s timeout retained; NO\_PROXY direct
-connection.}
+The \mmcode{} campaign was added by a pre-data amendment to the
+protocol, committed before any confirmatory response from this model
+existed. The amendment fixes the same configuration, fixtures, and
+$R=3$ as the primary campaigns, and defines an extension family with
+its own three-hypothesis Holm adjustment, reported separately from the
+two-model primary family throughout the paper.
+Table~\ref{tab:minimaxext} lists the full extension results, and
+Table~\ref{tab:perrepmm} the per-replication counts and per-policy
+invalid rates.
+
+\begin{table}[t]
+\centering
+\input{tables/minimax_ext}
+\caption{Extension-family GEE endpoints for \mmcode{} (risk
+differences in percentage points, fixture-clustered robust 95\% CIs).
+E2, E1, and E4 carry the extension's own three-hypothesis Holm
+adjustment. $\dagger$: unadjusted $p$ (E5 secondary). E3 is descriptive and
+reported with effect and interval only.}
+\label{tab:minimaxext}
+\end{table}
+
+\begin{table}[t]
+\centering
+\input{tables/per_rep_minimax}
+\caption{Extension per-replication verifier-certified repair counts
+(out of 145) and per-policy invalid rates.}
+\label{tab:perrepmm}
+\end{table}
+
+One provider constraint is disclosed in the amendment: the serving
+platform locks this model's reasoning mode on and rejects requests
+that try to disable it, so all extension attempts are generated with
+provider-forced reasoning. Forced tool choice is rejected under this
+mode, and the harness falls back to automatic tool choice, a
+documented code path.
+
+During the extension campaign, 45 records containing exogenous API
+transport errors (connection failures and timeouts recorded by the
+client) were quarantined and replaced by the filter-and-resume
+machinery of the contamination rule, in an audited procedure with an
+outcome-independent, presence-based selection predicate. The 45
+records cover 43 distinct fixture-replications: one
+\texttt{best\_of\_n} fixture was replaced again in two successive
+passes after its rerun hit new transport errors. The removed records
+are preserved byte-exactly, with a SHA-256 ledger, alongside the code.
+Two disclosure sentences were fixed during the audit and are repeated
+verbatim. First: ``All MiniMax contamination-cleaning reruns,
+including the third rerun of
+\texttt{spp\_N2\_d1\_node2\_rank\_perturb\_00}, retained the
+pre-data-recorded 300-second client timeout; rows containing exogenous
+transport timeouts were quarantined and replaced under the unchanged
+filter-and-resume rule.'' Second: ``For pass 3 and any subsequent
+contamination-cleaning reruns, requests to
+\texttt{dashscope.aliyuncs.com} bypassed the shell's local HTTP(S)
+proxy via \texttt{NO\_PROXY}, while the frozen 300-second client
+timeout, provider endpoint, model, prompts, fixtures, policies, and
+sampling parameters remained unchanged.''
 
 \section{Exploratory depth-2 and excluded scouts}
 \label{app:depth2}
-\todo{depth-2 collapse (difficulty dial); glm/gemini provider-noise
-exclusions.}
+A single exploratory \dscode{} campaign was run on 120 fixtures built
+with two perturbations instead of one, with one replication per
+policy. Verifier-certified repairs were 7/120 for single-shot, 8/120
+for content-free retry, 5/120 for category-level feedback, and 2/120
+for a detailed-feedback variant. All tested policies sit near the
+floor, the ordering carries no inferential weight at one replication,
+and no depth-two result enters any confirmatory claim. The benchmark
+therefore contains substantial headroom above the depth-one instances
+used in the main experiment.
+
+Two early scouting runs were excluded before the confirmatory phase
+for infrastructure reasons. A free-tier deployment of an unrelated
+model produced heavy provider-side throttling noise, and a
+lightweight commercial model returned unusable output on every
+fixture. Both exclusions predate the protocol freeze, and neither run
+enters any analysis. The single \mmcode{} scout run is disclosed in
+the amendment and is excluded from every confirmatory calculation.
 
 \section{Reproduction and configuration}
 \label{app:repro}
