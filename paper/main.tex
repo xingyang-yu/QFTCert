@@ -253,7 +253,7 @@ length or, when gauge singlets are present, by $R$-charge. This is a
 bounded classical proxy for the chiral ring \cite{Cachazo:2002ry}
 rather than the ring itself, and Appendix~\ref{app:verifier} states its
 exact scope. A claim
-for which at least one obligation is judged and none fails is
+for which at least one obligation passes and none fails is
 \textsc{certified} and receives a consistency certificate recording the
 outcome of every obligation, including those the verifier cannot judge
 (unknown, not applicable, or not implemented); a claim with a failing
@@ -716,17 +716,102 @@ seeds is described in Appendix~\ref{app:benchmark}.
 
 \section{Verifier detail}
 \label{app:verifier}
-\todo{obligation definitions, certificate schema, R-graded chiral-ring
-bounds, $L{=}3$/$L{=}5$ judge split.}
+The verifier evaluates a registry of twenty-three obligations under
+the profile used throughout this paper. On a committed positive
+fixture, eleven are judged and certified: theory kind classification,
+electric and magnetic gauge anomaly cancellation, electric and
+magnetic gauge-global mixed anomaly cancellation, electric and
+magnetic superpotential consistency, global symmetry matching, global
+anomaly matching, central charge matching from encoded $R$-symmetry,
+and bounded chiral-ring consistency. The remaining twelve are recorded
+without being judged under the default policy: superconformal
+$R$-charge audit, $a$-maximization central charge matching, SCFT
+soundness, and index matching (not applicable), operator map Abelian
+charge matching and deformation checks (not implemented), and the
+operator unitarity bound together with five metadata hooks for
+chiral-ring, moduli-space, conformal-manifold, generalized-symmetry,
+and protected-quantity data (unknown).
+
+Each obligation is judged with one of five statuses: certified,
+failed, unknown, not applicable, or not implemented. A separate error
+status exists for the verification outcome as a whole, for malformed
+inputs, and routes the pair to attrition. A claim is in scope when its
+overall verdict is certified or failed. Certification requires that at
+least one obligation is certified and none fails, and
+obligations the verifier cannot judge are recorded in the certificate
+without blocking certification, as discussed in
+Section~\ref{sec:system}. The certificate records the status and
+message of every obligation together with detailed numerical tables,
+for example the full anomaly tables of both sides.
+
+The chiral-ring comparison enumerates single-trace cyclic words modulo
+the truncated $F$-term ideal. In word-length mode the interaction-time
+verifier uses $L=3$ and the final judge $L=5$. When either side
+contains gauge singlets, the comparison switches automatically to
+$R$-charge grading with maximal $R$-charge $2$, and the per-side depth
+cutoffs are then derived from the $R$-charge range, which makes the
+two configurations coincide, as disclosed in
+Section~\ref{sec:system}.
 
 \section{Benchmark construction}
 \label{app:benchmark}
-\todo{seed catalog, mutation/perturbation generation, verifier-gating,
-attrition table, byte-identical regeneration, copy-cheat guard.}
+The seed catalog covers fourteen family/rank/node cells:
+\texttt{c3\_z2z2} at $N=2$ (nodes 0, 1), \texttt{dp0\_toric} at
+$N=3$ (nodes 0, 1, 2) and $N=4$ (node 0), \texttt{dp1} at $N=2$
+(nodes 0, 1), \texttt{dp2\_phase1} at $N=2$ (nodes 3, 4),
+\texttt{f0\_phase\_ii} at $N=3$ (nodes 0, 2), and \texttt{spp} at
+$N=2$ (nodes 0, 2). For each cell the electric theory comes from the
+seed catalog, the magnetic side is produced by dualizing the chosen
+node with the package's mutation engine, and the pair is kept only if
+it certifies.
+
+The four perturbation operators act on the magnetic side and record
+their action in the manifest. \texttt{drop\_w\_term} removes one
+superpotential term. \texttt{flip\_w\_sign} negates one coefficient.
+\texttt{r\_charge\_perturb} shifts the $R$-charge of one field by a
+recorded rational amount (for example $-1/3$).
+\texttt{rank\_perturb} changes one gauge rank by one unit. A
+candidate fixture is kept only if the perturbed pair fails in scope
+while the seed pair certifies. Of the generated candidates, 79 were
+dropped and recorded: 27 duplicates and 52 whose verifier label did
+not match the expected one. The copy-cheat guard operates at repair
+time: a revised $T_B$ that is a verbatim copy of $T_A$ is rejected,
+since the identity pair trivially certifies. The fixture content regenerates deterministically from the seed in
+the configuration file, with the commands of
+Appendix~\ref{app:repro}. The manifest additionally records
+generation provenance (a timestamp and a code commit), so reproducing
+the manifest file itself byte for byte requires fixing these
+provenance fields.
 
 \section{Prompts and policies}
 \label{app:prompts}
-\todo{full prompts, arm pseudocode, invalid/abstain definitions.}
+The agent is addressed by a fixed system prompt that begins ``You are a theoretical physicist repairing a proposed 4d N=1
+supersymmetric gauge theory duality''
+and receives Theory A, the current Theory B, and the feedback text of
+the previous round. The reply is forced through a JSON tool schema
+whose fields are an action (\texttt{edit\_candidate},
+\texttt{no\_change}, or \texttt{abstain}), the complete revised
+theory for an edit, and a reasoning field capped at 300 characters by the schema and
+instructed to be one short sentence. The full prompt strings and schemas ship with the code.
+
+The feedback texts are fixed strings. Generic retry always receives
+``The candidate failed verification. Try a different edit to make
+Theory B a valid dual of Theory A.'' Verifier feedback receives the
+preamble ``The candidate failed verification. Failed obligations:''
+followed by one bullet per failed obligation, each of the form
+``\texttt{<name> (category: <category>)}''. Masked feedback receives
+the same preamble and bullet structure with every identity replaced by
+``\texttt{obligation-$i$ (category: category-$i$)}''. A candidate that already passes the interaction-time verifier is
+recorded as already consistent, without a model call.
+
+A round is invalid when the model returns no parsable action or when
+the action fails to apply, for example a malformed theory. An
+abstention is an explicit \texttt{abstain} action. For the feedback
+policies, the first invalid round or abstention ends the fixture as
+unrepaired, and the fixture-level invalid flag records an invalid
+round. \texttt{best\_of\_n} instead continues past invalid and
+abstaining draws, and its fixture-level invalid flag is set only when
+no draw reached verification and at least one draw was invalid.
 
 \section{Statistical specification}
 \label{app:stats}
@@ -879,9 +964,39 @@ models (all calls including failures).}
 \label{tab:cost}
 \end{table}
 
-\todo{costs incl.\ extension, manifests, hashes, exact commands; config
-minutiae (temperature = provider default, max\_tokens 8192, client
-timeout 300\,s frozen); quarantine/audit-trail layout.}
+The full pipeline is driven by five commands, all run inside the
+repository's Python environment (\texttt{.venv}, created by the
+installation instructions): \texttt{dualitycert generate-fixtures},
+\texttt{dualitycert run-repair-loop} (one campaign per policy and
+replication, with \texttt{--arm}, \texttt{--model},
+\texttt{--run-id}, and \texttt{--resume} for idempotent restarts),
+\texttt{dualitycert score-e4},
+\texttt{.venv/bin/python scripts/run\_gee.py} for the frozen GEE
+analyses, and \texttt{.venv/bin/python scripts/paper\_tables.py} for
+every generated table and the results figure. The
+released repository pins the analysis-protocol freeze commit
+(\texttt{813fdb0}), the tested harness commit (\texttt{26c5241}),
+the SHA-256 of the fixture manifest, and the SHA-256 of every
+configuration file in the execution manifest.
+
+Sampling parameters were fixed before the confirmatory phase:
+temperature at the provider default, a token cap of 8192 per call, a
+client timeout of 300 seconds per attempt, five SDK retries with
+exponential backoff, and forced tool choice, with the documented
+automatic fallback for the extension model (Appendix~\ref{app:minimax}).
+Table~\ref{tab:cost} accounts for the primary campaigns. The final
+cleaned extension artifacts total 7{,}047 model calls with 13.0M input
+and 24.0M output tokens. Including the 45 replaced records, the full
+extension history is 7{,}324 calls with 13.4M input and 24.7M output
+tokens.
+
+The contamination audit trail ships with the code: a quarantine
+directory with byte-exact prefilter copies of every affected file (the
+first-pass removed rows are contained in these copies, and the later
+passes also store their removed rows as separate files), the selection
+predicate, a ledger of the affected fixture identities, and per-file
+SHA-256 hashes for all nineteen quarantined record files, together
+with per-run resume-segment sidecars and the full audit transcript.
 
 \bibliographystyle{unsrtnat}
 \bibliography{refs}
