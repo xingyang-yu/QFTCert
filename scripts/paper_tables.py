@@ -394,11 +394,12 @@ def registry_table() -> str:
         DualityClaim(name="registry", electric_theory=et, magnetic_theory=ct, metadata=meta)
     )
     order = ["CERTIFIED", "NOT_APPLICABLE", "NOT_IMPLEMENTED", "UNKNOWN"]
+    # Status tokens are typeset \textsc to match the claim-level verdicts in section 2.
     label = {
-        "CERTIFIED": "certified",
-        "NOT_APPLICABLE": "not applicable",
-        "NOT_IMPLEMENTED": "not implemented",
-        "UNKNOWN": "unknown",
+        "CERTIFIED": r"\textsc{certified}",
+        "NOT_APPLICABLE": r"\textsc{not applicable}",
+        "NOT_IMPLEMENTED": r"\textsc{not implemented}",
+        "UNKNOWN": r"\textsc{unknown}",
     }
     lines = [r"\begin{tabular}{ll}", r"\toprule",
              r"obligation & status on a positive fixture \\", r"\midrule"]

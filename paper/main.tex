@@ -190,14 +190,14 @@ and~6 contain the discussion, limitations, and outlook.
 \node[box, align=center] (agent) at (0,-3.2)
   {language-model agent\\ \scriptsize full-theory edit of $T_B$};
 \node[proj] (fb) at (5.3,-3.2)
-  {\textbf{feedback projection} (per arm)\\
+  {\textbf{feedback projection} (per policy)\\
    \scriptsize verifier: obligation names $+$ categories\\
    \scriptsize masked: positional placeholders\\
    \scriptsize generic: ``failed, try again''};
 
 \draw[arr] (claim) -- (ver);
-\draw[arr] (ver) -- (cert) node[midway, above]{\scriptsize pass};
-\draw[arr] (ver) -- (fb) node[midway, right]{\scriptsize fail};
+\draw[arr] (ver) -- (cert) node[midway, above]{\scriptsize \textsc{certified}};
+\draw[arr] (ver) -- (fb) node[midway, right]{\scriptsize \textsc{failed}};
 \draw[arr] (fb) -- (agent);
 \draw[arr] (agent) -- (claim)
   node[midway, right]{\scriptsize revised $T_B$};
@@ -206,8 +206,8 @@ and~6 contain the discussion, limitations, and outlook.
    \scriptsize verbatim copy of $T_A$ rejected};
 \end{tikzpicture}
 \caption{The \dualitycert{} repair environment. A candidate claim is
-judged by the verifier; failed obligations pass through an
-arm-dependent feedback projection to the agent, which returns a
+judged by the verifier; failed obligations pass through a
+policy-dependent feedback projection to the agent, which returns a
 complete revised $T_B$ (at most $K=5$ rounds; verbatim copies of $T_A$
 are rejected). Final acceptance uses a configuration at least as strict
 as the interaction-time verifier (Section~\ref{sec:system}).}
@@ -256,7 +256,8 @@ exact scope. A claim
 for which at least one obligation passes and none fails is
 \textsc{certified} and receives a consistency certificate recording the
 outcome of every obligation, including those the verifier cannot judge
-(unknown, not applicable, or not implemented); a claim with a failing
+(\textsc{unknown}, \textsc{not applicable}, or \textsc{not
+implemented}); a claim with a failing
 in-scope obligation is \textsc{failed}. The certificate therefore
 states that no tested obligation failed, not that every conceivable
 check was performed, and a failed obligation rules out the claim only
@@ -307,7 +308,7 @@ above; masked feedback keeps the same structure but replaces every
 obligation identity by a neutral positional placeholder; generic retry
 states only that verification failed. These feedback projections,
 together with the control policies of Section~\ref{sec:design}, define
-the experimental arms.
+the five policies of the experiment.
 
 Nothing in this construction is specific to Seiberg duality except the
 obligations themselves. The construction uses five reusable
@@ -338,9 +339,10 @@ consistency-certified dual pair by dualizing the chosen node
 
 A broken claim is then obtained by perturbing
 the magnetic side $T_B$ at depth one, in one of four classes: deleting
-a superpotential term (38 fixtures), flipping the sign of one
-coefficient (13), perturbing $R$-charges (52), or changing one
-gauge-node rank (42). Every candidate fixture is verifier-gated: it is
+a superpotential term (\texttt{drop\_w\_term}, 38 fixtures), flipping
+the sign of one coefficient (\texttt{flip\_w\_sign}, 13), perturbing
+$R$-charges (\texttt{r\_charge\_perturb}, 52), or changing one
+gauge-node rank (\texttt{rank\_perturb}, 42). Every candidate fixture is verifier-gated: it is
 kept only if the perturbed pair fails in scope while the unperturbed
 seed pair certifies. This guarantees that a repair is needed and that
 at least one certified repair exists. Generation attrition is recorded
@@ -381,7 +383,8 @@ $-$ \texttt{best\_of\_n} compares the two budget-matched exploitation
 policies. E5 $=$ \texttt{vf} $-$ \texttt{vf\_masked} (secondary)
 estimates the value of interpretable obligation identities within a
 fixed prompt structure. E3 compares first-attempt success under the
-\texttt{vf} and \texttt{gr} prompts (descriptive only).
+\texttt{vf} and \texttt{gr} prompts, written \texttt{vf}@1 and
+\texttt{gr}@1 in the tables (descriptive only).
 
 The confirmatory campaign runs \dscode{} and \qwcode{} with $R=3$
 replications per policy, $R$ having been selected in advance from
@@ -398,7 +401,7 @@ fixtures, so outcomes are correlated within a fixture: an intrinsically
 hard fixture tends to fail under many policies at once, and the
 uncertainty estimates must account for this. Effects are therefore
 estimated by a binomial generalized-estimating-equation model with
-logit link \cite{Liang:1986gee}, arm and replication fixed effects,
+logit link \cite{Liang:1986gee}, policy and replication fixed effects,
 fixture as the clustering unit, exchangeable working correlation, and
 robust sandwich covariance. The reported effect is a standardized
 marginal risk difference with delta-method confidence intervals.
@@ -541,7 +544,7 @@ specific construction, not a general property of verifier feedback.
 Three caveats apply to the extension model. The provider forces its
 reasoning mode on, so its attempts are generated differently from the
 primary models. Invalid final outcomes are frequent for every model in
-this study (on the \texttt{vf} arm, 35\% for \dscode{}, 32\% for
+this study (on the \texttt{vf} policy, 35\% for \dscode{}, 32\% for
 \qwcode{}, and 45\% for \mmcode{}, with \texttt{gr} between 34\% and
 44\%), and the extension's \texttt{vf} rate is the highest. In
 addition, some attempts of the extension campaign failed for reasons
@@ -855,13 +858,13 @@ for every policy, model, and replication of the primary campaign.}
 \end{table}
 
 For each model and endpoint the protocol specifies a marginal binomial
-generalized-estimating-equation fit with logit link, arm and
+generalized-estimating-equation fit with logit link, policy and
 replication fixed effects, fixture identity as the clustering unit,
 exchangeable working correlation, and robust sandwich covariance. The
-reported effect is a standardized marginal risk difference: each arm
+reported effect is a standardized marginal risk difference: each policy
 is predicted at every observed replication level, predictions are
 averaged equally over replication levels and the 145 fixtures, and the
-two arm averages are subtracted. Confidence intervals come from the
+two policy averages are subtracted. Confidence intervals come from the
 delta method on the robust covariance. If the exchangeable fit fails
 numerically, the same mean model is refit with independence working
 correlation and the same robust covariance, and this fallback is
@@ -907,7 +910,7 @@ three replications. Descriptive only.}
 \label{tab:perclass}
 \end{table}
 
-\subsection{Depth-2 and excluded runs}
+\subsection{Depth-two and excluded runs}
 \label{app:depth2}
 
 A single exploratory \dscode{} campaign was run on 120 fixtures built
@@ -1003,8 +1006,9 @@ The full pipeline is driven by five commands, all run inside the
 repository's Python environment (\texttt{.venv}, created by the
 installation instructions): \texttt{dualitycert generate-fixtures},
 \texttt{dualitycert run-repair-loop} (one campaign per policy and
-replication, with \texttt{--arm}, \texttt{--model},
-\texttt{--run-id}, and \texttt{--resume} for idempotent restarts),
+replication, with \texttt{--arm} selecting the policy and
+\texttt{--model}, \texttt{--run-id}, and \texttt{--resume} for
+idempotent restarts),
 \texttt{dualitycert score-e4},
 \texttt{.venv/bin/python scripts/run\_gee.py} for the frozen GEE
 analyses, and \texttt{.venv/bin/python scripts/paper\_tables.py} for
