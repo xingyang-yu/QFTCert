@@ -265,8 +265,10 @@ CLASS_LABEL = {
 ALL_MODELS = {**MODELS, "minimax": "conf_minimax"}
 
 
-def per_class_table() -> str:
-    """Per-perturbation-class success counts for gr/vf (descriptive)."""
+def per_class_table() -> tuple[str, str]:
+    """Per-perturbation-class success counts for gr/vf (descriptive).
+
+    Returns (primary-models table, extension-model table)."""
     classes = _manifest_classes()
     order = ["drop_w_term", "flip_w_sign", "r_charge_perturb", "rank_perturb"]
     counts: dict = {m: {a: {} for a in ("generic_retry", "verifier_feedback")} for m in ALL_MODELS}
@@ -281,24 +283,33 @@ def per_class_table() -> str:
                         tot[c] += 1
                         succ[c] += 1 if rec.get("success") else 0
             counts[m][arm] = {c: (succ[c], tot[c]) for c in order}
-    lines = [
-        r"\begin{tabular}{lcccccc}",
-        r"\toprule",
-        r" & \multicolumn{2}{c}{\dscode{}} & \multicolumn{2}{c}{\qwcode{}}"
-        r" & \multicolumn{2}{c}{\mmcode{} (ext.)} \\",
-        r"class & \texttt{gr} & \texttt{vf} & \texttt{gr} & \texttt{vf}"
-        r" & \texttt{gr} & \texttt{vf} \\",
-        r"\midrule",
-    ]
-    for c in order:
-        cells = []
-        for m in ("deepseek", "qwen", "minimax"):
-            for arm in ("generic_retry", "verifier_feedback"):
-                s, t = counts[m][arm][c]
-                cells.append(f"{s}/{t}")
-        lines.append(f"{CLASS_LABEL[c]} & " + " & ".join(cells) + r" \\")
-    lines += [r"\bottomrule", r"\end{tabular}"]
-    return "\n".join(lines)
+    def emit(models: tuple[str, ...]) -> str:
+        ncol = 2 * len(models)
+        lines = [
+            r"\begin{tabular}{l" + "c" * ncol + "}",
+            r"\toprule",
+            " & ".join(
+                [""] + [r"\multicolumn{2}{c}{" + MODEL_LABEL[m] + "}" for m in models]
+            )
+            + r" \\",
+            "class & "
+            + " & ".join([r"\texttt{gr} & \texttt{vf}"] * len(models))
+            + r" \\",
+            r"\midrule",
+        ]
+        for c in order:
+            cells = []
+            for m in models:
+                for arm in ("generic_retry", "verifier_feedback"):
+                    s, t = counts[m][arm][c]
+                    cells.append(f"{s}/{t}")
+            lines.append(f"{CLASS_LABEL[c]} & " + " & ".join(cells) + r" \\")
+        lines += [r"\bottomrule", r"\end{tabular}"]
+        return "\n".join(lines)
+
+    # The extension model is reported separately throughout the paper, so the
+    # per-class counts are emitted as two tables (appendix D vs appendix E).
+    return emit(("deepseek", "qwen")), emit(("minimax",))
 
 
 def minimax_ext_table() -> str:
@@ -458,7 +469,9 @@ def main() -> None:
     (OUT / "per_rep.tex").write_text(per_rep_table() + "\n")
     (OUT / "primary.tex").write_text(primary_table() + "\n")
     (OUT / "cost.tex").write_text(cost_table() + "\n")
-    (OUT / "per_class.tex").write_text(per_class_table() + "\n")
+    per_class_primary, per_class_mm = per_class_table()
+    (OUT / "per_class.tex").write_text(per_class_primary + "\n")
+    (OUT / "per_class_minimax.tex").write_text(per_class_mm + "\n")
     (OUT / "minimax_ext.tex").write_text(minimax_ext_table() + "\n")
     (OUT / "per_rep_minimax.tex").write_text(per_rep_minimax_table() + "\n")
     (FIG_OUT / "e4_forest.tex").write_text(e4_forest_figure() + "\n")

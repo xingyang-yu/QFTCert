@@ -2,6 +2,7 @@
 \usepackage[margin=1.1in]{geometry}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
+\usepackage{placeins}
 \usepackage{graphicx}
 \usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
 \usepackage[numbers,sort&compress]{natbib}
@@ -100,8 +101,9 @@ consistency checks. A \emph{candidate duality claim} is an ordered pair
 of quiver gauge theories, and \dualitycert{} evaluates four families of
 \emph{consistency obligations}: 't~Hooft anomaly matching,
 superpotential $R$-charge consistency, central-charge matching, and
-$R$-graded bounded chiral-ring consistency. A claim for which no tested
-obligation fails receives a \emph{consistency certificate}. The
+$R$-graded bounded chiral-ring consistency. A claim for which at least
+one tested obligation passes and none fails receives a
+\emph{consistency certificate}. The
 certificate states that no tested inconsistency was found. It is not a
 proof of duality, and a failed obligation rules out the claim only
 within the encoded scope. We then use the verifier to construct a repair
@@ -206,7 +208,7 @@ and~6 contain the discussion, limitations, and outlook.
    \scriptsize verbatim copy of $T_A$ rejected};
 \end{tikzpicture}
 \caption{The \dualitycert{} repair environment. A candidate claim is
-judged by the verifier; failed obligations pass through a
+judged by the verifier. Failed obligations pass through a
 policy-dependent feedback projection to the agent, which returns a
 complete revised $T_B$ (at most $K=5$ rounds; verbatim copies of $T_A$
 are rejected). Final acceptance uses a configuration at least as strict
@@ -215,7 +217,7 @@ as the interaction-time verifier (Section~\ref{sec:system}).}
 \end{figure}
 
 A candidate duality claim in \dualitycert{} is an ordered pair of
-theories $(T_A, T_B)$, conventionally called electric and magnetic;
+theories $(T_A, T_B)$, conventionally called electric and magnetic.
 Figure~\ref{fig:overview} summarizes the construction.
 Each theory is specified in a small JSON schema as a quiver gauge
 theory: a list of gauge nodes with ranks (labeled
@@ -257,7 +259,7 @@ for which at least one obligation passes and none fails is
 \textsc{certified} and receives a consistency certificate recording the
 outcome of every obligation, including those the verifier cannot judge
 (\textsc{unknown}, \textsc{not applicable}, or \textsc{not
-implemented}); a claim with a failing
+implemented}). A claim with a failing
 in-scope obligation is \textsc{failed}. The certificate therefore
 states that no tested obligation failed, not that every conceivable
 check was performed, and a failed obligation rules out the claim only
@@ -292,7 +294,7 @@ during the interaction and up to $L=5$ in the final acceptance check,
 so the agent never observes the outcome of the exact check it must
 eventually pass. When singlets are present (34 of
 145), the automatic $R$-charge grading derives its own cutoffs and the
-two configurations coincide; for these fixtures the protection rests on
+two configurations coincide. For these fixtures the protection rests on
 the withheld numerical residuals and on the copy guard. The copy guard
 applies throughout: a candidate that is a verbatim copy of $T_A$ is
 rejected by construction, since the identity pair trivially passes all
@@ -304,8 +306,8 @@ previous round, and must return a complete revised $T_B$ in the same
 JSON schema (a full-theory edit rather than a patch). Up to $K=5$
 rounds are allowed. The content of the feedback depends on the policy:
 verifier feedback reports the failed obligation names and categories as
-above; masked feedback keeps the same structure but replaces every
-obligation identity by a neutral positional placeholder; generic retry
+above. Masked feedback keeps the same structure but replaces every
+obligation identity by a neutral positional placeholder. Generic retry
 states only that verification failed. These feedback projections,
 together with the control policies of Section~\ref{sec:design}, define
 the five policies of the experiment.
@@ -317,7 +319,7 @@ obligations; a certificate recording per-obligation outcomes; a
 feedback projection that controls what the agent sees; and a final
 judge at least as strict as the interaction-time checks. We regard this as a
 design pattern extracted from one implementation, not a validated
-general framework; Section~\ref{sec:conclusion} discusses prospects for
+general framework. Section~\ref{sec:conclusion} discusses prospects for
 building similar verifiers in other areas of formal QFT and string
 theory.
 
@@ -348,7 +350,9 @@ seed pair certifies. This guarantees that a repair is needed and that
 at least one certified repair exists. Generation attrition is recorded
 in Appendix~\ref{app:benchmark}. The resulting 145 repairable fixtures
 are generated deterministically from a fixed random-number seed, so the
-entire benchmark can be reproduced exactly. An execution manifest,
+fixture contents can be regenerated exactly
+(Appendix~\ref{app:benchmark} records the provenance-field convention
+for the manifest file itself). An execution manifest,
 released with the code, records SHA-256 hashes of the generation
 configuration and of the fixture list, so the benchmark used in the
 experiments can be checked against any regeneration.
@@ -367,8 +371,8 @@ best-of-eleven for short) draws up to $2K+1=11$ independent
 single-shot attempts, stopping at the first final certificate.
 
 The \texttt{ss}, \texttt{gr}, and \texttt{vf}
-components are collected completely for every fixture and replication;
-the stop-first \emph{strategy portfolio} (\texttt{ss}, then
+components are collected completely for every fixture and replication.
+The stop-first \emph{strategy portfolio} (\texttt{ss}, then
 \texttt{gr}, then \texttt{vf}, under the same budget of eleven
 attempts) is constructed afterwards by a deterministic replay over
 these complete components and paired against best-of-eleven, so the
@@ -585,14 +589,15 @@ All components are released with this paper: the verifier and the
 repair environment,
 the benchmark with its generation configuration and manifest hashes,
 the preregistered protocol and its amendment, the per-attempt records
-of every campaign, the contamination audit trail, and the commands
+of every confirmatory campaign and of the exploratory depth-two
+campaigns, the contamination audit trail, and the commands
 that regenerate the tables and the results figure of this paper from
 those artifacts. The release is available at
 \url{https://github.com/xingyang-yu/QFTCert}.
 
 Nothing in the construction of Section~\ref{sec:system} is specific to
 Seiberg duality except the obligations themselves. We view
-\dualitycert{} as the first instance of a prospective broader program,
+\dualitycert{} as the first step of a prospective broader program,
 which we call \textsc{QFTCert}: verifiers built on the native
 consistency checks of other areas of formal QFT and string theory,
 following the same pattern of claim schema, obligation set,
@@ -718,6 +723,7 @@ such a quiver and relates different toric phases of the same
 singularity \cite{Beasley:2001zp}. The benchmark construction on top of these
 seeds is described in Appendix~\ref{app:benchmark}.
 
+\FloatBarrier
 \section{Verifier, benchmark, and interface details}
 \label{app:system-detail}
 
@@ -743,12 +749,14 @@ it always reflects the released code.}
 \label{tab:registry}
 \end{table}
 
-Each obligation is judged with one of five statuses: certified,
-failed, unknown, not applicable, or not implemented. A separate error
+Each obligation receives one of five statuses: \textsc{certified},
+\textsc{failed}, \textsc{unknown}, \textsc{not applicable}, or
+\textsc{not implemented}. A separate \textsc{error}
 status exists for the verification outcome as a whole, for malformed
 inputs, and routes the pair to attrition. A claim is in scope when its
-overall verdict is certified or failed. Certification requires that at
-least one obligation is certified and none fails, and
+overall verdict is \textsc{certified} or \textsc{failed}.
+Certification requires that at
+least one obligation is \textsc{certified} and none fails, and
 obligations the verifier cannot judge are recorded in the certificate
 without blocking certification, as discussed in
 Section~\ref{sec:system}. The certificate records the status and
@@ -765,6 +773,7 @@ cutoffs are then derived from the $R$-charge range, which makes the
 two configurations coincide, as disclosed in
 Section~\ref{sec:system}.
 
+\FloatBarrier
 \subsection{The benchmark}
 \label{app:benchmark}
 
@@ -806,6 +815,7 @@ generation provenance (a timestamp and a code commit), so reproducing
 the manifest file itself byte for byte requires fixing these
 provenance fields.
 
+\FloatBarrier
 \subsection{Prompts and policies}
 \label{app:prompts}
 
@@ -840,6 +850,7 @@ round. \texttt{best\_of\_n} instead continues past invalid and
 abstaining draws, and its fixture-level invalid flag is set only when
 no draw reached verification and at least one draw was invalid.
 
+\FloatBarrier
 \section{Statistical specification}
 \label{app:stats}
 
@@ -849,7 +860,7 @@ numbers, and the plain-language summary is in
 Section~\ref{sec:design}.
 
 
-\begin{table}[t]
+\begin{table}[b]
 \centering
 \input{tables/per_rep}
 \caption{Per-replication verifier-certified repair counts (out of 145)
@@ -858,7 +869,7 @@ for every policy, model, and replication of the primary campaign.}
 \end{table}
 
 For each model and endpoint the protocol specifies a marginal binomial
-generalized-estimating-equation fit with logit link, policy and
+GEE fit with logit link, policy and
 replication fixed effects, fixture identity as the clustering unit,
 exchangeable working correlation, and robust sandwich covariance. The
 reported effect is a standardized marginal risk difference: each policy
@@ -888,6 +899,7 @@ $7.5$\,pp at $R=3$. The protocol labels these values an optimistic
 independence bound: positive within-fixture correlation $\rho$
 inflates them by $\sqrt{1+(R-1)\rho}$.
 
+\FloatBarrier
 \section{Additional descriptive results}
 \label{app:descriptive}
 
@@ -904,12 +916,14 @@ preregistered, so we draw no inference from this table.
 \begin{table}[t]
 \centering
 \input{tables/per_class}
-\caption{Per-class verifier-certified repair counts for content-free
+\caption{Per-class verifier-certified repair counts of the two primary
+models for content-free
 retry (\texttt{gr}) and verifier feedback (\texttt{vf}), summed over
 three replications. Descriptive only.}
 \label{tab:perclass}
 \end{table}
 
+\FloatBarrier
 \subsection{Depth-two and excluded runs}
 \label{app:depth2}
 
@@ -933,9 +947,9 @@ for infrastructure reasons. A free-tier deployment of an unrelated
 model produced heavy provider-side throttling noise, and a
 lightweight commercial model returned unusable output on every
 fixture. Both exclusions predate the protocol freeze, and neither run
-enters any analysis. The single \mmcode{} scout run is disclosed in
-the amendment and is excluded from every confirmatory calculation.
+enters any analysis.
 
+\FloatBarrier
 \section{\mmcode{} extension detail}
 \label{app:minimax}
 The \mmcode{} campaign was added by a pre-data amendment to the
@@ -943,10 +957,13 @@ protocol, committed before any confirmatory response from this model
 existed. The amendment fixes the same configuration, fixtures, and
 $R=3$ as the primary campaigns, and defines an extension family with
 its own three-hypothesis Holm adjustment, reported separately from the
-two-model primary family throughout the paper.
-Table~\ref{tab:minimaxext} lists the full extension results, and
+two-model primary family throughout the paper. A single scout run of
+this model predates the amendment. It is disclosed in the amendment
+and is excluded from every confirmatory calculation.
+Table~\ref{tab:minimaxext} lists the full extension results,
 Table~\ref{tab:perrepmm} the per-replication counts and per-policy
-invalid rates.
+invalid rates, and Table~\ref{tab:perclassmm} the per-class counts
+corresponding to Table~\ref{tab:perclass} (descriptive only).
 
 \begin{table}[t]
 \centering
@@ -965,6 +982,14 @@ reported with effect and interval only.}
 \caption{Extension per-replication verifier-certified repair counts
 (out of 145) and per-policy invalid rates.}
 \label{tab:perrepmm}
+\end{table}
+
+\begin{table}[t]
+\centering
+\input{tables/per_class_minimax}
+\caption{Extension per-class verifier-certified repair counts, summed
+over three replications. Descriptive only.}
+\label{tab:perclassmm}
 \end{table}
 
 One provider constraint is disclosed in the amendment: the serving
@@ -996,6 +1021,7 @@ proxy via \texttt{NO\_PROXY}, while the frozen 300-second client
 timeout, provider endpoint, model, prompts, fixtures, policies, and
 sampling parameters remained unchanged.''
 
+\FloatBarrier
 \section{Reproduction and configuration}
 \label{app:repro}
 
@@ -1009,15 +1035,20 @@ models (all calls including failures).}
 
 The full pipeline is driven by five commands, all run inside the
 repository's Python environment (\texttt{.venv}, created by the
-installation instructions): \texttt{dualitycert generate-fixtures},
-\texttt{dualitycert run-repair-loop} (one campaign per policy and
-replication, with \texttt{--arm} selecting the policy and
-\texttt{--model}, \texttt{--run-id}, and \texttt{--resume} for
-idempotent restarts),
-\texttt{dualitycert score-e4},
-\texttt{.venv/bin/python scripts/run\_gee.py} for the frozen GEE
-analyses, and \texttt{.venv/bin/python scripts/paper\_tables.py} for
-every generated table and the results figure. The
+installation instructions):
+\begin{itemize}
+\item \texttt{dualitycert generate-fixtures},
+\item \texttt{dualitycert run-repair-loop}, one campaign per policy and
+  replication, with \texttt{--arm} selecting the policy and
+  \texttt{--model}, \texttt{--run-id}, and \texttt{--resume} for
+  idempotent restarts,
+\item \texttt{dualitycert score-e4},
+\item \texttt{.venv/bin/python scripts/run\_gee.py} for the frozen GEE
+  analyses, and
+\item \texttt{.venv/bin/python scripts/paper\_tables.py} for
+  every generated table and the results figure.
+\end{itemize}
+The
 released repository pins the analysis-protocol freeze commit
 (\texttt{813fdb0}), the tested harness commit (\texttt{26c5241}),
 the SHA-256 of the fixture manifest, and the SHA-256 of every

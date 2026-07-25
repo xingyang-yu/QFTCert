@@ -12,8 +12,8 @@ The paper cites in-repo paths (`runs/experiments/repair_d1/...`), so the data
 is carved back into git with surgical `.gitignore` negations; `runs/` stays
 ignored otherwise. A fresh clone reproduces the paper with no extra download
 step, and the hashes are anchored in commit history rather than in a mutable
-release asset. Cost is small: 528 files, ~31 MB working tree, ~3.6 MB packed,
-largest file under 1 MB (GitHub's limit is 100 MB).
+release asset. Cost is small: 818 files (528 depth-1 + 290 depth-2), ~35 MB
+working tree, largest file under 1 MB (GitHub's limit is 100 MB).
 
 Included (commit `245b3ae`):
 
@@ -30,12 +30,14 @@ Included (commit `245b3ae`):
   contamination-audit trail (quarantined originals, removed rows, pass
   snapshots, `sha256_manifest.json`, `contaminated_ids.json`,
   `predicate.txt`).
+- `runs/experiments/repair_d2/` (added 2026-07-25, commit `cf048d9`): the
+  exploratory depth-2 fixtures and all ten run dirs cited in appendix D.2
+  (both data-producing campaigns `d2_*`/`d2p2_*` and the aborted `d2p_*`
+  attempt), 290 files.
 
 Excluded on purpose: exploratory pilot runs (`gemlite_*`, `glm*`, `qwen*`,
-`scout_*`), depth-2 work under `runs/experiments/repair_d2/`, and macOS
-`name 2.ext` duplicate files (note: `fixtures/attrition 2.jsonl` is a stale
-pre-freeze copy that differs from the frozen `attrition.jsonl`; it stays
-local-only and can be deleted).
+`scout_*`) and macOS `name 2.ext` duplicate files (the stale local copies
+under `fixtures/` were deleted 2026-07-25).
 
 **Verification already performed** (all in a fresh `git clone`, i.e. exactly
 the file set a public cloner gets):
@@ -50,8 +52,9 @@ the file set a public cloner gets):
    filtered states reconstructed from `contaminated_ids.json`, live-row
    provenance, final files clean under the frozen predicate), and the
    released depth-2 exploratory campaigns (`runs/experiments/repair_d2/`).
-2. `scripts/paper_tables.py` rerun in the clone: all three tables and the E4
-   forest figure regenerate byte-identical to the committed versions.
+2. `scripts/paper_tables.py` rerun in the clone: all nine generated tables
+   and the E4 forest figure regenerate byte-identical to the committed
+   versions.
 3. Secret scan: API-key patterns (Anthropic/OpenAI/OpenRouter/Groq/Gemini/
    GitHub tokens, JWTs) over the full clone and the entire git history. Zero
    real hits; the only match is the documentation placeholder
