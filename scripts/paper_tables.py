@@ -357,6 +357,63 @@ def per_rep_minimax_table() -> str:
     return "\n".join(lines)
 
 
+
+
+def registry_table() -> str:
+    """Full obligation registry with statuses on a committed positive fixture.
+
+    Runs the verifier's evaluate_claim on the first positive fixture of the
+    frozen manifest, so the table always reflects the code's actual registry.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    from dualitycert.core.objects import DualityClaim
+    from dualitycert.experiments.config import VerifierConfig
+    from dualitycert.experiments.single_shot import load_theory
+    from dualitycert.experiments.verifier import _is_gauge_singlet_field
+    from dualitycert.qft.dualities import evaluate_claim
+    from dualitycert.qft.pure_quiver_json import pure_quiver_from_json
+
+    root = _Path("runs/experiments/repair_d1/fixtures")
+    recs = [_json.loads(l) for l in open(root / "manifest.jsonl") if l.strip()]
+    pos = next(r for r in recs if not r.get("repairable"))
+    ej = load_theory(root, pos["theory_a_path"])
+    cj = load_theory(root, pos["theory_b_path"])
+    cfg = VerifierConfig.from_dict(pos["verifier_config"])
+    et = pure_quiver_from_json(dict(ej))
+    ct = pure_quiver_from_json(dict(cj))
+    grading = (
+        "r_charge"
+        if any(_is_gauge_singlet_field(f) for f in (*et.fields, *ct.fields))
+        else "length"
+    )
+    meta = {
+        "duality_profile": cfg.duality_profile,
+        "bounded_chiral_ring": cfg.bounded_chiral_ring_metadata(grading=grading),
+    }
+    cert = evaluate_claim(
+        DualityClaim(name="registry", electric_theory=et, magnetic_theory=ct, metadata=meta)
+    )
+    order = ["CERTIFIED", "NOT_APPLICABLE", "NOT_IMPLEMENTED", "UNKNOWN"]
+    label = {
+        "CERTIFIED": "certified",
+        "NOT_APPLICABLE": "not applicable",
+        "NOT_IMPLEMENTED": "not implemented",
+        "UNKNOWN": "unknown",
+    }
+    lines = [r"\begin{tabular}{ll}", r"\toprule",
+             r"obligation & status on a positive fixture \\", r"\midrule"]
+    for i, status in enumerate(order):
+        rows = [r for r in cert.obligation_results if r.status.value == status]
+        for r in rows:
+            lines.append(f"{r.name} & {label[status]} \\\\")
+        if i < len(order) - 1:
+            lines.append(r"\midrule")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(lines)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     FIG_OUT.mkdir(parents=True, exist_ok=True)
@@ -367,6 +424,7 @@ def main() -> None:
     (OUT / "minimax_ext.tex").write_text(minimax_ext_table() + "\n")
     (OUT / "per_rep_minimax.tex").write_text(per_rep_minimax_table() + "\n")
     (FIG_OUT / "e4_forest.tex").write_text(e4_forest_figure() + "\n")
+    (OUT / "registry.tex").write_text(registry_table() + "\n")
     print(f"wrote {len(list(OUT.glob('*.tex')))} tables to {OUT}")
     print(f"wrote e4_forest.tex to {FIG_OUT}")
 
