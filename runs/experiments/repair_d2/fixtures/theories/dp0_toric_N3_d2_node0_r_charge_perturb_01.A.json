@@ -1,0 +1,122 @@
+{
+  "arrows": [
+    {
+      "label": "X01[0]",
+      "r_charge": "2/3",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X01[1]",
+      "r_charge": "2/3",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X01[2]",
+      "r_charge": "2/3",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X12[0]",
+      "r_charge": "2/3",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[1]",
+      "r_charge": "2/3",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[2]",
+      "r_charge": "2/3",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X20[0]",
+      "r_charge": "2/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[1]",
+      "r_charge": "2/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[2]",
+      "r_charge": "2/3",
+      "source": 2,
+      "target": 0
+    }
+  ],
+  "name": "3-node pure quiver",
+  "node_labels": [
+    "SU(3)_0",
+    "SU(3)_1",
+    "SU(3)_2"
+  ],
+  "ranks": [
+    3,
+    3,
+    3
+  ],
+  "superpotential": [
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[0]",
+        "X12[1]",
+        "X20[2]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X01[0]",
+        "X12[2]",
+        "X20[1]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X01[1]",
+        "X12[0]",
+        "X20[2]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[1]",
+        "X12[2]",
+        "X20[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[2]",
+        "X12[0]",
+        "X20[1]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X01[2]",
+        "X12[1]",
+        "X20[0]"
+      ]
+    }
+  ],
+  "u1_globals": [
+    "U(1)_R"
+  ]
+}

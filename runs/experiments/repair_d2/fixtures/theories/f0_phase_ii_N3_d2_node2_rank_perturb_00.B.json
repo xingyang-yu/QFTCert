@@ -1,0 +1,830 @@
+{
+  "arrows": [
+    {
+      "label": "X01[0]",
+      "r_charge": "3/22",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X01[1]",
+      "r_charge": "3/22",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X01[2]",
+      "r_charge": "3/22",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X01[3]",
+      "r_charge": "3/22",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X01[4]",
+      "r_charge": "3/22",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X01[5]",
+      "r_charge": "3/22",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X03[0]",
+      "r_charge": "3/22",
+      "source": 0,
+      "target": 3
+    },
+    {
+      "label": "X03[1]",
+      "r_charge": "3/22",
+      "source": 0,
+      "target": 3
+    },
+    {
+      "label": "X03[2]",
+      "r_charge": "3/22",
+      "source": 0,
+      "target": 3
+    },
+    {
+      "label": "X03[3]",
+      "r_charge": "3/22",
+      "source": 0,
+      "target": 3
+    },
+    {
+      "label": "X03[4]",
+      "r_charge": "3/22",
+      "source": 0,
+      "target": 3
+    },
+    {
+      "label": "X03[5]",
+      "r_charge": "3/22",
+      "source": 0,
+      "target": 3
+    },
+    {
+      "label": "X12[0]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[1]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[2]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[3]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[4]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[5]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[6]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[7]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[8]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[9]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[10]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[11]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[12]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[13]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[14]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[15]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[16]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[17]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[18]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[19]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[20]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[21]",
+      "r_charge": "11/6",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X20[0]",
+      "r_charge": "1/33",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[1]",
+      "r_charge": "1/33",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[2]",
+      "r_charge": "1/33",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[3]",
+      "r_charge": "1/33",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X32[0]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[1]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[2]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[3]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[4]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[5]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[6]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[7]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[8]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[9]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[10]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[11]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[12]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[13]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[14]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[15]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[16]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[17]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[18]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[19]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[20]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[21]",
+      "r_charge": "11/6",
+      "source": 3,
+      "target": 2
+    }
+  ],
+  "name": "4-node pure quiver (Seiberg-mutated at node 2, bare) (integrated) (R-repaired) (Seiberg-mutated at node 0, bare) (integrated) (R-repaired)",
+  "node_labels": [
+    "SU(33)_0",
+    "SU(3)_1",
+    "SU(9)_2",
+    "SU(3)_3"
+  ],
+  "ranks": [
+    33,
+    3,
+    10,
+    3
+  ],
+  "superpotential": [
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[0]",
+        "X01[0]",
+        "X12[7]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[0]",
+        "X01[0]",
+        "X12[5]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[0]",
+        "X01[0]",
+        "X12[17]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[1]",
+        "X01[0]",
+        "X12[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[2]",
+        "X01[0]",
+        "X12[1]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[3]",
+        "X01[0]",
+        "X12[2]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[0]",
+        "X01[1]",
+        "X12[3]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[1]",
+        "X01[1]",
+        "X12[4]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[2]",
+        "X01[1]",
+        "X12[5]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[3]",
+        "X01[1]",
+        "X12[6]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[0]",
+        "X01[2]",
+        "X12[11]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[0]",
+        "X01[2]",
+        "X12[16]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[0]",
+        "X01[2]",
+        "X12[21]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[1]",
+        "X01[2]",
+        "X12[7]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[2]",
+        "X01[2]",
+        "X12[8]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[3]",
+        "X01[2]",
+        "X12[9]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[0]",
+        "X01[3]",
+        "X12[10]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[1]",
+        "X01[3]",
+        "X12[11]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[2]",
+        "X01[3]",
+        "X12[12]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[3]",
+        "X01[3]",
+        "X12[13]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[0]",
+        "X01[4]",
+        "X12[14]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[1]",
+        "X01[4]",
+        "X12[15]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[2]",
+        "X01[4]",
+        "X12[16]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[3]",
+        "X01[4]",
+        "X12[17]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[0]",
+        "X01[5]",
+        "X12[18]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[1]",
+        "X01[5]",
+        "X12[19]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[2]",
+        "X01[5]",
+        "X12[20]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[3]",
+        "X01[5]",
+        "X12[21]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[0]",
+        "X03[0]",
+        "X32[7]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[0]",
+        "X03[0]",
+        "X32[5]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[0]",
+        "X03[0]",
+        "X32[17]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[1]",
+        "X03[0]",
+        "X32[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[2]",
+        "X03[0]",
+        "X32[1]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[3]",
+        "X03[0]",
+        "X32[2]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[0]",
+        "X03[1]",
+        "X32[3]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[1]",
+        "X03[1]",
+        "X32[4]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[2]",
+        "X03[1]",
+        "X32[5]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[3]",
+        "X03[1]",
+        "X32[6]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[0]",
+        "X03[2]",
+        "X32[11]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[0]",
+        "X03[2]",
+        "X32[16]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[0]",
+        "X03[2]",
+        "X32[21]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[1]",
+        "X03[2]",
+        "X32[7]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[2]",
+        "X03[2]",
+        "X32[8]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[3]",
+        "X03[2]",
+        "X32[9]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[0]",
+        "X03[3]",
+        "X32[10]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[1]",
+        "X03[3]",
+        "X32[11]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[2]",
+        "X03[3]",
+        "X32[12]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[3]",
+        "X03[3]",
+        "X32[13]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[0]",
+        "X03[4]",
+        "X32[14]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[1]",
+        "X03[4]",
+        "X32[15]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[2]",
+        "X03[4]",
+        "X32[16]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[3]",
+        "X03[4]",
+        "X32[17]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[0]",
+        "X03[5]",
+        "X32[18]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[1]",
+        "X03[5]",
+        "X32[19]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[2]",
+        "X03[5]",
+        "X32[20]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[3]",
+        "X03[5]",
+        "X32[21]"
+      ]
+    }
+  ],
+  "u1_globals": [
+    "U(1)_R"
+  ]
+}

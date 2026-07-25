@@ -1,0 +1,280 @@
+{
+  "arrows": [
+    {
+      "label": "X02[0]",
+      "r_charge": "23/30",
+      "source": 0,
+      "target": 2
+    },
+    {
+      "label": "X02[1]",
+      "r_charge": "-7/10",
+      "source": 0,
+      "target": 2
+    },
+    {
+      "label": "X12[0]",
+      "r_charge": "9/10",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[1]",
+      "r_charge": "-3/10",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X23[0]",
+      "r_charge": "1",
+      "source": 2,
+      "target": 3
+    },
+    {
+      "label": "X24[0]",
+      "r_charge": "4/5",
+      "source": 2,
+      "target": 4
+    },
+    {
+      "label": "X24[1]",
+      "r_charge": "1/5",
+      "source": 2,
+      "target": 4
+    },
+    {
+      "label": "X24[2]",
+      "r_charge": "-1",
+      "source": 2,
+      "target": 4
+    },
+    {
+      "label": "X30[0]",
+      "r_charge": "-1/10",
+      "source": 3,
+      "target": 0
+    },
+    {
+      "label": "X31[0]",
+      "r_charge": "1/10",
+      "source": 3,
+      "target": 1
+    },
+    {
+      "label": "X34[0]",
+      "r_charge": "1",
+      "source": 3,
+      "target": 4
+    },
+    {
+      "label": "X40[0]",
+      "r_charge": "1/10",
+      "source": 4,
+      "target": 0
+    },
+    {
+      "label": "X40[1]",
+      "r_charge": "7/10",
+      "source": 4,
+      "target": 0
+    },
+    {
+      "label": "X40[2]",
+      "r_charge": "5/2",
+      "source": 4,
+      "target": 0
+    },
+    {
+      "label": "X40[3]",
+      "r_charge": "19/10",
+      "source": 4,
+      "target": 0
+    },
+    {
+      "label": "X40[4]",
+      "r_charge": "37/10",
+      "source": 4,
+      "target": 0
+    },
+    {
+      "label": "X41[0]",
+      "r_charge": "3/10",
+      "source": 4,
+      "target": 1
+    },
+    {
+      "label": "X41[1]",
+      "r_charge": "3/2",
+      "source": 4,
+      "target": 1
+    },
+    {
+      "label": "X41[2]",
+      "r_charge": "9/10",
+      "source": 4,
+      "target": 1
+    },
+    {
+      "label": "X41[3]",
+      "r_charge": "21/10",
+      "source": 4,
+      "target": 1
+    },
+    {
+      "label": "X41[4]",
+      "r_charge": "33/10",
+      "source": 4,
+      "target": 1
+    }
+  ],
+  "name": "dP_2 phase I N=2 (Seiberg-mutated at node 3, bare) (integrated) (Seiberg-mutated at node 2, bare) (integrated)",
+  "node_labels": [
+    "SU(2)_0",
+    "SU(2)_1",
+    "SU(6)_2",
+    "SU(2)_3",
+    "SU(2)_4"
+  ],
+  "ranks": [
+    2,
+    2,
+    6,
+    2,
+    2
+  ],
+  "superpotential": [
+    {
+      "coefficient": "1",
+      "factors": [
+        "X02[0]",
+        "X23[0]",
+        "X30[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X12[0]",
+        "X23[0]",
+        "X31[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X02[0]",
+        "X24[0]",
+        "X40[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X02[1]",
+        "X24[0]",
+        "X40[3]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X12[0]",
+        "X24[0]",
+        "X41[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X12[1]",
+        "X24[0]",
+        "X41[1]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X02[0]",
+        "X24[1]",
+        "X40[1]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X02[1]",
+        "X24[1]",
+        "X40[2]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X12[0]",
+        "X24[1]",
+        "X41[2]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X12[1]",
+        "X24[1]",
+        "X41[3]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X02[0]",
+        "X24[2]",
+        "X40[3]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X02[1]",
+        "X24[2]",
+        "X40[4]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X12[0]",
+        "X24[2]",
+        "X41[3]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X12[1]",
+        "X24[2]",
+        "X41[4]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X02[1]",
+        "X23[0]",
+        "X34[0]",
+        "X40[1]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X12[1]",
+        "X23[0]",
+        "X34[0]",
+        "X41[0]"
+      ]
+    }
+  ],
+  "u1_globals": [
+    "U(1)_R"
+  ]
+}

@@ -566,9 +566,9 @@ fixtures. In addition, the $R$-charge obligations test the encoded
 assignment for consistency but do not perform the $a$-maximization
 \cite{Intriligator:2003jj} that determines the superconformal $R$-charges at the infrared fixed
 point, even though the seed theories flow to such fixed points, so the
-central charges compared are trial values. At depth two, an exploratory \dscode{} run finds every tested
-policy near the floor, with success between 2\% and 7\% on 120 fixtures
-in a single replication (Appendix~\ref{app:depth2}). Harder instances
+central charges compared are trial values. At depth two, exploratory \dscode{} campaigns find every tested
+policy near the floor, with success at or below 7\% on 120 fixtures
+in single replications (Appendix~\ref{app:depth2}). Harder instances
 therefore remain well beyond all policies tested here.
 
 \section{Conclusion, artifact statement, and outlook}
@@ -913,15 +913,20 @@ three replications. Descriptive only.}
 \subsection{Depth-two and excluded runs}
 \label{app:depth2}
 
-A single exploratory \dscode{} campaign was run on 120 fixtures built
-with two perturbations instead of one, with one replication per
-policy. Verifier-certified repairs were 7/120 for single-shot, 8/120
-for content-free retry, 5/120 for category-level feedback, and 2/120
-for a detailed-feedback variant. All tested policies sit near the
-floor, the ordering carries no inferential weight at one replication,
-and no depth-two result enters any confirmatory claim. The benchmark
-therefore contains substantial headroom above the depth-one instances
-used in the main experiment.
+Two exploratory \dscode{} campaigns were run on 120 fixtures built
+with two perturbations instead of one, each at one replication per
+policy. The first campaign gave verifier-certified repairs on 7/120
+fixtures for single-shot, 8/120 for content-free retry, 5/120 for
+category-level feedback, and 2/120 for a detailed-feedback variant.
+The second campaign covered the first three policies and gave 0/120,
+3/120, and 1/120, with a higher rate of invalid final outcomes. An
+attempt between the two campaigns failed on provider-side balance
+errors before producing any model output. All three run sets are
+retained in the released artifacts. All tested policies sit near the
+floor in both campaigns, the ordering carries no inferential weight
+at one replication, and no depth-two result enters any confirmatory
+claim. The benchmark therefore contains substantial headroom above
+the depth-one instances used in the main experiment.
 
 Two early scouting runs were excluded before the confirmatory phase
 for infrastructure reasons. A free-tier deployment of an unrelated

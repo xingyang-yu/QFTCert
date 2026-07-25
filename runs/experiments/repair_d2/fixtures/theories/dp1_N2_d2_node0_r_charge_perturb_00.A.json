@@ -1,0 +1,132 @@
+{
+  "arrows": [
+    {
+      "label": "X01[0]",
+      "r_charge": "0",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X02[0]",
+      "r_charge": "1/2",
+      "source": 0,
+      "target": 2
+    },
+    {
+      "label": "X12[0]",
+      "r_charge": "21/22",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[1]",
+      "r_charge": "6/11",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X23[0]",
+      "r_charge": "21/22",
+      "source": 2,
+      "target": 3
+    },
+    {
+      "label": "X23[1]",
+      "r_charge": "6/11",
+      "source": 2,
+      "target": 3
+    },
+    {
+      "label": "X23[2]",
+      "r_charge": "1/2",
+      "source": 2,
+      "target": 3
+    },
+    {
+      "label": "X30[0]",
+      "r_charge": "21/22",
+      "source": 3,
+      "target": 0
+    },
+    {
+      "label": "X30[1]",
+      "r_charge": "6/11",
+      "source": 3,
+      "target": 0
+    },
+    {
+      "label": "X31[0]",
+      "r_charge": "1/2",
+      "source": 3,
+      "target": 1
+    }
+  ],
+  "name": "dP_1 N=2",
+  "node_labels": [
+    "SU(2)_0",
+    "SU(2)_1",
+    "SU(2)_2",
+    "SU(2)_3"
+  ],
+  "ranks": [
+    2,
+    2,
+    2,
+    2
+  ],
+  "superpotential": [
+    {
+      "coefficient": "1",
+      "factors": [
+        "X23[0]",
+        "X30[1]",
+        "X02[0]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X23[1]",
+        "X30[0]",
+        "X02[0]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X23[0]",
+        "X31[0]",
+        "X12[1]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X23[1]",
+        "X31[0]",
+        "X12[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[0]",
+        "X12[1]",
+        "X23[2]",
+        "X30[0]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X01[0]",
+        "X12[0]",
+        "X23[2]",
+        "X30[1]"
+      ]
+    }
+  ],
+  "u1_globals": [
+    "U(1)_R"
+  ]
+}

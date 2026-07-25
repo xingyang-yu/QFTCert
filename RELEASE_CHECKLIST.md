@@ -40,14 +40,16 @@ local-only and can be deleted).
 **Verification already performed** (all in a fresh `git clone`, i.e. exactly
 the file set a public cloner gets):
 
-1. `scripts/verify_release_artifacts.py` (commit `3713eb4`): 99 checks, all
-   passing. Covers `paper/execution_manifest.json` (config, fixture-manifest,
-   and all 7 prompt/schema hashes re-derived from the live code), benchmark
-   arithmetic (159 rows, 14 CERTIFIED positives, 145 runnable), campaign
-   coverage (each of the 45 arm runs hits the 145 fixtures exactly once), and
-   the quarantine audit trail (original hashes, filtered states reconstructed
-   from `contaminated_ids.json`, live-row provenance, final files clean under
-   the frozen predicate).
+1. `scripts/verify_release_artifacts.py`: 104 checks, all passing (99 at
+   commit `3713eb4`, plus 5 added 2026-07-25 pinning the exploratory depth-2
+   counts cited in the appendix). Covers `paper/execution_manifest.json`
+   (config, fixture-manifest, and all 7 prompt/schema hashes re-derived from
+   the live code), benchmark arithmetic (159 rows, 14 CERTIFIED positives,
+   145 runnable), campaign coverage (each of the 45 arm runs hits the 145
+   fixtures exactly once), the quarantine audit trail (original hashes,
+   filtered states reconstructed from `contaminated_ids.json`, live-row
+   provenance, final files clean under the frozen predicate), and the
+   released depth-2 exploratory campaigns (`runs/experiments/repair_d2/`).
 2. `scripts/paper_tables.py` rerun in the clone: all three tables and the E4
    forest figure regenerate byte-identical to the committed versions.
 3. Secret scan: API-key patterns (Anthropic/OpenAI/OpenRouter/Groq/Gemini/

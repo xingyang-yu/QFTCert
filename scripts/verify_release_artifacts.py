@@ -346,11 +346,42 @@ def check_quarantine_trail() -> None:
     )
 
 
+def check_depth2_exploratory() -> None:
+    """The appendix cites the depth-2 campaigns descriptively; pin those counts."""
+    d2runs = ROOT / "runs/experiments/repair_d2/runs"
+    cited = {
+        "d2_single_shot_repair": 7,
+        "d2_generic_retry": 8,
+        "d2_verifier_feedback": 5,
+        "d2_vf_detailed": 2,
+        "d2p2_single_shot_repair": 0,
+        "d2p2_generic_retry": 3,
+        "d2p2_verifier_feedback": 1,
+    }
+    for run, n_succ in sorted(cited.items()):
+        recs = [json.loads(l) for l in jsonl_lines(d2runs / run / "repair_results.jsonl")]
+        check(
+            f"depth-2 {run} cited count",
+            len(recs) == 120 and sum(1 for r in recs if r.get("success")) == n_succ,
+            f"expected {n_succ}/120",
+        )
+    aborted = [
+        json.loads(l)
+        for arm in ("single_shot_repair", "generic_retry", "verifier_feedback")
+        for l in jsonl_lines(d2runs / f"d2p_{arm}" / "repair_results.jsonl")
+    ]
+    check(
+        "depth-2 aborted attempt produced no model output",
+        len(aborted) == 360 and all(r.get("invalid") for r in aborted),
+    )
+
+
 def main() -> int:
     check_execution_manifest()
     runnable = runnable_fixture_ids()
     check_campaign_structure(runnable)
     check_quarantine_trail()
+    check_depth2_exploratory()
     print()
     if _failures:
         print(f"{len(_failures)} check(s) FAILED:")

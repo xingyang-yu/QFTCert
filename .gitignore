@@ -29,8 +29,9 @@ traces/*
 # campaign artifacts promised by the paper's artifact statement (section 6)
 # are carved back in below: benchmark fixtures, all conf_* campaign dirs
 # (incl. E4 replays and *_preclean), the confirmatory analysis reports, and
-# the MiniMax contamination-audit quarantine. Exploratory pilot runs stay
-# untracked.
+# the MiniMax contamination-audit quarantine. The exploratory depth-2
+# campaigns cited in the appendix are carved in as well. Other exploratory
+# pilot runs stay untracked.
 runs/*
 !runs/experiments/
 runs/experiments/*
@@ -42,5 +43,7 @@ runs/experiments/repair_d1/*
 !runs/experiments/repair_d1/runs/
 runs/experiments/repair_d1/runs/*
 !runs/experiments/repair_d1/runs/conf_*/
+!runs/experiments/repair_d2/
 # macOS "keep both" duplicates, stale pre-freeze copies: never package
 runs/experiments/repair_d1/fixtures/**/* 2.*
+runs/experiments/repair_d2/**/* 2.*

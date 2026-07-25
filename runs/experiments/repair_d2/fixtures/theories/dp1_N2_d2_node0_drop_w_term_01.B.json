@@ -1,0 +1,166 @@
+{
+  "arrows": [
+    {
+      "label": "X02[0]",
+      "r_charge": "1/2",
+      "source": 0,
+      "target": 2
+    },
+    {
+      "label": "X10[0]",
+      "r_charge": "1",
+      "source": 1,
+      "target": 0
+    },
+    {
+      "label": "X13[0]",
+      "r_charge": "21/11",
+      "source": 1,
+      "target": 3
+    },
+    {
+      "label": "X13[1]",
+      "r_charge": "3/2",
+      "source": 1,
+      "target": 3
+    },
+    {
+      "label": "X13[2]",
+      "r_charge": "16/11",
+      "source": 1,
+      "target": 3
+    },
+    {
+      "label": "X13[3]",
+      "r_charge": "12/11",
+      "source": 1,
+      "target": 3
+    },
+    {
+      "label": "X13[4]",
+      "r_charge": "23/22",
+      "source": 1,
+      "target": 3
+    },
+    {
+      "label": "X21[0]",
+      "r_charge": "1/22",
+      "source": 2,
+      "target": 1
+    },
+    {
+      "label": "X21[1]",
+      "r_charge": "5/11",
+      "source": 2,
+      "target": 1
+    },
+    {
+      "label": "X21[2]",
+      "r_charge": "1/2",
+      "source": 2,
+      "target": 1
+    },
+    {
+      "label": "X30[0]",
+      "r_charge": "0",
+      "source": 3,
+      "target": 0
+    },
+    {
+      "label": "X32[0]",
+      "r_charge": "1/22",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X32[1]",
+      "r_charge": "5/11",
+      "source": 3,
+      "target": 2
+    }
+  ],
+  "name": "dP_1 N=2 (Seiberg-mutated at node 2, bare) (integrated) (Seiberg-mutated at node 0, bare) (integrated)",
+  "node_labels": [
+    "SU(2)_0",
+    "SU(2)_1",
+    "SU(4)_2",
+    "SU(2)_3"
+  ],
+  "ranks": [
+    2,
+    2,
+    4,
+    2
+  ],
+  "superpotential": [
+    {
+      "coefficient": "1",
+      "factors": [
+        "X32[0]",
+        "X21[0]",
+        "X13[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X32[1]",
+        "X21[0]",
+        "X13[1]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X32[0]",
+        "X21[1]",
+        "X13[1]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X32[1]",
+        "X21[1]",
+        "X13[3]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X21[2]",
+        "X13[4]",
+        "X32[1]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X10[0]",
+        "X02[0]",
+        "X21[2]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X30[0]",
+        "X02[0]",
+        "X21[0]",
+        "X13[2]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X30[0]",
+        "X02[0]",
+        "X21[1]",
+        "X13[4]"
+      ]
+    }
+  ],
+  "u1_globals": [
+    "U(1)_R"
+  ]
+}

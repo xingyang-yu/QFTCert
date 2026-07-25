@@ -1,0 +1,332 @@
+{
+  "arrows": [
+    {
+      "label": "X01[0]",
+      "r_charge": "-4/15",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X01[1]",
+      "r_charge": "1/15",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X01[2]",
+      "r_charge": "1/15",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X12[0]",
+      "r_charge": "4/15",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[1]",
+      "r_charge": "4/15",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[2]",
+      "r_charge": "4/15",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[3]",
+      "r_charge": "4/15",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[4]",
+      "r_charge": "4/15",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X12[5]",
+      "r_charge": "4/15",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X20[0]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[1]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[2]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[3]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[4]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[5]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[6]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[7]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[8]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[9]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[10]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[11]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[12]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[13]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[14]",
+      "r_charge": "5/3",
+      "source": 2,
+      "target": 0
+    }
+  ],
+  "name": "3-node pure quiver (Seiberg-mutated at node 0, bare) (integrated) (Seiberg-mutated at node 1, bare) (integrated) (R-repaired)",
+  "node_labels": [
+    "SU(6)_0",
+    "SU(15)_1",
+    "SU(3)_2"
+  ],
+  "ranks": [
+    6,
+    15,
+    3
+  ],
+  "superpotential": [
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X01[0]",
+        "X12[0]",
+        "X20[2]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X01[0]",
+        "X12[0]",
+        "X20[5]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[1]",
+        "X12[0]",
+        "X20[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[2]",
+        "X12[0]",
+        "X20[1]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X01[0]",
+        "X12[1]",
+        "X20[7]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X01[0]",
+        "X12[1]",
+        "X20[11]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[1]",
+        "X12[1]",
+        "X20[2]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[2]",
+        "X12[1]",
+        "X20[3]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X01[0]",
+        "X12[2]",
+        "X20[10]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X01[0]",
+        "X12[2]",
+        "X20[14]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[1]",
+        "X12[2]",
+        "X20[4]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[2]",
+        "X12[2]",
+        "X20[5]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[0]",
+        "X12[3]",
+        "X20[6]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[1]",
+        "X12[3]",
+        "X20[7]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[2]",
+        "X12[3]",
+        "X20[8]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[0]",
+        "X12[4]",
+        "X20[9]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[1]",
+        "X12[4]",
+        "X20[10]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[2]",
+        "X12[4]",
+        "X20[11]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[0]",
+        "X12[5]",
+        "X20[12]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[1]",
+        "X12[5]",
+        "X20[13]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X01[2]",
+        "X12[5]",
+        "X20[14]"
+      ]
+    }
+  ],
+  "u1_globals": [
+    "U(1)_R"
+  ]
+}

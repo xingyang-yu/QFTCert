@@ -1,0 +1,46 @@
+{
+  "abstention_rate": 0.0,
+  "copied_electric_rate": 0.2,
+  "do_no_harm_rate": null,
+  "final_status_counts": {
+    "CERTIFIED": 2,
+    "FAILED": 50,
+    "none": 68
+  },
+  "generalization_to_final_check_gap": 0,
+  "harm_rate": null,
+  "invalid_json_rate": 0.6916666666666667,
+  "iterations_to_success": [
+    1,
+    1
+  ],
+  "mean_edit_distance": 77.53333333333333,
+  "mean_iterations_to_success": 1.0,
+  "n_fixtures": 120,
+  "n_started_certified": 0,
+  "n_success": 2,
+  "out_of_scope_rate": 0.0,
+  "success_at_1": 0.016666666666666666,
+  "success_at_3": 0.016666666666666666,
+  "success_at_5": 0.016666666666666666,
+  "success_at_k": {
+    "1": 0.016666666666666666,
+    "2": 0.016666666666666666,
+    "3": 0.016666666666666666,
+    "4": 0.016666666666666666,
+    "5": 0.016666666666666666
+  },
+  "success_rate": 0.016666666666666666,
+  "success_rate_by_class": {
+    "drop_w_term": 0.0,
+    "flip_w_sign": 0.0,
+    "r_charge_perturb": 0.046511627906976744,
+    "rank_perturb": 0.0
+  },
+  "success_rate_by_depth": {
+    "2": 0.016666666666666666
+  },
+  "unnecessary_edit_rate": null,
+  "verifier_calls_per_success": 3.0,
+  "verifier_calls_total": 587
+}

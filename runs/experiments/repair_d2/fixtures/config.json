@@ -1,0 +1,84 @@
+{
+  "allow_incomplete_cells": false,
+  "chain": {
+    "allow_repeated_states": false,
+    "forbid_immediate_backtracking": true,
+    "max_attempts_per_step": 8,
+    "max_chain_attempts_per_cell": 8,
+    "max_fields": 80,
+    "max_gauge_nodes": 12,
+    "max_json_token_estimate": 8000,
+    "max_superpotential_terms": 160,
+    "save_intermediate_theories": true,
+    "verify_adjacent_steps": true,
+    "verify_seed_to_final": true
+  },
+  "depths": [
+    2
+  ],
+  "endpoint_pool": {
+    "allow_same_hash_pair": false,
+    "allow_same_theory_pair": false,
+    "balance_depth_pairs": true,
+    "balance_pair_orientation": true,
+    "max_endpoints_per_orbit": 16,
+    "max_pairs_per_orbit": 40,
+    "max_pairs_per_theory": 6,
+    "max_pool_depth": 1,
+    "n_perturbed_per_certified": 1,
+    "pair_origins": [
+      "same_orbit_endpoint_pair",
+      "perturbed_endpoint_pair",
+      "cross_orbit_pair",
+      "size_matched_cross_pair"
+    ],
+    "size_match_tolerance": 8
+  },
+  "fixture_classes": [
+    "positive",
+    "drop_w_term",
+    "flip_w_sign",
+    "r_charge_perturb",
+    "rank_perturb"
+  ],
+  "model": {
+    "max_tokens": 8192,
+    "model": "deepseek-chat",
+    "provider": "openai_compat"
+  },
+  "n_per_cell": 4,
+  "name": "repair_d2_ft",
+  "notes": "Depth-2 repair, full_theory mode, medium feedback. Depth-2 duals via the standard multi-term-integration chain (dp0/f0/spp incl. singlet candidates) and the consistent-R fallback (dp1/dp2); c3_z2z2 legitimately has no depth-2 (attrition). Deterministic at seed 20260716.",
+  "output_dir": "runs/experiments/repair_d2",
+  "pair_generation_mode": "legacy_seed_endpoint",
+  "repair": {
+    "edit_mode": "full_theory",
+    "feedback_detail": "medium",
+    "feedback_mode": "verifier_feedback",
+    "feedback_verifier": {
+      "chiral_ring_grading": "auto",
+      "chiral_ring_max_length": 3,
+      "chiral_ring_max_r_charge": "2",
+      "duality_profile": "phase2c_a_detection",
+      "require_r_graded": true
+    },
+    "final_eval_verifier": {
+      "chiral_ring_grading": "auto",
+      "chiral_ring_max_length": 5,
+      "chiral_ring_max_r_charge": "2",
+      "duality_profile": "phase2c_a_detection",
+      "require_r_graded": true
+    },
+    "force_model_on_certified": false,
+    "max_rounds": 5
+  },
+  "seed": 20260716,
+  "split": "dev",
+  "verifier": {
+    "chiral_ring_grading": "auto",
+    "chiral_ring_max_length": 3,
+    "chiral_ring_max_r_charge": "2",
+    "duality_profile": "phase2c_a_detection",
+    "require_r_graded": true
+  }
+}
