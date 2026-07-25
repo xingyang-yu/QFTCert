@@ -165,9 +165,11 @@ convention), Figure 2 = the E4 forest plot in §4. No second table in the main t
   policies and named models; no typology.
 - **P2 (masked-feedback + interpretability caveats).** E5 placeholder-attention
   caveat (protocol wording); interpretability premium is a named-model finding.
-- **P3 (extension caveats).** Provider-forced thinking; higher invalid rates
-  (vf 45%, gr 38%); transport-error cleaning under the frozen exogenous rule (one
-  sentence, appendix pointer).
+- **P3 (extension caveats).** Provider-forced thinking; invalid rates are
+  substantial for EVERY model (vf 35/32/45, gr 34/44/38; MiniMax vf highest;
+  corrected 2026-07-25 from the earlier higher-than-primary claim);
+  transport-error cleaning under the preregistered exogenous rule (one sentence,
+  appendix pointer).
 - **P4 (scope + verifier-scope disclosures, expanded per prose-review 2026-07-24).**
   Two-model primary family ⇒ existence/non-universality only; single physics
   domain; depth-2 exploratory collapse (difficulty dial) one sentence with

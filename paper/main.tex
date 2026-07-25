@@ -496,15 +496,54 @@ support a general classification of models.
 
 \section{Discussion and limitations}
 \label{sec:discussion}
-\todo{four short beats per outline \S5: P1 what E4 does/doesn't identify
-(bundles feedback content + sequential dependence + call allocation; no
-mechanism attribution; tested policies, named models, no typology); P2
-masked-feedback placeholder-attention caveat (protocol wording) +
-interpretability premium is a named-model finding; P3 extension caveats
-(forced thinking; invalid rates vf 45\%/gr 38\%; transport-error
-cleaning one-liner with App.~G pointer); P4 scope (two-model existence/
-non-universality only; single domain; depth-2 collapse one-liner with
-App.~H pointer; certificate-vs-proof boundary restated).}
+
+The E4 reversal is a statement about two composite policies under a
+fixed budget. The portfolio differs from independent resampling in
+several ways at once: its later attempts receive feedback, its attempts
+depend on earlier ones, and its budget is spread over three policies
+rather than eleven independent draws. E4 alone therefore does not
+identify which of these ingredients drives the reversal. The narrower
+endpoints locate part of the difference in the feedback channel, since
+feedback content helps on \qwcode{} and is not detected on \dscode{},
+but no endpoint in this study attributes the reversal to a single
+mechanism. All of our claims concern the tested policies on the named
+models.
+
+E5 estimates the value of interpretable obligation identities beyond
+failure count and list structure. The preregistered protocol states its
+limitation, and we repeat it verbatim: ``neutral opaque placeholders
+may themselves change model attention and epistemic behavior; if that
+effect is large, E5 still will not isolate semantic information despite
+avoiding outcome-dependent misinformation.'' The interpretability
+premium of $+6.4$\,pp is therefore a finding about \qwcode{} under this
+specific construction, not a general property of verifier feedback.
+
+Three caveats apply to the extension model. The provider forces its
+reasoning mode on, so its attempts are generated differently from the
+primary models. Invalid final outcomes are frequent for every model in
+this study (on the \texttt{vf} arm, 35\% for \dscode{}, 32\% for
+\qwcode{}, and 45\% for \mmcode{}, with \texttt{gr} between 34\% and
+44\%), and the extension's \texttt{vf} rate is the highest. In
+addition, 45 records of the extension campaign, covering 43 distinct
+fixture-replications, contained exogenous API transport errors and were
+quarantined and replaced across successive cleaning passes. The
+replacement used the filter-and-resume machinery of the contamination
+rule under an audited procedure, and the replaced records are preserved
+byte-exactly (Appendix~\ref{app:minimax}).
+
+Finally, the scope. Two models support an existence claim of
+non-universality, not a distribution over models. The domain is one
+duality class in four-dimensional $\mathcal{N}=1$ quiver gauge
+theories. The certificate is a consistency statement whose reach is set
+by the encoded obligations, and Section~\ref{sec:system} records where
+the encoded scope is narrower than the physics: the $SU(2)$ cubic
+condition is a chirality-balance convention and the Witten anomaly is
+not checked, and the chiral-ring comparison is a bounded classical
+proxy whose feedback and final gradings coincide on singlet-containing
+fixtures. At depth two, an exploratory \dscode{} run finds every tested
+policy near the floor, with success between 2\% and 7\% on 120 fixtures
+in a single replication (Appendix~\ref{app:depth2}). Harder instances
+therefore remain well beyond all policies tested here.
 
 \section{Conclusion, artifact statement, and outlook}
 \label{sec:conclusion}
