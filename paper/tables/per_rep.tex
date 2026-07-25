@@ -2,16 +2,16 @@
 \toprule
 model & policy & rep 1 & rep 2 & rep 3 \\
 \midrule
-\textsc{deepseek-chat} & single-shot & 8/145 & 11/145 & 17/145 \\
- & generic retry & 22/145 & 24/145 & 26/145 \\
- & verifier feedback & 20/145 & 25/145 & 19/145 \\
- & masked feedback & 15/145 & 25/145 & 24/145 \\
- & best-of-11 & 58/145 & 65/145 & 59/145 \\
+\textsc{deepseek-chat} & \texttt{ss} & 8/145 & 11/145 & 17/145 \\
+ & \texttt{gr} & 22/145 & 24/145 & 26/145 \\
+ & \texttt{vf} & 20/145 & 25/145 & 19/145 \\
+ & \texttt{vf\_masked} & 15/145 & 25/145 & 24/145 \\
+ & \texttt{best\_of\_n} & 58/145 & 65/145 & 59/145 \\
 \midrule
-\textsc{qwen-plus} & single-shot & 10/145 & 11/145 & 9/145 \\
- & generic retry & 19/145 & 18/145 & 24/145 \\
- & verifier feedback & 28/145 & 32/145 & 39/145 \\
- & masked feedback & 13/145 & 30/145 & 28/145 \\
- & best-of-11 & 21/145 & 26/145 & 27/145 \\
+\textsc{qwen-plus} & \texttt{ss} & 10/145 & 11/145 & 9/145 \\
+ & \texttt{gr} & 19/145 & 18/145 & 24/145 \\
+ & \texttt{vf} & 28/145 & 32/145 & 39/145 \\
+ & \texttt{vf\_masked} & 13/145 & 30/145 & 28/145 \\
+ & \texttt{best\_of\_n} & 21/145 & 26/145 & 27/145 \\
 \bottomrule
 \end{tabular}

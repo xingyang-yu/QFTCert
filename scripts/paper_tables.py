@@ -31,12 +31,13 @@ MODEL_LABEL = {
 }
 # Ladder order of section 3 (E2 before E1), used for row ordering.
 LADDER = {"E2_gr_vs_ss": 0, "E1_vf_vs_gr": 1, "E4_portfolio_vs_control": 2}
+# Display labels are the paper-wide artifact codes introduced in section 3.
 ARMS = [
-    ("single_shot_repair", "single-shot"),
-    ("generic_retry", "generic retry"),
-    ("verifier_feedback", "verifier feedback"),
-    ("vf_masked", "masked feedback"),
-    ("best_of_n", "best-of-11"),
+    ("single_shot_repair", r"\texttt{ss}"),
+    ("generic_retry", r"\texttt{gr}"),
+    ("verifier_feedback", r"\texttt{vf}"),
+    ("vf_masked", r"\texttt{vf\_masked}"),
+    ("best_of_n", r"\texttt{best\_of\_n}"),
 ]
 REPS = (1, 2, 3)
 
@@ -349,10 +350,7 @@ def per_rep_minimax_table() -> str:
             cells.append(f"{n_succ}/{len(recs)}")
             inv += sum(1 for x in recs if x.get("invalid"))
             tot += len(recs)
-        arm_tex = arm.replace("_", r"\_")
-        lines.append(
-            f"\\texttt{{{arm_tex}}} & " + " & ".join(cells) + f" & {100*inv/tot:.0f}\\% \\\\"
-        )
+        lines.append(f"{label} & " + " & ".join(cells) + f" & {100*inv/tot:.0f}\\% \\\\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(lines)
 
