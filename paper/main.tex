@@ -552,13 +552,40 @@ therefore remain well beyond all policies tested here.
 
 \section{Conclusion, artifact statement, and outlook}
 \label{sec:conclusion}
-\todo{two paragraphs per outline \S6: P1 recap ladder (2 sentences) +
-artifact statement (GitHub, frozen manifests/protocol/amendment, per-run
-JSONL, quarantine/audit trail, exact commands); P2 the ONLY QFTCert
-paragraph: prospective program, DualityCert as first cert, candidate
-future certs (bootstrap, amplitudes, SUSY localization/resurgence,
-string field theory), extracted design pattern as the reuse surface,
-invitation to domain experts.}
+
+\dualitycert{} turns a set of consistency checks for Seiberg duality
+into a machine-checkable certificate, and the certificate into a
+repair environment for language-model agents. On the preregistered
+benchmark, retry gated by the verifier reliably improves repair
+success on both primary models, while the better of the two
+budget-matched exploitation policies differs between the two named
+models, and the cheap certificate is what every winning policy uses.
+All components are released with this paper: the verifier and the
+repair environment,
+the benchmark with its generation configuration and manifest hashes,
+the preregistered protocol and its amendment, the per-attempt records
+of every campaign, the contamination audit trail, and the commands
+that regenerate the tables and the results figure of this paper from
+those artifacts. The release is available at
+\url{https://github.com/xingyang-yu/QFTCert}.
+
+Nothing in the construction of Section~\ref{sec:system} is specific to
+Seiberg duality except the obligations themselves. We view
+\dualitycert{} as the first instance of a prospective broader program,
+which we call \textsc{QFTCert}: verifiers built on the native
+consistency checks of other areas of formal QFT and string theory,
+following the same pattern of claim schema, obligation set,
+certificate, feedback projection, and strict final judge. Natural
+candidates include crossing symmetry and unitarity in the conformal
+bootstrap, factorization and soft limits for scattering amplitudes,
+exact partition-function identities from supersymmetric localization,
+and consistency conditions in string field theory. Encoding each of
+these areas requires its own domain expertise, and the pattern is
+designed so that areas can be added independently. We would welcome
+such extensions, and we hope that formal theoretical physics gradually
+acquires machine-checkable substrates of this kind, on which
+language-model agents can be evaluated, compared, and eventually
+used for real derivational work.
 
 \appendix
 
