@@ -1,0 +1,33 @@
+{
+  "component_runs": {
+    "gr": "runs/experiments/repair_d1/runs/conf_qwen_generic_retry_r3",
+    "ss": "runs/experiments/repair_d1/runs/conf_qwen_single_shot_repair_r3",
+    "vf": "runs/experiments/repair_d1/runs/conf_qwen_verifier_feedback_r3"
+  },
+  "control_input_tokens": 2192313,
+  "control_model_calls": 1407,
+  "control_n_success": 27,
+  "control_output_tokens": 1023671,
+  "control_run": "runs/experiments/repair_d1/runs/conf_qwen_best_of_n_r3",
+  "control_success_rate": 0.18620689655172415,
+  "control_verifier_calls": 1195,
+  "mcnemar_exact_p": 0.0012600338162656044,
+  "n_fixtures": 145,
+  "paired": {
+    "both": 16,
+    "control_only": 11,
+    "neither": 85,
+    "portfolio_only": 33
+  },
+  "portfolio_deployed_input_tokens": 1731385,
+  "portfolio_deployed_model_calls": 1015,
+  "portfolio_deployed_output_tokens": 762082,
+  "portfolio_deployed_verifier_calls": 2793,
+  "portfolio_n_success": 49,
+  "portfolio_stopped_at_arm_counts": {
+    "gr": 16,
+    "ss": 9,
+    "vf": 24
+  },
+  "portfolio_success_rate": 0.33793103448275863
+}

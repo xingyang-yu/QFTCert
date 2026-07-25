@@ -1,0 +1,23 @@
+{
+  "arm": "verifier_feedback",
+  "feedback_detail": "medium",
+  "feedback_verifier": {
+    "chiral_ring_grading": "auto",
+    "chiral_ring_max_length": 3,
+    "chiral_ring_max_r_charge": "2",
+    "duality_profile": "phase2c_a_detection",
+    "require_r_graded": true
+  },
+  "final_eval_verifier": {
+    "chiral_ring_grading": "auto",
+    "chiral_ring_max_length": 5,
+    "chiral_ring_max_r_charge": "2",
+    "duality_profile": "phase2c_a_detection",
+    "require_r_graded": true
+  },
+  "max_rounds": 5,
+  "model": "qwen-plus",
+  "n_fixtures": 145,
+  "run_id": "conf_qwen_verifier_feedback_r3",
+  "timestamp": "2026-07-17T15:52:08+00:00"
+}

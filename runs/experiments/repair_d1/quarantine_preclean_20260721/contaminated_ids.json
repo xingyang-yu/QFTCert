@@ -1,0 +1,75 @@
+{
+  "conf_minimax_single_shot_repair_r2": [
+    "dp0_toric_N4_d1_node0_drop_w_term_00"
+  ],
+  "conf_minimax_generic_retry_r1": [
+    "f0_phase_ii_N3_d1_node0_flip_w_sign_00",
+    "f0_phase_ii_N3_d1_node0_flip_w_sign_02",
+    "f0_phase_ii_N3_d1_node0_r_charge_perturb_00",
+    "f0_phase_ii_N3_d1_node2_drop_w_term_02"
+  ],
+  "conf_minimax_generic_retry_r2": [
+    "f0_phase_ii_N3_d1_node0_r_charge_perturb_00",
+    "f0_phase_ii_N3_d1_node0_r_charge_perturb_01",
+    "f0_phase_ii_N3_d1_node0_r_charge_perturb_02",
+    "f0_phase_ii_N3_d1_node0_r_charge_perturb_03",
+    "f0_phase_ii_N3_d1_node0_rank_perturb_00",
+    "f0_phase_ii_N3_d1_node2_rank_perturb_00"
+  ],
+  "conf_minimax_generic_retry_r3": [
+    "f0_phase_ii_N3_d1_node0_r_charge_perturb_03",
+    "f0_phase_ii_N3_d1_node0_rank_perturb_00",
+    "f0_phase_ii_N3_d1_node2_rank_perturb_01",
+    "dp1_N2_d1_node1_r_charge_perturb_00"
+  ],
+  "conf_minimax_verifier_feedback_r1": [
+    "dp1_N2_d1_node1_r_charge_perturb_00"
+  ],
+  "conf_minimax_best_of_n_r1": [
+    "dp0_toric_N4_d1_node0_drop_w_term_00",
+    "dp0_toric_N4_d1_node0_drop_w_term_01",
+    "dp0_toric_N4_d1_node0_flip_w_sign_00",
+    "f0_phase_ii_N3_d1_node2_flip_w_sign_01",
+    "c3_z2z2_N2_d1_node0_rank_perturb_02",
+    "dp1_N2_d1_node0_r_charge_perturb_03",
+    "dp2_phase1_N2_d1_node4_rank_perturb_01",
+    "spp_N2_d1_node2_drop_w_term_02",
+    "c3_z2z2_N2_d1_node1_rank_perturb_00",
+    "dp1_N2_d1_node0_rank_perturb_01",
+    "spp_N2_d1_node2_rank_perturb_01",
+    "dp1_N2_d1_node0_drop_w_term_01"
+  ],
+  "conf_minimax_best_of_n_r2": [
+    "dp0_toric_N4_d1_node0_drop_w_term_02",
+    "dp0_toric_N4_d1_node0_flip_w_sign_00",
+    "dp0_toric_N4_d1_node0_flip_w_sign_01",
+    "spp_N2_d1_node2_rank_perturb_00",
+    "dp1_N2_d1_node0_drop_w_term_01"
+  ],
+  "conf_minimax_best_of_n_r3": [
+    "dp0_toric_N4_d1_node0_flip_w_sign_00",
+    "dp0_toric_N4_d1_node0_flip_w_sign_02",
+    "c3_z2z2_N2_d1_node1_rank_perturb_02",
+    "spp_N2_d1_node2_r_charge_perturb_03",
+    "dp2_phase1_N2_d1_node3_drop_w_term_00"
+  ],
+  "conf_minimax_vf_masked_r1": [
+    "spp_N2_d1_node2_r_charge_perturb_01",
+    "spp_N2_d1_node2_rank_perturb_00",
+    "dp2_phase1_N2_d1_node4_r_charge_perturb_01",
+    "spp_N2_d1_node2_rank_perturb_01"
+  ],
+  "conf_minimax_vf_masked_r2": [
+    "dp1_N2_d1_node0_drop_w_term_01"
+  ],
+  "_pass2": {
+    "conf_minimax_best_of_n_r2": [
+      "spp_N2_d1_node2_rank_perturb_00"
+    ]
+  },
+  "_pass3": {
+    "conf_minimax_best_of_n_r2": [
+      "spp_N2_d1_node2_rank_perturb_00"
+    ]
+  }
+}

@@ -1,0 +1,160 @@
+{
+  "arrows": [
+    {
+      "label": "X03[0]",
+      "r_charge": "3/10",
+      "source": 0,
+      "target": 3
+    },
+    {
+      "label": "X04[0]",
+      "r_charge": "1/10",
+      "source": 0,
+      "target": 4
+    },
+    {
+      "label": "X13[0]",
+      "r_charge": "7/10",
+      "source": 1,
+      "target": 3
+    },
+    {
+      "label": "X14[0]",
+      "r_charge": "9/10",
+      "source": 1,
+      "target": 4
+    },
+    {
+      "label": "X20[0]",
+      "r_charge": "9/10",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X20[1]",
+      "r_charge": "7/10",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X21[0]",
+      "r_charge": "1/10",
+      "source": 2,
+      "target": 1
+    },
+    {
+      "label": "X21[1]",
+      "r_charge": "3/10",
+      "source": 2,
+      "target": 1
+    },
+    {
+      "label": "X32[0]",
+      "r_charge": "1",
+      "source": 3,
+      "target": 2
+    },
+    {
+      "label": "X34[0]",
+      "r_charge": "0",
+      "source": 3,
+      "target": 4
+    },
+    {
+      "label": "X42[0]",
+      "r_charge": "6/5",
+      "source": 4,
+      "target": 2
+    },
+    {
+      "label": "X42[1]",
+      "r_charge": "4/5",
+      "source": 4,
+      "target": 2
+    },
+    {
+      "label": "X42[2]",
+      "r_charge": "1",
+      "source": 4,
+      "target": 2
+    }
+  ],
+  "name": "dP_2 phase I N=2 (Seiberg-mutated at node 3, bare) (integrated)",
+  "node_labels": [
+    "SU(2)_0",
+    "SU(2)_1",
+    "SU(2)_2",
+    "SU(2)_3",
+    "SU(2)_4"
+  ],
+  "ranks": [
+    2,
+    2,
+    2,
+    2,
+    2
+  ],
+  "superpotential": [
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X20[1]",
+        "X04[0]",
+        "X42[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X21[1]",
+        "X14[0]",
+        "X42[1]"
+      ]
+    },
+    {
+      "coefficient": "-1",
+      "factors": [
+        "X21[0]",
+        "X14[0]",
+        "X42[2]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X03[0]",
+        "X32[0]",
+        "X20[1]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X13[0]",
+        "X32[0]",
+        "X21[1]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X03[0]",
+        "X34[0]",
+        "X42[1]",
+        "X20[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X13[0]",
+        "X34[0]",
+        "X42[0]",
+        "X21[0]"
+      ]
+    }
+  ],
+  "u1_globals": [
+    "U(1)_R"
+  ]
+}

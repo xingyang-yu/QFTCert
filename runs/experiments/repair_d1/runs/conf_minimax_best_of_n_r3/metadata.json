@@ -1,0 +1,24 @@
+{
+  "arm": "best_of_n",
+  "feedback_detail": "medium",
+  "feedback_verifier": {
+    "chiral_ring_grading": "auto",
+    "chiral_ring_max_length": 3,
+    "chiral_ring_max_r_charge": "2",
+    "duality_profile": "phase2c_a_detection",
+    "require_r_graded": true
+  },
+  "final_eval_verifier": {
+    "chiral_ring_grading": "auto",
+    "chiral_ring_max_length": 5,
+    "chiral_ring_max_r_charge": "2",
+    "duality_profile": "phase2c_a_detection",
+    "require_r_graded": true
+  },
+  "max_rounds": 5,
+  "model": "MiniMax-M2.5",
+  "n_fixtures": 145,
+  "run_id": "conf_minimax_best_of_n_r3",
+  "timestamp": "2026-07-21T10:45:58+00:00",
+  "resume_segments": "resume_segments.json"
+}

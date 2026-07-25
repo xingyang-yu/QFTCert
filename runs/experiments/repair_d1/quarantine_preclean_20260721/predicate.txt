@@ -1,0 +1,10 @@
+Field rule: rounds[*].apply_error where rounds[*].action=="call_error" and rounds[*].model_called is not False
+Regex (converged, minimax_data_audit.md Round 1 Codex):
+(?isx)^(?:
+    APIConnectionError\b
+  | APITimeoutError\b
+  | InternalServerError\b
+  | APIStatusError:\s*Error\s+code:\s*(?:408|5\d{2})\b
+  | (?:APIStatusError|RateLimitError|BadRequestError|PermissionDeniedError):
+      .*?(?:insufficient[\s_-]*balance|arrearage|\b1113\b)
+)

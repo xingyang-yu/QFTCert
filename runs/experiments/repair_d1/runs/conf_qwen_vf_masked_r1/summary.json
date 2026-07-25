@@ -1,0 +1,61 @@
+{
+  "abstention_rate": 0.0,
+  "copied_electric_rate": 0.041379310344827586,
+  "do_no_harm_rate": null,
+  "final_status_counts": {
+    "CERTIFIED": 13,
+    "FAILED": 98,
+    "none": 34
+  },
+  "generalization_to_final_check_gap": 0,
+  "harm_rate": null,
+  "invalid_json_rate": 0.38620689655172413,
+  "iterations_to_success": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    3,
+    3,
+    3,
+    4
+  ],
+  "mean_edit_distance": 32.648275862068964,
+  "mean_iterations_to_success": 1.8461538461538463,
+  "n_fixtures": 145,
+  "n_started_certified": 0,
+  "n_success": 13,
+  "out_of_scope_rate": 0.0,
+  "success_at_1": 0.04827586206896552,
+  "success_at_3": 0.08275862068965517,
+  "success_at_5": 0.0896551724137931,
+  "success_at_k": {
+    "1": 0.04827586206896552,
+    "2": 0.06206896551724138,
+    "3": 0.08275862068965517,
+    "4": 0.0896551724137931,
+    "5": 0.0896551724137931
+  },
+  "success_rate": 0.0896551724137931,
+  "success_rate_by_class": {
+    "drop_w_term": 0.02631578947368421,
+    "flip_w_sign": 0.15384615384615385,
+    "r_charge_perturb": 0.19230769230769232,
+    "rank_perturb": 0.0
+  },
+  "success_rate_by_depth": {
+    "1": 0.0896551724137931
+  },
+  "token_usage_known_rounds": 456,
+  "total_input_tokens": 870763,
+  "total_model_calls": 494,
+  "total_output_tokens": 373650,
+  "unnecessary_edit_rate": null,
+  "verifier_calls_per_success": 5.538461538461538,
+  "verifier_calls_total": 1358
+}

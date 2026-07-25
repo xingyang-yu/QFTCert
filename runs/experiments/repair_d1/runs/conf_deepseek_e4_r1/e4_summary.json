@@ -1,0 +1,33 @@
+{
+  "component_runs": {
+    "gr": "runs/experiments/repair_d1/runs/conf_deepseek_generic_retry_r1",
+    "ss": "runs/experiments/repair_d1/runs/conf_deepseek_single_shot_repair_r1",
+    "vf": "runs/experiments/repair_d1/runs/conf_deepseek_verifier_feedback_r1"
+  },
+  "control_input_tokens": 2325686,
+  "control_model_calls": 1211,
+  "control_n_success": 58,
+  "control_output_tokens": 876442,
+  "control_run": "runs/experiments/repair_d1/runs/conf_deepseek_best_of_n_r1",
+  "control_success_rate": 0.4,
+  "control_verifier_calls": 1198,
+  "mcnemar_exact_p": 0.012660335802414213,
+  "n_fixtures": 145,
+  "paired": {
+    "both": 22,
+    "control_only": 36,
+    "neither": 70,
+    "portfolio_only": 17
+  },
+  "portfolio_deployed_input_tokens": 2206843,
+  "portfolio_deployed_model_calls": 1128,
+  "portfolio_deployed_output_tokens": 819503,
+  "portfolio_deployed_verifier_calls": 3172,
+  "portfolio_n_success": 39,
+  "portfolio_stopped_at_arm_counts": {
+    "gr": 20,
+    "ss": 8,
+    "vf": 11
+  },
+  "portfolio_success_rate": 0.2689655172413793
+}

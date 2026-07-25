@@ -1,0 +1,33 @@
+{
+  "component_runs": {
+    "gr": "runs/experiments/repair_d1/runs/conf_minimax_generic_retry_r2",
+    "ss": "runs/experiments/repair_d1/runs/conf_minimax_single_shot_repair_r2",
+    "vf": "runs/experiments/repair_d1/runs/conf_minimax_verifier_feedback_r2"
+  },
+  "control_input_tokens": 1943995,
+  "control_model_calls": 1049,
+  "control_n_success": 80,
+  "control_output_tokens": 3782613,
+  "control_run": "runs/experiments/repair_d1/runs/conf_minimax_best_of_n_r2",
+  "control_success_rate": 0.5517241379310345,
+  "control_verifier_calls": 860,
+  "mcnemar_exact_p": 0.07039422106706228,
+  "n_fixtures": 145,
+  "paired": {
+    "both": 47,
+    "control_only": 33,
+    "neither": 46,
+    "portfolio_only": 19
+  },
+  "portfolio_deployed_input_tokens": 1351218,
+  "portfolio_deployed_model_calls": 736,
+  "portfolio_deployed_output_tokens": 2463602,
+  "portfolio_deployed_verifier_calls": 1870,
+  "portfolio_n_success": 66,
+  "portfolio_stopped_at_arm_counts": {
+    "gr": 28,
+    "ss": 19,
+    "vf": 19
+  },
+  "portfolio_success_rate": 0.45517241379310347
+}

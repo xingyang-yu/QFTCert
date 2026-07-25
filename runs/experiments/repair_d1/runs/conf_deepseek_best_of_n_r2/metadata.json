@@ -1,0 +1,23 @@
+{
+  "arm": "best_of_n",
+  "feedback_detail": "medium",
+  "feedback_verifier": {
+    "chiral_ring_grading": "auto",
+    "chiral_ring_max_length": 3,
+    "chiral_ring_max_r_charge": "2",
+    "duality_profile": "phase2c_a_detection",
+    "require_r_graded": true
+  },
+  "final_eval_verifier": {
+    "chiral_ring_grading": "auto",
+    "chiral_ring_max_length": 5,
+    "chiral_ring_max_r_charge": "2",
+    "duality_profile": "phase2c_a_detection",
+    "require_r_graded": true
+  },
+  "max_rounds": 5,
+  "model": "deepseek-chat",
+  "n_fixtures": 145,
+  "run_id": "conf_deepseek_best_of_n_r2",
+  "timestamp": "2026-07-16T23:30:21+00:00"
+}

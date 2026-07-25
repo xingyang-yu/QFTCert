@@ -1,0 +1,15 @@
+{
+  "segments": [
+    {
+      "pass": 1,
+      "date": "2026-07-21",
+      "procedure": "minimax_data_audit.md Round 2 (converged)",
+      "quarantine": "runs/experiments/repair_d1/quarantine_preclean_20260721",
+      "contaminated_ids": "quarantine_preclean_20260721/contaminated_ids.json",
+      "lanes": "resume reruns under identical run-ids; bon_r1 finished via 3 fixture-shards merged back",
+      "fixtures_rerun": [
+        "dp1_N2_d1_node0_drop_w_term_01"
+      ]
+    }
+  ]
+}

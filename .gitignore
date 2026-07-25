@@ -24,4 +24,23 @@ build/
 # LLM trace outputs (local dev artifacts, not committed)
 traces/*
 !traces/.gitkeep
-runs/
+
+# Run outputs are local dev artifacts by default. The depth-1 confirmatory
+# campaign artifacts promised by the paper's artifact statement (section 6)
+# are carved back in below: benchmark fixtures, all conf_* campaign dirs
+# (incl. E4 replays and *_preclean), the confirmatory analysis reports, and
+# the MiniMax contamination-audit quarantine. Exploratory pilot runs stay
+# untracked.
+runs/*
+!runs/experiments/
+runs/experiments/*
+!runs/experiments/repair_d1/
+runs/experiments/repair_d1/*
+!runs/experiments/repair_d1/confirmatory_analysis/
+!runs/experiments/repair_d1/fixtures/
+!runs/experiments/repair_d1/quarantine_preclean_20260721/
+!runs/experiments/repair_d1/runs/
+runs/experiments/repair_d1/runs/*
+!runs/experiments/repair_d1/runs/conf_*/
+# macOS "keep both" duplicates, stale pre-freeze copies — never package
+runs/experiments/repair_d1/fixtures/**/* 2.*

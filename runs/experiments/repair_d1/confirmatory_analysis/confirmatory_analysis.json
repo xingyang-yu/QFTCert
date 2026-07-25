@@ -1,0 +1,219 @@
+{
+  "primary_family_holm": [
+    {
+      "arm0_successes": 72,
+      "arm1_successes": 64,
+      "ci_hi": 0.029623851730760455,
+      "ci_lo": -0.06640595920980528,
+      "endpoint": "E1_vf_vs_gr",
+      "holm_adjusted_p": 0.45281221403996974,
+      "model": "deepseek",
+      "n_fixtures": 145,
+      "n_obs_per_arm": 435,
+      "n_reps": 3,
+      "p": 0.45281221403996974,
+      "per_rep_rd": [
+        -0.013793103448275862,
+        0.006896551724137931,
+        -0.04827586206896552
+      ],
+      "rd": -0.018391053739522416,
+      "se": 0.024497400750144324,
+      "working_correlation": "exchangeable"
+    },
+    {
+      "arm0_successes": 36,
+      "arm1_successes": 72,
+      "ci_hi": 0.12765951029238365,
+      "ci_lo": 0.037971506672269756,
+      "endpoint": "E2_gr_vs_ss",
+      "holm_adjusted_p": 0.0014751606617890989,
+      "model": "deepseek",
+      "n_fixtures": 145,
+      "n_obs_per_arm": 435,
+      "n_reps": 3,
+      "p": 0.0002950321323578198,
+      "per_rep_rd": [
+        0.09655172413793103,
+        0.0896551724137931,
+        0.06206896551724138
+      ],
+      "rd": 0.0828155084823267,
+      "se": 0.022879592760233138,
+      "working_correlation": "exchangeable"
+    },
+    {
+      "arm0_successes": 182,
+      "arm1_successes": 137,
+      "ci_hi": -0.044531729496252136,
+      "ci_lo": -0.16238299621904426,
+      "endpoint": "E4_portfolio_vs_control",
+      "holm_adjusted_p": 0.0015909126038247123,
+      "model": "deepseek",
+      "n_fixtures": 145,
+      "n_obs_per_arm": 435,
+      "n_reps": 3,
+      "p": 0.0005790842879904723,
+      "per_rep_rd": [
+        -0.1310344827586207,
+        -0.1310344827586207,
+        -0.04827586206896552
+      ],
+      "rd": -0.1034573628576482,
+      "se": 0.0300640986537735,
+      "working_correlation": "exchangeable"
+    },
+    {
+      "arm0_successes": 61,
+      "arm1_successes": 99,
+      "ci_hi": 0.13671676844450717,
+      "ci_lo": 0.03795920380365541,
+      "endpoint": "E1_vf_vs_gr",
+      "holm_adjusted_p": 0.0015909126038247123,
+      "model": "qwen",
+      "n_fixtures": 145,
+      "n_obs_per_arm": 435,
+      "n_reps": 3,
+      "p": 0.000526848784113243,
+      "per_rep_rd": [
+        0.06206896551724138,
+        0.09655172413793103,
+        0.10344827586206896
+      ],
+      "rd": 0.0873379861240813,
+      "se": 0.025193256285931574,
+      "working_correlation": "exchangeable"
+    },
+    {
+      "arm0_successes": 30,
+      "arm1_successes": 61,
+      "ci_hi": 0.1106053283597725,
+      "ci_lo": 0.0317966296860102,
+      "endpoint": "E2_gr_vs_ss",
+      "holm_adjusted_p": 0.0015909126038247123,
+      "model": "qwen",
+      "n_fixtures": 145,
+      "n_obs_per_arm": 435,
+      "n_reps": 3,
+      "p": 0.0003977281509561781,
+      "per_rep_rd": [
+        0.06206896551724138,
+        0.04827586206896552,
+        0.10344827586206896
+      ],
+      "rd": 0.07120097902289135,
+      "se": 0.020104259865755692,
+      "working_correlation": "exchangeable"
+    },
+    {
+      "arm0_successes": 74,
+      "arm1_successes": 138,
+      "ci_hi": 0.20989153440044317,
+      "ci_lo": 0.08443538160372854,
+      "endpoint": "E4_portfolio_vs_control",
+      "holm_adjusted_p": 2.5561317350764057e-05,
+      "model": "qwen",
+      "n_fixtures": 145,
+      "n_obs_per_arm": 435,
+      "n_reps": 3,
+      "p": 4.260219558460676e-06,
+      "per_rep_rd": [
+        0.15172413793103448,
+        0.13793103448275862,
+        0.15172413793103448
+      ],
+      "rd": 0.14716345800208586,
+      "se": 0.03200412061140679,
+      "working_correlation": "exchangeable"
+    }
+  ],
+  "protocol": "paper/analysis_protocol.md (frozen 813fdb0)",
+  "secondary_e3_descriptive": [
+    {
+      "arm0_successes": 30,
+      "arm1_successes": 32,
+      "ci_hi": 0.04282302199359193,
+      "ci_lo": -0.03362746191284476,
+      "endpoint": "E3_vf_at1_vs_gr_at1",
+      "holm_adjusted_p": null,
+      "model": "deepseek",
+      "n_fixtures": 145,
+      "n_obs_per_arm": 435,
+      "n_reps": 3,
+      "p": 0.8136256925401195,
+      "per_rep_rd": [
+        -0.013793103448275862,
+        0.013793103448275862,
+        0.013793103448275862
+      ],
+      "rd": 0.004597780040373585,
+      "se": 0.019502674465927728,
+      "working_correlation": "exchangeable"
+    },
+    {
+      "arm0_successes": 32,
+      "arm1_successes": 40,
+      "ci_hi": 0.0481190191723878,
+      "ci_lo": -0.011360702805301132,
+      "endpoint": "E3_vf_at1_vs_gr_at1",
+      "holm_adjusted_p": null,
+      "model": "qwen",
+      "n_fixtures": 145,
+      "n_obs_per_arm": 435,
+      "n_reps": 3,
+      "p": 0.22579002784636004,
+      "per_rep_rd": [
+        0.013793103448275862,
+        0.006896551724137931,
+        0.034482758620689655
+      ],
+      "rd": 0.018379158183543333,
+      "se": 0.015173398463696156,
+      "working_correlation": "exchangeable"
+    }
+  ],
+  "secondary_e5_family_holm": [
+    {
+      "arm0_successes": 64,
+      "arm1_successes": 64,
+      "ci_hi": 0.045949785042031704,
+      "ci_lo": -0.045949785042031704,
+      "endpoint": "E5_vf_vs_masked",
+      "holm_adjusted_p": 1.0,
+      "model": "deepseek",
+      "n_fixtures": 145,
+      "n_obs_per_arm": 435,
+      "n_reps": 3,
+      "p": 1.0,
+      "per_rep_rd": [
+        0.034482758620689655,
+        0.0,
+        -0.034482758620689655
+      ],
+      "rd": 0.0,
+      "se": 0.023443767878587606,
+      "working_correlation": "exchangeable"
+    },
+    {
+      "arm0_successes": 71,
+      "arm1_successes": 99,
+      "ci_hi": 0.10739853076000316,
+      "ci_lo": 0.02157369970425599,
+      "endpoint": "E5_vf_vs_masked",
+      "holm_adjusted_p": 0.006451448906496626,
+      "model": "qwen",
+      "n_fixtures": 145,
+      "n_obs_per_arm": 435,
+      "n_reps": 3,
+      "p": 0.003225724453248313,
+      "per_rep_rd": [
+        0.10344827586206896,
+        0.013793103448275862,
+        0.07586206896551724
+      ],
+      "rd": 0.06448611523212958,
+      "se": 0.021894089555037546,
+      "working_correlation": "exchangeable"
+    }
+  ]
+}

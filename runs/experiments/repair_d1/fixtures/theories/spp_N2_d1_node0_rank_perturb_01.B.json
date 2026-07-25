@@ -1,0 +1,122 @@
+{
+  "arrows": [
+    {
+      "label": "X01[0]",
+      "r_charge": "2/5",
+      "source": 0,
+      "target": 1
+    },
+    {
+      "label": "X02[0]",
+      "r_charge": "3/5",
+      "source": 0,
+      "target": 2
+    },
+    {
+      "label": "X10[0]",
+      "r_charge": "2/5",
+      "source": 1,
+      "target": 0
+    },
+    {
+      "label": "X12[0]",
+      "r_charge": "3/5",
+      "source": 1,
+      "target": 2
+    },
+    {
+      "label": "X20[0]",
+      "r_charge": "3/5",
+      "source": 2,
+      "target": 0
+    },
+    {
+      "label": "X21[0]",
+      "r_charge": "3/5",
+      "source": 2,
+      "target": 1
+    },
+    {
+      "label": "Phi2[0]",
+      "r_charge": "4/5",
+      "source": 2,
+      "target": 2
+    }
+  ],
+  "name": "SPP N=2 (Seiberg-mutated at node 0, bare) (integrated)",
+  "node_labels": [
+    "SU(2)_0",
+    "SU(2)_1",
+    "SU(2)_2"
+  ],
+  "ranks": [
+    3,
+    2,
+    2
+  ],
+  "singlets": [
+    {
+      "label": "S1[0]",
+      "r_charge": "6/5"
+    },
+    {
+      "label": "S2[0]",
+      "r_charge": "4/5"
+    }
+  ],
+  "superpotential": [
+    {
+      "coefficient": "1",
+      "factors": [
+        "Phi2[0]",
+        "X21[0]",
+        "X12[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "S1[0]",
+        "X10[0]",
+        "X01[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[0]",
+        "X02[0]",
+        "Phi2[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "S2[0]",
+        "X20[0]",
+        "X02[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X10[0]",
+        "X01[0]",
+        "X12[0]",
+        "X21[0]"
+      ]
+    },
+    {
+      "coefficient": "1",
+      "factors": [
+        "X20[0]",
+        "X01[0]",
+        "X10[0]",
+        "X02[0]"
+      ]
+    }
+  ],
+  "u1_globals": [
+    "U(1)_R"
+  ]
+}

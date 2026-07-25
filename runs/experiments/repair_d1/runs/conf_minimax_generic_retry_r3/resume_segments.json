@@ -1,0 +1,18 @@
+{
+  "segments": [
+    {
+      "pass": 1,
+      "date": "2026-07-21",
+      "procedure": "minimax_data_audit.md Round 2 (converged)",
+      "quarantine": "runs/experiments/repair_d1/quarantine_preclean_20260721",
+      "contaminated_ids": "quarantine_preclean_20260721/contaminated_ids.json",
+      "lanes": "resume reruns under identical run-ids; bon_r1 finished via 3 fixture-shards merged back",
+      "fixtures_rerun": [
+        "f0_phase_ii_N3_d1_node0_r_charge_perturb_03",
+        "f0_phase_ii_N3_d1_node0_rank_perturb_00",
+        "f0_phase_ii_N3_d1_node2_rank_perturb_01",
+        "dp1_N2_d1_node1_r_charge_perturb_00"
+      ]
+    }
+  ]
+}
