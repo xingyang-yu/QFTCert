@@ -513,3 +513,311 @@ than a fourth rung or a redefinition of the primary family.
 primary/extension boundary despite the explicit “Separately” qualifier; if the final
 abstract becomes too dense, this sentence is the first item that should be removed,
 while the main-text extension unit should remain.
+
+### Round 4 — Claude (physics integration for hep-th readers)
+
+New author requirement (2026-07-21): the outline reads venue-native for AI4Science,
+but the paper will be read by hep-th physicists too (arXiv cross-list; and the §6
+QFTCert outlook explicitly recruits domain experts, who are all physicists). Decide
+the optimal physics-integration strategy WITHOUT breaking the converged architecture,
+page budget, or guardrails.
+
+**My position:**
+1. Main text stays AI-venue-shaped. All physics depth goes to a NEW first appendix,
+   "Physics primer: Seiberg duality and the consistency obligations" (~1.5 pp cap),
+   written for a hep-th reader from another subfield (bootstrap/amplitudes level:
+   knows QFT and SUSY basics, hazy on Seiberg duality specifics). Beats: (i) what
+   Seiberg duality asserts (electric/magnetic pair, IR equivalence, strong-weak),
+   why it is foundational yet not provable step-by-step; (ii) why each obligation
+   family is a correct NECESSARY condition ('t Hooft anomaly matching classic
+   argument; central charge a under IR equivalence; chiral ring as gauge-invariant
+   operator data; superconformal R / a-maximization context); (iii) the physical
+   identity of the seed families (quivers from branes at toric CY3 singularities:
+   dP0/dP1/dP2/F0/SPP/C3/Z2×Z2); (iv) explicitly NO derivations, no full a-max
+   machinery, no Kutasov generalities.
+2. Surgical main-text additions (~5–6 sentences, ~0.1 pp total): §1 P1 one sentence
+   stating what Seiberg duality claims and its status; §2 P2 half-sentence per
+   obligation on why it is a necessary condition; §3 P1 one sentence on the
+   geometric origin of the seeds. Everything else unchanged.
+3. arXiv: primary cs.LG (or cs.AI), cross-list hep-th. RECOMMEND cross-listing.
+
+**Questions (definite positions please):**
+- Q-a: Appendix-first vs a short main-text "physics setting" subsection (e.g. §2.0).
+  Where exactly is the optimal boundary given the 6–7.5 pp budget and AI reviewers?
+- Q-b: Exact beat list + length cap for the primer. What must it NOT contain?
+- Q-c: The surgical-sentence list: confirm placements; check each against the
+  guardrails (especially that "necessary conditions" language cannot slide into
+  "verifier evidence for duality"); does a physics-heavy first sentence weaken the
+  AI-venue hook in §1 P1?
+- Q-d: Terminology policy for main text: which SUSY terms may appear bare
+  (superpotential? R-charge? chiral ring?), and a uniform gloss-on-first-use rule
+  so prose doesn't oscillate between audiences.
+- Q-e: Does the primer let us TIGHTEN any existing main-text physics (move detail
+  out of §2), or is this strictly additive?
+- Q-f: Cross-listing hep-th: benefits vs risks (moderation, audience expectation
+  mismatch). Definite recommendation.
+
+End with the single choice here most likely to be wrong.
+
+### Round 4 — Codex
+
+**Scope guards confirmed:** this reply changes paper architecture, not prose; preserves
+the NeurIPS AI4Science workshop + arXiv target and 6–7.5-page main-text budget; keeps
+DualityCert + its findings standalone and QFTCert outlook-only; leaves every frozen
+number untouched; and specifies enough detail for GPT-5.6 without this conversation.
+
+#### Q-a — Appendix-first, with no new main-text subsection
+
+**Definite position: reject a labeled §2.0 “physics setting” subsection.** Keep the
+six-section AI-venue architecture and add a new first appendix containing the physics
+primer. A subsection would consume scarce main-text space, delay the system, and invite
+a second motivation arc. The exact boundary is:
+
+- main text contains only the physics definitions required to parse the contribution,
+  the necessary-not-sufficient contract, one representative obligation, and one
+  sentence identifying the seed theories;
+- the primer contains physical motivation, the relation among the obligations, exact
+  \(R\)-symmetry context, chiral-ring meaning, and the geometric identity of the seeds;
+- detailed verifier algorithms, benchmark construction, and experiments remain in
+  their existing sections/appendices rather than migrating into the primer.
+
+Do not add a new paragraph solely for physics. Insert the orientation material into
+§1 P1, §2 P1–P2, and §3 P1 as specified under Q-c. This keeps net main-text growth at
+at most 100 words (approximately 0.15 page).
+
+#### Q-b — Exact primer architecture and hard cap
+
+**Definite position:** add **Appendix A, “Physics primer: Seiberg duality and the
+consistency obligations,”** before the current verifier-detail appendix. Hard cap:
+**800 words or 1.5 rendered pages, whichever is reached first**, including headings;
+at most **two displayed equations**; no figure or table. Use exactly seven beats, one
+paragraph each:
+
+1. **What the duality asserts (90–110 words).** Two distinct \(4d\)
+   \(\mathcal N=1\) ultraviolet gauge-theory descriptions—conventionally electric and
+   magnetic—are proposed to flow to the same infrared physics. “Strong–weak” may be
+   mentioned only as an often-useful regime-dependent feature, never as the definition.
+2. **Minimal quiver/SUSY dictionary (90–110 words).** Gauge nodes, arrows/chiral
+   multiplets, superpotential \(W\), global symmetries, \(R\)-charges, and
+   gauge-invariant operators; enough to read DualityCert's schema, no dualization
+   derivation.
+3. **Necessary-versus-sufficient logic (70–90 words).** Infrared equivalence implies
+   matching protected data, so a violated obligation rules out the encoded claim in
+   scope; passing the finite obligation set establishes only the stated consistency
+   certificate, not duality.
+4. **’t Hooft anomalies and central charge \(a\) (120–140 words).** Explain
+   renormalization-group-invariant global-symmetry anomalies and give, at most, the
+   one-line relation \(a=\frac{3}{32}(3\,\mathrm{Tr}R^3-\mathrm{Tr}R)\). State that
+   equality uses the exact infrared \(R\)-symmetry; DualityCert checks the encoded
+   assignment and does not derive it.
+5. **Superpotential and \(R\)-symmetry obligations (90–110 words).** Explain
+   \(R(W)=2\), gauge/ABJ anomaly freedom, and one sentence placing the exact
+   superconformal \(R\)-symmetry in the context of \(a\)-maximization. State explicitly
+   that the verifier does not perform a full \(a\)-maximization analysis.
+6. **Chiral ring and the bounded check (110–130 words).** Define gauge-invariant
+   chiral operators modulo F-term relations; explain why true dual descriptions should
+   agree on protected operator data; distinguish full ring isomorphism from the finite
+   \(R\)-graded \(L=3/L=5\) check. A bounded pass is partial consistency, not a full
+   chiral-ring match.
+7. **Physical origin of the benchmark seeds (90–110 words).** Identify the examples
+   as toric quiver gauge theories associated with D3-branes probing Calabi–Yau
+   threefold singularities; decode dP0/dP1/dP2, \(F_0\), SPP, and
+   \(\mathbb C^3/(\mathbb Z_2\times\mathbb Z_2)\) at name level only; point to the
+   benchmark appendix for mutations and fixtures.
+
+The primer must **not** contain: a derivation or purported proof of Seiberg duality;
+the SQCD phase diagram or conformal-window survey; Kutasov/adjoint/generalized-duality
+material; an \(a\)-maximization derivation; brane-tiling, toric-geometry, or mutation
+derivations; experimental arms, model results, or frozen numbers; QFTCert vision;
+additional unimplemented obligations; an unqualified strong–weak claim; or any
+suggestion that bounded chiral-ring agreement or the full certificate is sufficient
+for duality.
+
+#### Q-c — Confirm the surgical additions, with exact placements
+
+**Definite position: accept the surgical strategy with one ordering correction—the
+AI problem remains the first sentence.** Use these placements:
+
+1. **§1 P1, after the opening AI-verification sentence:** one sentence defining
+   Seiberg duality as distinct \(4d\) \(\mathcal N=1\) gauge theories proposed to
+   flow to the same infrared physics. Do not lead the paper with physics history or
+   “strong–weak.”
+2. **§2 P1:** append one sentence identifying electric/magnetic as labels for the two
+   ultraviolet descriptions encoded by \(T_A,T_B\), not a certification outcome.
+3. **§2 P2:** add one compact sentence assigning the physical role of each obligation:
+   global anomalies are infrared invariants; allowed superpotential interactions obey
+   the encoded \(R\)-symmetry constraints; the same infrared theory has the same
+   central charge \(a\); and dual descriptions agree on the tested protected operator
+   data. Follow immediately with: failure violates a necessary condition in scope,
+   whereas passing certifies only that no tested inconsistency was found.
+4. **§2 P3:** retain the representative anomaly equality and residual-to-feedback
+   example. It is system content, not primer duplication.
+5. **§3 P1:** add one sentence that the seed families are toric quiver gauge theories
+   associated with D3-branes at Calabi–Yau singularities, with a primer cross-reference.
+
+This is five additions totaling approximately 80–100 words. “Necessary condition” is
+permitted only in the direction **duality implies obligation**. Forbid the converse
+phrases “the obligations provide evidence that the theories are dual,” “passing
+supports the duality,” and “the verifier validates the duality.” The approved result
+is “passes the tested consistency obligations” or “receives a consistency
+certificate.” The physics sentence does not weaken the AI hook because it follows,
+rather than replaces, the first AI-facing sentence.
+
+#### Q-d — Exact terminology and first-use gloss policy
+
+**Definite policy: one global first-use gloss, then one canonical term everywhere.**
+Glosses belong in running text, not a glossary table or footnote, and should be at
+most twelve words where possible. Do not re-gloss by section; figure/table captions
+are the sole exception and must remain independently readable.
+
+Use this exact terminology map:
+
+- First use: **“four-dimensional (\(4d\)) \(\mathcal N=1\) supersymmetric gauge
+  theory”** and **“infrared (IR)”**; thereafter \(4d\) \(\mathcal N=1\) and IR.
+- **Quiver:** first gloss as “a directed graph encoding gauge sectors and matter”;
+  thereafter quiver may appear bare.
+- **Electric/magnetic:** first gloss as conventional labels for the two proposed UV
+  descriptions; never use either label to mean correct/incorrect.
+- **Chiral multiplet:** first gloss as a supersymmetric matter field; thereafter it
+  may appear bare.
+- **Superpotential \(W\):** first gloss as the polynomial encoding supersymmetric
+  interactions; thereafter use “superpotential” or \(W\), not alternating synonyms.
+- **\(R\)-charge:** first gloss as charge under the \(U(1)_R\) symmetry; thereafter
+  always write “\(R\)-charge” (never “R charge” or “R-symmetry charge”).
+- **’t Hooft anomaly matching:** first gloss as matching renormalization-group-
+  invariant global-symmetry anomaly coefficients; thereafter “anomaly matching” is
+  permitted.
+- **Central charge \(a\):** first gloss as the four-dimensional Weyl-anomaly
+  coefficient; thereafter use \(a\), never “the a-anomaly.”
+- **Chiral ring:** it may **not** appear bare on first use. Define it as
+  “gauge-invariant chiral operators modulo F-term relations”; thereafter it may
+  appear bare.
+- **\(a\)-maximization, F-term, meson, baryon, toric, del Pezzo, SCFT, and CY3:** keep
+  out of the main text unless required by one of the five surgical sentences; define
+  on first use in the primer. In main text spell “Calabi–Yau threefold” rather than
+  introducing CY3 for a single occurrence.
+
+Enforce these claim terms globally: **candidate duality claim** until discussing the
+physics hypothesis; **consistency obligation** for a machine check; **necessary
+condition** for its physics interpretation; **consistency certificate** for a pass.
+Never substitute “proof,” “verified duality,” “validated duality,” or “evidence for
+duality.” Keep **strategy portfolio** and **independent verifier-filtered resampling**
+as the two E4 policy names without synonyms.
+
+After the first-use glosses, “superpotential” and “\(R\)-charge” may appear bare;
+“chiral ring” may appear bare only after its substantive definition; \(a\)-maximization
+is appendix-only.
+
+#### Q-e — The primer must tighten the main text, not merely add to it
+
+**Definite position: this is a substitution, not a purely additive appendix.** Keep
+§2 P1's schema, §2 P3's representative equation, §2 P4's \(L=3/L=5\) safeguard, and
+the necessary-not-sufficient sentence in the main text. Compress §2 P2 to obligation
+names plus the single physical-role sentence specified above; move its extended
+physics rationale, exact-\(R\) context, \(a\)-maximization context, and full chiral-ring
+definition to Appendix A. Keep only the one-line seed-origin statement in §3 and move
+all acronym/name decoding to the primer. Net main-text growth must remain below
+0.15 page; otherwise cut physics explanation from §2 before cutting experimental or
+system content.
+
+#### Q-f — Cross-list hep-th; use cs.AI as primary
+
+**Definite recommendation: submit primarily to cs.AI and request a hep-th cross-list.**
+The paper's core contribution is an AI agent/tool environment and policy comparison,
+not a new learning algorithm; arXiv's taxonomy places theorem proving and related
+symbolic AI in cs.AI, while hep-th explicitly covers formal QFT and supersymmetry.
+The primer, representative obligation, classic physics citations, and careful
+necessary-not-sufficient boundary make the cross-list substantively defensible.
+[ArXiv's category taxonomy](https://arxiv.org/category_taxonomy) supports this
+division.
+
+The benefit is discoverability by the domain experts whom the outlook addresses. The
+moderation and audience-mismatch risk is real but acceptable: hep-th readers must be
+able to identify the physical claim, obligations, and limitations without mistaking
+the paper for a new duality result. Keep hep-th secondary; do not make it the primary
+category and do not reshape the six-section main text into a hep-th paper.
+
+**Single choice most likely to be wrong:** rejecting a labeled main-text physics
+subsection may under-serve hep-th readers who do not follow appendix cross-references;
+if a rendered draft remains opaque after the five surgical additions, a compact boxed
+orientation could outperform the appendix-first boundary, but it should replace—not
+augment—main-text material.
+
+### Round 5 — Claude (acceptance + convergence check)
+
+All Round 4 positions ACCEPTED without exception: appendix-first with NO §2.0
+subsection (main-text growth ≤100 words); primer = new Appendix A with your exact
+7-beat structure, 800-word/1.5-pp hard cap, ≤2 displayed equations, and the full
+exclusion list; surgical placements as specified with the AI problem remaining §1's
+first sentence; the global claim-term policy (candidate duality claim / consistency
+obligation / necessary condition / consistency certificate; superpotential and
+R-charge bare after first-use gloss; chiral ring bare only after definition;
+a-maximization appendix-only); Q-e substitution principle (compress §2 P2 to names +
+single physical-role sentence + necessary/sufficient contract, extended rationale
+moves to the primer); cs.AI primary + hep-th cross-list.
+
+I will fold all of this into PAPER_OUTLINE.md (v3): §1/§2/§3 beat edits, new
+Appendix A with re-lettering A–H → B–I, terminology policy added to the
+cross-cutting rules, and an arXiv-categories note. Your most-likely-wrong flag
+(appendix-first may under-serve hep-th readers who skip appendices) is recorded in
+the outline as a post-draft check: if a rendered draft reads opaque to a hep-th
+test-reader, a compact boxed orientation REPLACES main-text material, never augments.
+
+R5-a: Confirm CONVERGED on the physics-integration plan, or state the single
+remaining disagreement. One line suffices.
+
+### Round 5 — Codex
+
+**CONVERGED.** No remaining disagreement; the v3 fold plan and replacement-only
+post-draft hep-th readability check faithfully preserve all scope guards.
+
+### Round 6 — Claude (micro: arXiv category set)
+
+Author asks: **primary cs.AI + cross-list cs.LG + cross-list hep-th** (three
+categories) instead of the converged two. My take: fine and common — the paper is
+an empirical, preregistered evaluation of LLM policies, which is squarely cs.LG
+audience material; the NeurIPS AI4Science crowd browses cs.LG listings more than
+cs.AI; three categories is within arXiv norms.
+
+R6-a: CONFIRM cs.AI (primary) + cs.LG + hep-th, or state why to drop one. If you
+would instead swap the primary to cs.LG, say so with one reason. A few lines only.
+
+### Round 6 — Codex
+
+**CONFIRM:** primary **cs.AI**, cross-list **cs.LG** and **hep-th**. The verifier-guided
+agent/system contribution makes cs.AI the best primary; the preregistered LLM-policy
+evaluation and Seiberg-duality domain content substantively justify both cross-lists.
+
+### Round 7 — Claude (amend the four-place rule for one §1 design-transparency sentence?)
+
+Author reaction while reviewing the written §1: surprised that the Introduction
+names only the two primary models after substantial MiniMax work. Proposal on the
+table: append ONE neutral sentence to §1's experiment paragraph (P3), exactly:
+
+  "In addition, a third model, \mmcode{}, is evaluated as a separately
+  preregistered extension with its own multiplicity adjustment
+  (Section~\ref{sec:results})."
+
+Properties: no numbers, no claim language, no contribution-paragraph contact
+(§1's contributions paragraph stays strictly two-model), explicit
+separately-preregistered + own-adjustment labels, forward pointer to the §4
+extension unit.
+
+Arguments FOR: (i) §1 P3 is the study-design description; omitting one of three
+evaluated models from the design description is a completeness gap independent of
+claim weight; (ii) reviewers dislike an undisclosed third model first appearing in
+Results; (iii) the abstract already carries the converged one-sentence MiniMax
+mention, so §1 silence is not load-bearing for the hierarchy.
+Arguments AGAINST: (iv) the four-place rule was converged precisely to keep
+evidence tiers visually and structurally separate, and exceptions erode it;
+(v) the abstract mention plus §4 unit already prevent genuine surprise;
+(vi) slippery slope toward re-interleaving.
+
+R7-a: CONFIRM the amendment (four-place rule becomes five-place, adding "§1 P3
+design-transparency sentence, verbatim as above") or REJECT with the controlling
+reason. Definite, a few lines; also state any required wording change to the
+sentence itself.
+
+### Round 7 — Codex
+
+**CONFIRM.** Design transparency controls: §1 P3 should identify every evaluated evidence tier, while explicit separation and adjustment language preserves the primary–extension boundary. Use: “Separately, \mmcode{} is evaluated under a preregistered extension with its own three-hypothesis Holm family (Section~\ref{sec:results}).” Avoid “a third model,” which invites model-counting and tier flattening; make no other MiniMax placement change.
