@@ -759,7 +759,13 @@ Certification requires that at
 least one obligation is \textsc{certified} and none fails, and
 obligations the verifier cannot judge are recorded in the certificate
 without blocking certification, as discussed in
-Section~\ref{sec:system}. The certificate records the status and
+Section~\ref{sec:system}. In Table~\ref{tab:registry}, the
+\textsc{not applicable} rows are opt-in or profile-gated checks. For
+instance, index matching computes the superconformal indices of the
+two theories as bounded series, but runs only when explicitly enabled
+in the claim metadata. The \textsc{unknown} rows compare optional
+encoded data, such as externally computed protected quantities, and
+no benchmark fixture encodes such data. The certificate records the status and
 message of every obligation together with detailed numerical tables,
 for example the full anomaly tables of both sides.
 
