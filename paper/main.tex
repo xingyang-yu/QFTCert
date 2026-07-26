@@ -337,9 +337,9 @@ the same way, while the gauge--global mixed anomalies are separately
 required to cancel within each theory. When an entry disagrees, the verifier stores both values
 internally, but the repair environment does not show them to the agent:
 the feedback reports only the obligation name and its category, in this
-case ``global anomaly matching (category: anomaly)''. We make this projection deliberately, and we use it in
-Section~\ref{sec:design} as an experimental
-variable.
+case ``global anomaly matching (category: anomaly)''. We deliberately limit the feedback in this way, and we use the
+resulting projection as an experimental variable in
+Section~\ref{sec:design}.
 
 The environment runs the verifier in two configurations. For fixtures
 without gauge singlets (111 of 145), the chiral-ring proxy is evaluated
@@ -398,11 +398,11 @@ the magnetic side $T_B$ at depth one, in one of four classes: deleting
 a superpotential term (\texttt{drop\_w\_term}, 38 fixtures), flipping
 the sign of one coefficient (\texttt{flip\_w\_sign}, 13), perturbing
 $R$-charges (\texttt{r\_charge\_perturb}, 52), or changing one
-gauge-node rank (\texttt{rank\_perturb}, 42). We gate every candidate fixture through the verifier and keep it
-only if the perturbed pair fails in scope while the unperturbed
+gauge-node rank (\texttt{rank\_perturb}, 42). We keep a candidate fixture only if the verifier finds that the
+perturbed pair fails in scope while the unperturbed
 seed pair certifies. This guarantees that a repair is needed and that
-at least one certified repair exists. We record the generation
-attrition in Appendix~\ref{app:benchmark}. The resulting 145 repairable fixtures
+at least one certified repair exists. Appendix~\ref{app:benchmark}
+records the generation attrition. The resulting 145 repairable fixtures
 are generated deterministically from a fixed random-number seed, so the
 fixture contents can be regenerated exactly
 (Appendix~\ref{app:benchmark} records the provenance-field convention
@@ -411,7 +411,7 @@ released with the code, records SHA-256 hashes of the generation
 configuration and of the fixture list, so the benchmark used in the
 experiments can be checked against any regeneration.
 
-Five policies are run for every model, and we refer to them by their
+We run five policies for every model and refer to them by their
 labels in the released artifact. Single-shot repair (\texttt{ss}) makes
 one attempt with no feedback. Generic retry (\texttt{gr}) allows up to
 $K=5$ rounds and tells the agent only that verification failed.
@@ -424,8 +424,8 @@ verifier-filtered resampling} policy (\texttt{best\_of\_n};
 best-of-eleven for short) draws up to $2K+1=11$ independent
 single-shot attempts, stopping at the first final certificate.
 
-The \texttt{ss}, \texttt{gr}, and \texttt{vf}
-components are collected completely for every fixture and replication.
+We collect the \texttt{ss}, \texttt{gr}, and \texttt{vf}
+components completely for every fixture and replication.
 The stop-first \emph{strategy portfolio} (\texttt{ss}, then
 \texttt{gr}, then \texttt{vf}, under the same budget of eleven
 attempts) is constructed afterwards by a deterministic replay over
@@ -449,9 +449,9 @@ replications per policy, $R$ having been selected in advance from
 $\{2,3\}$ by estimating the smallest effect the design could reliably
 detect. The analysis protocol fixes the
 endpoint definitions, the statistical model, the multiplicity
-correction, and the contamination rules. It was committed to the
+correction, and the contamination rules. We committed it to the
 repository (commit \texttt{813fdb0}) before the first confirmatory
-model call, and has not been modified since.
+model call and have not modified it since.
 
 Two features of the statistical analysis deserve a plain-language
 explanation. Every policy and replication reuses the same 145
@@ -558,7 +558,7 @@ attempt.
 For the \mmcode{} extension (lower block of
 Table~\ref{tab:primary}, below the divider in
 Figure~\ref{fig:e4forest}), we analyze the three preregistered
-endpoints under their own Holm family. The extension reproduces the
+endpoints under the extension's own three-hypothesis Holm family. The extension reproduces the
 E2 anchor, $+11.5$\,pp
 ($p=2\times10^{-4}$), and it reproduces the negative E4 ordering
 observed on \dscode{}: the portfolio loses to resampling by
@@ -569,8 +569,8 @@ rates, and the transport-error cleaning behind these numbers are
 discussed in Section~\ref{sec:discussion} and
 Appendix~\ref{app:minimax}.
 
-The same object supports the higher-performing E4 policy in each
-campaign: the verifier's cheap consistency certificate, used either as
+The verifier's cheap consistency certificate supports the
+higher-performing E4 policy in each campaign, either as
 a filter over independent samples or as a source of
 feedback. What changes between the named models is which
 exploitation policy wins. The data support non-universality of the
@@ -620,7 +620,7 @@ Two models support an existence claim of non-universality,
 not a distribution over models. The domain is one
 duality class in four-dimensional $\mathcal{N}=1$ quiver gauge
 theories. The certificate is a consistency statement whose reach is set
-by the encoded obligations, and we record in Section~\ref{sec:system}
+by the encoded obligations, and Section~\ref{sec:system} records
 where the encoded scope is narrower than the physics. The $SU(2)$ cubic
 condition is a chirality-balance convention and the Witten anomaly
 \cite{Witten:1982fp} is not checked, and the chiral-ring comparison is a bounded classical
