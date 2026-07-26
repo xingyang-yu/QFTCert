@@ -47,3 +47,4 @@ runs/experiments/repair_d1/runs/*
 # macOS "keep both" duplicates, stale pre-freeze copies: never package
 runs/experiments/repair_d1/fixtures/**/* 2.*
 runs/experiments/repair_d2/**/* 2.*
+RELEASE_CHECKLIST.md

@@ -151,6 +151,12 @@ AI-generated QFT claims.
 See [design.md](design.md) for conventions, implementation details, and
 roadmap.
 
+## Reproducibility
+
+See [REPRODUCIBILITY.md](REPRODUCIBILITY.md) for the released artifact set,
+the integrity checks run before publication, and the commands that re-run
+them.
+
 ## License
 
 Apache License 2.0 (see [LICENSE](LICENSE) and [NOTICE](NOTICE)). The NeurIPS
