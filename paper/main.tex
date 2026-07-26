@@ -58,7 +58,8 @@ per-attempt records are released.
 \label{sec:intro}
 
 Large language models are increasingly used to carry out multi-step
-derivations in theoretical physics, but their output is usually not
+derivations in theoretical physics \cite{Douglas:2023olt}, but their
+output is usually not
 checked by any machine. The situation in mathematics is different:
 proof assistants provide an exact target for language-model agents to
 search against, and systems built on them have progressed from
@@ -80,7 +81,10 @@ physicists judge whether a proposal is correct. Seiberg duality
 \cite{Seiberg:1994pq,Intriligator:1995au}, which states that two
 different four-dimensional $\mathcal{N}=1$ gauge theories flow to the
 same infrared physics, is a representative example: to our knowledge no
-proof assistant formalizes this statement, and the original evidence for
+proof assistant formalizes this statement,\footnote{The HepLean project
+\cite{Tooby-Smith:2024vqu} digitalises parts of high energy physics in
+Lean~4, including local anomaly cancellation conditions, but not
+Seiberg duality.} and the original evidence for
 it consists precisely of such consistency checks. A verifier for this
 kind of physics should therefore be built on the consistency checks of
 the research field itself, rather than as an imitation of a proof
@@ -155,6 +159,11 @@ self-correction of model reasoning is unreliable
 \cite{Huang:2023selfcorrect}, while external checkers help: learned
 verifiers rerank candidate solutions \cite{Cobbe:2021verifiers}, and
 execution feedback drives program repair \cite{Chen:2023selfdebug}.
+Iterative refinement with feedback is studied in
+\cite{Madaan:2023selfrefine,Shinn:2023reflexion}, process-level
+verifiers are studied in \cite{Lightman:2023verify}, and program
+search filtered by a programmatic evaluator has produced new
+mathematical constructions \cite{RomeraParedes:2024funsearch}.
 \dualitycert{} differs from these works in two ways: the checker is an
 exact, domain-specific symbolic verifier for a QFT duality rather than
 a learned reward model, and the object under repair is a physics claim
@@ -609,7 +618,8 @@ include crossing symmetry and unitarity in the conformal bootstrap,
 factorization and soft limits for scattering amplitudes, exact
 protected quantities of superconformal field theories (and even the
 classification of supersymmetric field theories),
-tadpole and anomaly cancellation in the string landscape, the fusion
+tadpole and anomaly cancellation in the string landscape
+\cite{Douglas:2003um,Denef:2006ad}, the fusion
 and anomaly data of generalized global symmetries, entanglement
 inequalities and causality constraints in bottom-up holography and
 quantum gravity, and consistency conditions in string
