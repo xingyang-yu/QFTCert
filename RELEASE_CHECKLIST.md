@@ -88,10 +88,10 @@ Re-run any time:
    and retaliation clause, which matter because the author is joining an
    in-domain company, and to match the Lean 4 / PhysLean ecosystem. `README.md`
    and the paper's artifact statement both name the license.
-3. **Merge and push**: merge `phase2c-harness` into `main` (or decide the
-   branch itself is the published head) and push. Publish with full history,
-   no squashing: the dated commit history is the prior-invention evidence
-   referenced in the FP carve-out.
+3. ~~**Merge and push**~~ DONE 2026-07-26: `main` now carries the full history
+   (147 commits, original hashes and dates, no squashing). The two stale
+   May-2026 public-subset branches were replaced by the tags
+   `public-demo-2026-05` and `public-curated-2026-05-23`.
 4. **Optional belt-and-suspenders**: `brew install gitleaks && gitleaks git .`
    for an independent full-history secret scan.
 5. **Tag**: `git tag arxiv-v1 <commit> && git push origin arxiv-v1`, then a
