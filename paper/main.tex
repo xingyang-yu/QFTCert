@@ -6,7 +6,7 @@
 \usepackage{graphicx}
 \usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
 \usepackage[numbers,sort&compress]{natbib}
-\setlength{\bibsep}{3pt}
+\setlength{\bibsep}{0pt}
 \usepackage{xcolor}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,fit}
@@ -60,7 +60,12 @@ per-attempt records are released.
 
 Large language models are increasingly used to carry out multi-step
 derivations in theoretical physics, but their output is usually not
-checked by any machine \cite{Yu:2026ycl}. The situation in mathematics is different:
+checked by any machine \cite{Yu:2026ycl}. Benchmarks built from
+research-level physics problems find that current models solve few of
+them: the research-level tier of a high-energy and cosmology dataset
+is mostly unsolved \cite{Chung:2025nsd}, and on research challenges
+written by working physicists the best base model averages four
+percent \cite{Zhu:2025qnm}. The situation in mathematics is different:
 proof assistants provide an exact target for language-model agents to
 search against, and systems built on them have progressed from
 olympiad-level problem solving
@@ -81,8 +86,9 @@ physicists judge whether a proposal is correct. Seiberg duality
 \cite{Seiberg:1994pq,Intriligator:1995au}, which states that two
 different four-dimensional $\mathcal{N}=1$ gauge theories flow to the
 same infrared physics, is a representative example: to our knowledge no
-proof assistant formalizes this statement,\footnote{The HepLean project
-\cite{Tooby-Smith:2024vqu} digitalises parts of high energy physics in
+proof assistant formalizes this statement,\footnote{The HepLean
+project \cite{Tooby-Smith:2024vqu}, since renamed PhysLean and now
+part of Physlib, digitalises parts of physics in
 Lean~4, including local anomaly cancellation conditions, but not
 Seiberg duality.} and the original evidence for
 it consists precisely of such consistency checks. A verifier for this
@@ -178,12 +184,20 @@ field theory. The free bosonic theory has been constructed and shown
 to satisfy the Osterwalder--Schrader axioms \cite{Douglas:2026hyk},
 and the Seiberg--Witten solution of the $\mathcal{N}=2$ $SU(2)$ theory
 has been machine-checked from a short list of explicit physical
-postulates \cite{Douglas:2026ylk}. These projects formalize the
+postulates \cite{Douglas:2026ylk}. Automatic theorem proving has also
+been trained on formalized physics \cite{Zhang:2026physprover}. These
+projects formalize the
 derivation of a physical result inside a proof assistant.
 \dualitycert{} is complementary. It does not derive the duality.
 It encodes the consistency checks that the field already uses as its
 evidence, and it runs them cheaply enough to gate the repair loop of
-Section~\ref{sec:system}.
+Section~\ref{sec:system}. Closest in method is a multi-agent framework
+for quantum many-body simulation that combines a programming verifier
+with a physics verifier and corrects errors at each step
+\cite{Deng:2026vhj}. That system verifies a research workflow,
+and \dualitycert{} verifies a single claim against a fixed obligation
+registry, which is what makes the preregistered comparison of
+Section~\ref{sec:design} possible.
 
 The rest of the paper is organized as follows. Section~2 describes the
 verifier and the repair interface, Section~3 the benchmark and the
