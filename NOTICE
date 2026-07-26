@@ -1,0 +1,15 @@
+QFTCert
+Copyright 2026 Xingyang Yu
+
+This product includes software developed for the DualityCert verifier and
+the repair-loop experiments described in:
+
+  Xingyang Yu, "DualityCert: Verifier-Gated Language-Model Repair of Broken
+  Duality Claims in Quantum Field Theory" (2026).
+
+The work was carried out at Virginia Tech with support from NSF grant
+PHY-2310588.
+
+This distribution includes the NeurIPS 2025 LaTeX style file
+(paper/neurips_2025.sty), which is distributed by the NeurIPS conference
+under its own terms and is not covered by the Apache License above.

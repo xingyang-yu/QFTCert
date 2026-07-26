@@ -150,3 +150,9 @@ AI-generated QFT claims.
 
 See [design.md](design.md) for conventions, implementation details, and
 roadmap.
+
+## License
+
+Apache License 2.0 (see [LICENSE](LICENSE) and [NOTICE](NOTICE)). The NeurIPS
+LaTeX style file under `paper/` is distributed by the conference under its own
+terms.

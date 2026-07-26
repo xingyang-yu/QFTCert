@@ -83,10 +83,11 @@ Re-run any time:
    `iso_guard_review.md`, `spp_depth2_review.md`, `paper/n1toolkit/`).
    Commit, relocate, or drop them; untracked files never publish, but the
    tagged release commit should be clean.
-2. **LICENSE**: none in the repo yet. The 2026-07-14 pivot says MIT or
-   Apache-2.0; pick one and commit it (Apache-2.0 adds an explicit patent
-   grant, MIT is shorter). Also give `README.md` a quick pass for the public
-   framing.
+2. ~~**LICENSE**~~ DONE 2026-07-26: Apache-2.0 (`LICENSE` + `NOTICE`,
+   copyright 2026 Xingyang Yu). Chosen over MIT for the explicit patent grant
+   and retaliation clause, which matter because the author is joining an
+   in-domain company, and to match the Lean 4 / PhysLean ecosystem. `README.md`
+   and the paper's artifact statement both name the license.
 3. **Merge and push**: merge `phase2c-harness` into `main` (or decide the
    branch itself is the published head) and push. Publish with full history,
    no squashing: the dated commit history is the prior-invention evidence
