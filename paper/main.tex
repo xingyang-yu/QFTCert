@@ -4,6 +4,7 @@
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{placeins}
+\usepackage{float}
 \usepackage{graphicx}
 \usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
 \setlength{\bibsep}{0pt}
@@ -66,11 +67,14 @@ per-attempt records are released.
 
 Large language models are increasingly used to carry out multi-step
 derivations in theoretical physics, but their output is usually not
-checked by any machine \cite{Yu:2026ycl}. Benchmarks built from
+checked by any machine. Judging that output is itself difficult,
+because correctness in these domains is layered and often tacit,
+so answer matching does not reveal whether the intermediate steps
+were reconstructed \cite{Yu:2026ycl}. Benchmarks built from
 research-level physics problems find that current models solve few of
 them: the research-level tier of a high-energy and cosmology dataset
 is mostly unsolved \cite{Chung:2025nsd}, and on research challenges
-written by working physicists the best base model averages four
+written by working physicists the best base model averages 5.7
 percent \cite{Zhu:2025qnm}. The situation in mathematics is different:
 proof assistants provide an exact target for language-model agents to
 search against, and systems built on them have progressed from
@@ -187,7 +191,8 @@ This line estimates duality with a learned model, and \dualitycert{}
 instead decides each obligation exactly. On the formal side, Lean~4
 has recently been used for quantum
 field theory. The free bosonic theory has been constructed and shown
-to satisfy the Osterwalder--Schrader axioms \cite{Douglas:2026hyk},
+to satisfy the Glimm--Jaffe axioms, a variant of the
+Osterwalder--Schrader axioms \cite{Douglas:2026hyk},
 and the Seiberg--Witten solution of the $\mathcal{N}=2$ $SU(2)$ theory
 has been machine-checked from a short list of explicit physical
 postulates \cite{Douglas:2026ylk}. Automatic theorem proving has also
@@ -476,6 +481,7 @@ Appendix~\ref{app:repro}.
 
 \section{Confirmatory results}
 \label{sec:results}
+\FloatBarrier
 
 Table~\ref{tab:primary} collects the preregistered endpoints.
 Appendix~\ref{app:stats} lists the per-replication success counts for
@@ -486,7 +492,7 @@ section are generated directly from the released run artifacts by a
 single script, and every number quoted in the text below is taken from
 them.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \input{tables/primary}
 \caption{Preregistered GEE endpoints: standardized marginal risk differences
@@ -775,6 +781,7 @@ seeds is described in Appendix~\ref{app:benchmark}.
 
 \subsection{The verifier}
 \label{app:verifier}
+\FloatBarrier
 
 The verifier evaluates a registry of twenty-three obligations under
 the profile used throughout this paper. Table~\ref{tab:registry}
@@ -785,7 +792,7 @@ policy. The four families of Section~\ref{sec:system} correspond to
 the anomaly, superpotential, central-charge, and chiral-ring entries
 of the table.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \input{tables/registry}
 \caption{The full obligation registry under the paper's verifier
@@ -828,6 +835,7 @@ Section~\ref{sec:system}.
 \FloatBarrier
 \subsection{The benchmark}
 \label{app:benchmark}
+\FloatBarrier
 
 Table~\ref{tab:seeds} lists the seed catalog: the six geometries of
 Appendix~\ref{app:primer} with their artifact labels, seed ranks,
@@ -836,7 +844,7 @@ total. For each cell the electric theory comes from the seed catalog,
 the magnetic side is produced by dualizing the chosen node with the
 package's mutation engine, and the pair is kept only if it certifies.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \input{tables/seeds}
 \caption{The seed catalog behind the benchmark. Geometry names follow
