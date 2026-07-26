@@ -149,24 +149,27 @@ percentage points (pp). Separately, \mmcode{} is evaluated under a
 preregistered extension with its own three-hypothesis Holm family
 (Section~\ref{sec:results}).
 
-Our contributions are threefold. First, we release \dualitycert{}, the
-repair environment, the benchmark, and the preregistered protocol. Second,
-verifier-gated iteration improves repair success over single-shot
-attempts on both confirmatory models ($+8.3$\,pp on \dscode{}, $+7.1$\,pp on
-\qwcode{}; Holm-adjusted $p<0.002$). Third, under an equal budget of
+We release \dualitycert{}, the
+repair environment, the benchmark, and the preregistered protocol.
+On both confirmatory models, verifier-gated iteration improves repair
+success over single-shot
+attempts ($+8.3$\,pp on \dscode{}, $+7.1$\,pp on
+\qwcode{}, Holm-adjusted $p<0.002$). Under an equal budget of
 eleven model attempts, the ordering of the two tested exploitation
 policies, a stop-first \emph{strategy portfolio} and \emph{independent
 verifier-filtered resampling}, reverses between the two named models
-($-10.3$\,pp for the portfolio on \dscode{}, $+14.7$\,pp on \qwcode{};
-both Holm-significant). Endpoints that isolate the effect of feedback
-content show gains only on \qwcode{}: category-level verifier feedback is worth
-$+8.7$\,pp over content-free retry, and interpretable obligation
+($-10.3$\,pp for the portfolio on \dscode{}, $+14.7$\,pp on \qwcode{},
+both Holm-significant). The endpoints that isolate the effect of
+feedback content show gains only on \qwcode{}, where category-level
+verifier feedback is worth
+$+8.7$\,pp over content-free retry and interpretable obligation
 identities are worth $+6.4$\,pp over structurally identical masked
-feedback. Our claim is non-universality of the tested policies across
+feedback. Neither gain is detected on \dscode{}. Our claim is
+non-universality of the tested policies across
 the two evaluated models, not a general classification of models.
 
-The closest related work grounds language-model reasoning in proof
-assistants and symbolic engines: AlphaProof couples an agent to a formal
+Language-model reasoning has been grounded in proof
+assistants and symbolic engines. AlphaProof couples an agent to a formal
 checker \cite{Hubert:2025alphaproof}, LeanDojo opens the proof-assistant
 interaction loop to language models \cite{Yang:2023leandojo}, and
 AlphaGeometry pairs a generator with a symbolic deduction engine
@@ -185,7 +188,7 @@ exact, domain-specific symbolic verifier for a QFT duality rather than
 a learned reward model, and the object under repair is a physics claim
 rather than a program or a formal proof.
 
-Closest on the physics side, machine-learning classifiers have been
+Machine-learning classifiers have also been
 trained to recognize Seiberg-dual quiver pairs \cite{Bao:2020nbi}.
 This line estimates duality with a learned model, and \dualitycert{}
 instead decides each obligation exactly. On the formal side, Lean~4
@@ -197,12 +200,12 @@ and the Seiberg--Witten solution of the $\mathcal{N}=2$ $SU(2)$ theory
 has been machine-checked from a short list of explicit physical
 postulates \cite{Douglas:2026ylk}. Automatic theorem proving has also
 been trained on formalized physics \cite{Zhang:2026physprover}. These
-projects formalize the
-derivation of a physical result inside a proof assistant.
-\dualitycert{} is complementary. It does not derive the duality.
-It encodes the consistency checks that the field already uses as its
+projects derive physical results inside proof assistants.
+\dualitycert{} addresses a different task. It encodes the consistency
+checks that the field already uses as its
 evidence, and it runs them cheaply enough to gate the repair loop of
-Section~\ref{sec:system}. Closest in method is a multi-agent framework
+Section~\ref{sec:system}. The nearest methodological comparison is a
+multi-agent framework
 for quantum many-body simulation that combines a programming verifier
 with a physics verifier and corrects errors at each step
 \cite{Deng:2026vhj}. That system verifies a research workflow,
@@ -334,8 +337,8 @@ the same way, while the gauge--global mixed anomalies are separately
 required to cancel within each theory. When an entry disagrees, the verifier stores both values
 internally, but the repair environment does not show them to the agent:
 the feedback reports only the obligation name and its category, in this
-case ``global anomaly matching (category: anomaly)''. This projection
-is deliberate, and Section~\ref{sec:design} uses it as an experimental
+case ``global anomaly matching (category: anomaly)''. We make this projection deliberately, and we use it in
+Section~\ref{sec:design} as an experimental
 variable.
 
 The environment runs the verifier in two configurations. For fixtures
@@ -377,7 +380,7 @@ theory.
 \section{Benchmark and preregistered experiment}
 \label{sec:design}
 
-The benchmark is built from six seed families of quiver gauge theories
+We build the benchmark from six seed families of quiver gauge theories
 associated with D3-branes probing toric Calabi--Yau threefold
 singularities \cite{Douglas:1996sw,Feng:2000mi}, whose quivers and
 superpotentials are conveniently encoded by brane tilings
@@ -390,16 +393,16 @@ dual ranks then follow from the dualization), and produce a
 consistency-certified dual pair by dualizing the chosen node
 \cite{Beasley:2001zp}.
 
-A broken claim is then obtained by perturbing
+We then break a claim by perturbing
 the magnetic side $T_B$ at depth one, in one of four classes: deleting
 a superpotential term (\texttt{drop\_w\_term}, 38 fixtures), flipping
 the sign of one coefficient (\texttt{flip\_w\_sign}, 13), perturbing
 $R$-charges (\texttt{r\_charge\_perturb}, 52), or changing one
-gauge-node rank (\texttt{rank\_perturb}, 42). Every candidate fixture is verifier-gated: it is
-kept only if the perturbed pair fails in scope while the unperturbed
+gauge-node rank (\texttt{rank\_perturb}, 42). We gate every candidate fixture through the verifier and keep it
+only if the perturbed pair fails in scope while the unperturbed
 seed pair certifies. This guarantees that a repair is needed and that
-at least one certified repair exists. Generation attrition is recorded
-in Appendix~\ref{app:benchmark}. The resulting 145 repairable fixtures
+at least one certified repair exists. We record the generation
+attrition in Appendix~\ref{app:benchmark}. The resulting 145 repairable fixtures
 are generated deterministically from a fixed random-number seed, so the
 fixture contents can be regenerated exactly
 (Appendix~\ref{app:benchmark} records the provenance-field convention
@@ -441,7 +444,7 @@ fixed prompt structure. E3 compares first-attempt success under the
 \texttt{vf} and \texttt{gr} prompts, written \texttt{vf}@1 and
 \texttt{gr}@1 in the tables (descriptive only).
 
-The confirmatory campaign runs \dscode{} and \qwcode{} with $R=3$
+We run the confirmatory campaign on \dscode{} and \qwcode{} with $R=3$
 replications per policy, $R$ having been selected in advance from
 $\{2,3\}$ by estimating the smallest effect the design could reliably
 detect. The analysis protocol fixes the
@@ -451,16 +454,16 @@ repository (commit \texttt{813fdb0}) before the first confirmatory
 model call, and has not been modified since.
 
 Two features of the statistical analysis deserve a plain-language
-explanation. First, every policy and replication reuses the same 145
+explanation. Every policy and replication reuses the same 145
 fixtures, so outcomes are correlated within a fixture: an intrinsically
 hard fixture tends to fail under many policies at once, and the
-uncertainty estimates must account for this. Effects are therefore
-estimated by a binomial generalized-estimating-equation model with
+uncertainty estimates must account for this. We therefore
+estimate effects with a binomial generalized-estimating-equation model,
 logit link \cite{Liang:1986gee}, policy and replication fixed effects,
 fixture as the clustering unit, exchangeable working correlation, and
 robust sandwich covariance. The reported effect is a standardized
 marginal risk difference with delta-method confidence intervals.
-Second, testing several hypotheses at once inflates the chance of a
+Testing several hypotheses at once also inflates the chance of a
 spurious positive, so the primary family $\{$E1, E2,
 E4$\}\times\{$\dscode{}, \qwcode{}$\}$ carries one paper-wide Holm
 adjustment \cite{Holm:1979seq}, which controls the probability of even
@@ -489,7 +492,7 @@ the two primary models, and Appendix~\ref{app:minimax} lists those for
 the extension. Appendix~\ref{app:repro} records the compute budget of
 the primary campaigns. The table and the figure of this
 section are generated directly from the released run artifacts by a
-single script, and every number quoted in the text below is taken from
+single script, and we take every number quoted below from
 them.
 
 \begin{table}[H]
@@ -523,38 +526,40 @@ divider.}
 \label{fig:e4forest}
 \end{figure}
 
-The most stable result is E2. Content-free retry improves final repair
+For E2, content-free retry improves final repair
 success over a single attempt by $+8.3$\,pp on \dscode{} (Holm
-$p=0.0015$) and $+7.1$\,pp on \qwcode{} ($p=0.0016$), with the same
-sign in every replication of both models. Whatever else differs between
-the two models, several verifier-judged attempts are reliably worth
-several percentage points over one attempt on this benchmark.
+$p=0.0015$) and $+7.1$\,pp on \qwcode{} ($p=0.0016$). The sign is the
+same in every replication of both models, which supports a stable
+iteration gain on this benchmark.
 
-The central result is E4, shown in Figure~\ref{fig:e4forest}. Under
+E4 changes sign between the two models, as shown in
+Figure~\ref{fig:e4forest}. Under
 the same budget of eleven attempts, the strategy portfolio loses to
 independent verifier-filtered resampling by $10.3$\,pp on \dscode{}
 ($p=0.0016$) and beats it by $14.7$\,pp on \qwcode{} ($p<10^{-4}$),
 again with consistent per-replication signs on both models. The
 ordering of the two tested exploitation policies therefore reverses
-between the two named models: on \dscode{} the better use of the
+between the two named models. On \dscode{} the better use of the
 eleven attempts is to sample independently and let the verifier
-filter, while on \qwcode{} it is to escalate through the feedback
+filter, and on \qwcode{} it is to escalate through the feedback
 policies.
 
-The narrower endpoints locate the difference in the feedback channel.
+E1 and E5 locate the difference in the feedback channel.
 On \qwcode{}, structured verifier feedback is worth $+8.7$\,pp over
 content-free retry (E1, $p=0.0016$), and interpretable obligation
 identities alone are worth $+6.4$\,pp over structurally identical
-masked feedback (E5, $p=0.0065$). On \dscode{} neither effect is
-detected: E1 is $-1.8$\,pp ($p=0.45$) and E5 is $+0.0$\,pp ($p=1.0$).
+masked feedback (E5, $p=0.0065$). On \dscode{} we detect neither
+effect: E1 is $-1.8$\,pp ($p=0.45$) and E5 is $+0.0$\,pp ($p=1.0$).
 The first-attempt contrast E3 is small on both models ($+0.5$ and
-$+1.8$\,pp, descriptive), consistent with the gain from feedback
-content arriving in the later rounds rather than at the first attempt.
+$+1.8$\,pp, descriptive), which is consistent with the gain from
+feedback content arriving in the later rounds rather than at the first
+attempt.
 
-Separately, the preregistered \mmcode{} extension (lower block of
-Table~\ref{tab:primary}; below the divider in
-Figure~\ref{fig:e4forest}) is analyzed under its own three-hypothesis
-Holm family. It reproduces the E2 anchor, $+11.5$\,pp
+For the \mmcode{} extension (lower block of
+Table~\ref{tab:primary}, below the divider in
+Figure~\ref{fig:e4forest}), we analyze the three preregistered
+endpoints under their own Holm family. The extension reproduces the
+E2 anchor, $+11.5$\,pp
 ($p=2\times10^{-4}$), and it reproduces the negative E4 ordering
 observed on \dscode{}: the portfolio loses to resampling by
 $9.0$\,pp ($p=0.0094$), with consistent per-replication signs. The
@@ -564,9 +569,9 @@ rates, and the transport-error cleaning behind these numbers are
 discussed in Section~\ref{sec:discussion} and
 Appendix~\ref{app:minimax}.
 
-In every case above, the higher-performing of the two E4 policies
-uses the same object: the verifier's cheap consistency certificate,
-either as a filter over independent samples or as a source of
+The same object supports the higher-performing E4 policy in each
+campaign: the verifier's cheap consistency certificate, used either as
+a filter over independent samples or as a source of
 feedback. What changes between the named models is which
 exploitation policy wins. The data support non-universality of the
 tested policies across the two evaluated models, and they do not
@@ -582,7 +587,8 @@ attempts receive feedback, its attempts depend on earlier ones, and
 its budget is spread over three stages rather than eleven independent
 draws. The sign change between the two models in
 Section~\ref{sec:results} therefore does not, by itself, identify
-which of these ingredients is responsible. E1 and E5 provide partial information: feedback content helps on
+which of these ingredients is responsible. E1 and E5 give partial information. In particular, feedback content
+helps on
 \qwcode{} and shows no detectable effect on \dscode{}. However, this
 does not identify a single mechanism behind the sign change. All of our claims concern the tested policies on the named
 models.
@@ -597,7 +603,8 @@ avoiding outcome-dependent misinformation.'' The interpretability
 premium of $+6.4$\,pp is therefore a finding about \qwcode{} under this
 specific construction, not a general property of verifier feedback.
 
-Three caveats apply to the extension model. The provider forces its
+The extension model differs from the primary campaigns in several
+ways. The provider forces its
 reasoning mode on, so its attempts are generated differently from the
 primary models. Invalid final outcomes are frequent for every model in
 this study (on the \texttt{vf} policy, 35\% for \dscode{}, 32\% for
@@ -609,12 +616,12 @@ affected records were filtered and re-run, and
 Appendix~\ref{app:minimax} documents the audited procedure, the exact
 counts, and the preserved original records.
 
-Finally, two models support an existence claim of non-universality,
+Two models support an existence claim of non-universality,
 not a distribution over models. The domain is one
 duality class in four-dimensional $\mathcal{N}=1$ quiver gauge
 theories. The certificate is a consistency statement whose reach is set
-by the encoded obligations, and Section~\ref{sec:system} records where
-the encoded scope is narrower than the physics. The $SU(2)$ cubic
+by the encoded obligations, and we record in Section~\ref{sec:system}
+where the encoded scope is narrower than the physics. The $SU(2)$ cubic
 condition is a chirality-balance convention and the Witten anomaly
 \cite{Witten:1982fp} is not checked, and the chiral-ring comparison is a bounded classical
 proxy whose feedback and final gradings coincide on singlet-containing
@@ -999,8 +1006,8 @@ errors before producing any model output. All three run sets are
 retained in the released artifacts. All tested policies sit near the
 floor in both campaigns, the ordering carries no inferential weight
 at one replication, and no depth-two result enters any confirmatory
-claim. The benchmark therefore contains substantial headroom above
-the depth-one instances used in the main experiment.
+claim. The depth-two fixtures are therefore substantially harder than
+the depth-one fixtures used in the confirmatory experiment.
 
 Two early scouting runs were excluded before the confirmatory phase
 for infrastructure reasons. A free-tier deployment of an unrelated
