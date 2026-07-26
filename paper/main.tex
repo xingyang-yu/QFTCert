@@ -169,6 +169,18 @@ exact, domain-specific symbolic verifier for a QFT duality rather than
 a learned reward model, and the object under repair is a physics claim
 rather than a program or a formal proof.
 
+Closest on the physics side is the recent use of Lean~4 for quantum
+field theory. The free bosonic theory has been constructed and shown
+to satisfy the Osterwalder--Schrader axioms \cite{Douglas:2026hyk},
+and the Seiberg--Witten solution of the $\mathcal{N}=2$ $SU(2)$ theory
+has been machine-checked from a short list of explicit physical
+postulates \cite{Douglas:2026ylk}. These projects formalize the
+derivation of a physical result inside a proof assistant.
+\dualitycert{} is complementary. It does not derive the duality.
+It encodes the consistency checks that the field already uses as its
+evidence, and it runs them cheaply enough to gate the repair loop of
+Section~\ref{sec:system}.
+
 The rest of the paper is organized as follows. Section~2 describes the
 verifier and the repair interface, Section~3 the benchmark and the
 preregistered protocol, and Section~4 the confirmatory results. Sections~5
