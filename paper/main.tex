@@ -1,11 +1,11 @@
-\documentclass[11pt]{article}
-\usepackage[margin=1.1in]{geometry}
+\documentclass{article}
+\PassOptionsToPackage{numbers,sort&compress}{natbib}
+\usepackage[preprint]{neurips_2025}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{placeins}
 \usepackage{graphicx}
 \usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
-\usepackage[numbers,sort&compress]{natbib}
 \setlength{\bibsep}{0pt}
 \usepackage{xcolor}
 \usepackage{tikz}
@@ -209,6 +209,7 @@ and~6 contain the discussion, limitations, and outlook.
 
 \begin{figure}[t]
 \centering
+\resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
   font=\footnotesize,
   box/.style={draw, rounded corners=1pt, align=center, inner sep=4pt},
@@ -245,7 +246,7 @@ and~6 contain the discussion, limitations, and outlook.
 \node[below=1.5mm of agent, inner sep=0pt, align=center]
   {\scriptsize at most $K=5$ rounds;\\[-1pt]
    \scriptsize verbatim copy of $T_A$ rejected};
-\end{tikzpicture}
+\end{tikzpicture}}
 \caption{The \dualitycert{} repair environment. A candidate claim is
 judged by the verifier. Failed obligations pass through a
 policy-dependent feedback projection to the agent, which returns a
