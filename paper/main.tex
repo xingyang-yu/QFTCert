@@ -927,7 +927,7 @@ numbers, and the plain-language summary is in
 Section~\ref{sec:design}.
 
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \input{tables/per_rep}
 \caption{Per-replication verifier-certified repair counts (out of 145)
@@ -980,7 +980,7 @@ size). These counts are descriptive. The per-class pattern varies
 between models and classes, and no per-class hypothesis was
 preregistered, so we draw no inference from this table.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \input{tables/per_class}
 \caption{Per-class verifier-certified repair counts of the two primary
@@ -1032,7 +1032,7 @@ Table~\ref{tab:perrepmm} the per-replication counts and per-policy
 invalid rates, and Table~\ref{tab:perclassmm} the per-class counts
 corresponding to Table~\ref{tab:perclass} (descriptive only).
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \input{tables/minimax_ext}
 \caption{Extension-family GEE endpoints for \mmcode{} (risk
@@ -1043,7 +1043,7 @@ reported with effect and interval only.}
 \label{tab:minimaxext}
 \end{table}
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \input{tables/per_rep_minimax}
 \caption{Extension per-replication verifier-certified repair counts
@@ -1051,7 +1051,7 @@ reported with effect and interval only.}
 \label{tab:perrepmm}
 \end{table}
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \input{tables/per_class_minimax}
 \caption{Extension per-class verifier-certified repair counts, summed
@@ -1092,14 +1092,6 @@ sampling parameters remained unchanged.''
 \section{Reproduction and configuration}
 \label{app:repro}
 
-\begin{table}[t]
-\centering
-\input{tables/cost}
-\caption{Confirmatory-campaign compute accounting for the primary
-models (all calls including failures).}
-\label{tab:cost}
-\end{table}
-
 The full pipeline is driven by five commands, all run inside the
 repository's Python environment (\texttt{.venv}, created by the
 installation instructions):
@@ -1115,6 +1107,15 @@ installation instructions):
 \item \texttt{.venv/bin/python scripts/paper\_tables.py} for
   every generated table and the results figure.
 \end{itemize}
+
+\begin{table}[H]
+\centering
+\input{tables/cost}
+\caption{Confirmatory-campaign compute accounting for the primary
+models (all calls including failures).}
+\label{tab:cost}
+\end{table}
+
 The
 released repository pins the analysis-protocol freeze commit
 (\texttt{813fdb0}), the tested harness commit (\texttt{26c5241}),
