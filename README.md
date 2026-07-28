@@ -6,6 +6,12 @@ machine-readable 4d N=1 SQCD-like duality claims into consistency obligations,
 runs implemented exact checkers, and emits structured certificates that can be
 used by humans or AI agents as a verifier/oracle/critic layer.
 
+**Paper**: *DualityCert: Verifier-Gated Language-Model Repair of Broken
+Duality Claims in Quantum Field Theory*,
+[arXiv:2607.23614](https://arxiv.org/abs/2607.23614). The released
+artifacts behind every number in the paper are in this repository; see
+[REPRODUCIBILITY.md](REPRODUCIBILITY.md).
+
 QFTCert does not prove QFT statements and does not prove Seiberg duality. It
 checks implemented consistency obligations under stated assumptions and
 conventions.

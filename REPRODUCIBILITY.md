@@ -1,6 +1,7 @@
 # Reproducibility and released artifacts
 
-This note records what is released alongside the paper, and what integrity
+This note records what is released alongside the paper
+([arXiv:2607.23614](https://arxiv.org/abs/2607.23614)), and what integrity
 checks were run before publication. It backs the artifact statement in
 section 6 of the paper.
 
