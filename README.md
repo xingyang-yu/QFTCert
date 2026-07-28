@@ -1,8 +1,10 @@
-# QFTCert
+# QFTCert / DualityCert
 
-QFTCert is an auditable AI-assisted reasoning infrastructure project for
-theoretical physics. The first prototype, `dualitycert`, turns typed or
-machine-readable 4d N=1 SQCD-like duality claims into consistency obligations,
+**This repository is the home of DualityCert**, the verifier described in the
+paper below. QFTCert is the umbrella program (verifiers built on the native
+consistency checks of formal QFT and string theory); **DualityCert** is its
+first instance and lives here as the `dualitycert` package. It turns typed or
+machine-readable 4d N=1 duality claims into consistency obligations,
 runs implemented exact checkers, and emits structured certificates that can be
 used by humans or AI agents as a verifier/oracle/critic layer.
 
