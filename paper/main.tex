@@ -190,8 +190,11 @@ a learned reward model, and the object under repair is a physics claim
 rather than a program or a formal proof.
 
 Machine-learning classifiers have also been
-trained to recognize Seiberg-dual quiver pairs \cite{Bao:2020nbi}.
-This line estimates duality with a learned model, and \dualitycert{}
+trained to recognize Seiberg-dual quiver pairs \cite{Bao:2020nbi},
+and, in work contemporaneous with this paper, neural networks combined
+with pathfinder algorithms learn to trace the mutation sequences that
+connect dual quivers \cite{Heckman:2026xsi}. These lines search for
+or recognize dualities with learned models, and \dualitycert{}
 instead decides each obligation exactly. On the formal side, Lean~4
 has recently been used for quantum
 field theory. The free bosonic theory has been constructed and shown
@@ -685,6 +688,15 @@ acquires machine-checkable substrates of this kind, on which
 language-model agents can be evaluated, compared, and eventually
 used for substantial derivational work.
 
+\paragraph{Note added.} Shortly after the first version of this paper
+appeared, the complementary work of Heckman, Meynet, Mininno, and Shiu
+\cite{Heckman:2026xsi} appeared, which trains neural networks,
+assisted by pathfinder algorithms, to search for the mutation
+sequences connecting Seiberg-dual quivers. That work searches for a
+duality path, while ours certifies a proposed duality claim, and the
+two toolchains are naturally composable: a learned search can propose
+candidate duals, and an exact verifier can certify them.
+
 \appendix
 
 \section{Physics primer: Seiberg duality and the consistency obligations}
@@ -1146,8 +1158,8 @@ with per-run resume-segment sidecars and the full audit transcript.
 
 \begin{ack}
 This work was supported by NSF grant PHY-2310588. The author thanks
-Anthropic for providing access to Claude Max plan during the early
-development of this work.
+Jonathan J. Heckman for discussions, and Anthropic for providing
+access to Claude Max plan during the early development of this work.
 \end{ack}
 
 \bibliographystyle{unsrtnat}
