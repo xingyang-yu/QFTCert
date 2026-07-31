@@ -217,6 +217,19 @@ and \dualitycert{} verifies a single claim against a fixed obligation
 registry, which is what makes the preregistered comparison of
 Section~\ref{sec:design} possible.
 
+\paragraph{Note added.} The concurrent work of Heckman, Meynet,
+Mininno, and Shiu \cite{Heckman:2026xsi} trains neural networks,
+assisted by pathfinder algorithms, to search for the mutation
+sequences connecting Seiberg-dual quivers. The two papers approach
+Seiberg duality from different directions. Theirs is
+physics-motivated, and studies the computational complexity of tracing
+a duality and how well different architectures learn to do it. Ours is
+motivated by AI evaluation, and asks how language-model agents exploit
+an exact verifier, with the physics supplying the obligations that
+make the verifier exact. The two toolchains are naturally composable:
+a learned search can propose candidate duals, and a verifier can
+certify them.
+
 The rest of the paper is organized as follows. Section~2 describes the
 verifier and the repair interface, Section~3 the benchmark and the
 preregistered protocol, and Section~4 the confirmatory results. Sections~5
@@ -687,14 +700,6 @@ such extensions, and we hope that formal theoretical physics gradually
 acquires machine-checkable substrates of this kind, on which
 language-model agents can be evaluated, compared, and eventually
 used for substantial derivational work.
-
-\paragraph{Note added.} The concurrent work of Heckman, Meynet,
-Mininno, and Shiu \cite{Heckman:2026xsi} trains neural networks,
-assisted by pathfinder algorithms, to search for the mutation
-sequences connecting Seiberg-dual quivers. That work searches for a
-duality path, while ours certifies a proposed duality claim, and the
-two toolchains are naturally composable: a learned search can propose
-candidate duals, and an exact verifier can certify them.
 
 \begin{ack}
 This work was supported by NSF grant PHY-2310588. The author thanks
