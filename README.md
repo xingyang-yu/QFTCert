@@ -1,68 +1,103 @@
-# QFTCert / DualityCert
+# QFTCert: Auditable Verifiers for Theoretical Physics
 
-**This repository is the home of DualityCert**, the verifier described in the
-paper below. QFTCert is the umbrella program (verifiers built on the native
-consistency checks of formal QFT and string theory); **DualityCert** is its
-first instance and lives here as the `dualitycert` package. It turns typed or
-machine-readable 4d N=1 duality claims into consistency obligations,
-runs implemented exact checkers, and emits structured certificates that can be
-used by humans or AI agents as a verifier/oracle/critic layer.
+QFTCert is a research program for turning native consistency checks in quantum
+field theory and string theory into auditable tools for humans and AI agents.
+Rather than asking a language model to judge another model in free-form text,
+QFTCert turns a typed physics claim into explicit obligations, runs the exact
+checkers that are available, and returns a structured certificate recording
+what passed, what failed, and what could not be checked.
 
-**Paper**: *DualityCert: Verifier-Gated Language-Model Repair of Broken
-Duality Claims in Quantum Field Theory*,
-[arXiv:2607.23614](https://arxiv.org/abs/2607.23614). The released
-artifacts behind every number in the paper are in this repository; see
+**DualityCert** is the first released QFTCert system. It combines:
+
+- a symbolic verifier for 4d N=1 duality claims;
+- machine-readable consistency certificates and deterministic critic output;
+- a verifier-gated language-model repair environment;
+- a reproducible benchmark and experiment harness for comparing how agents
+  use the same certificate.
+
+The accompanying paper is
+[*DualityCert: Verifier-Gated Language-Model Repair of Broken Duality Claims in
+Quantum Field Theory*](https://arxiv.org/abs/2607.23614). The verifier,
+benchmark, preregistered protocol, per-attempt records, analysis, and artifacts
+behind every reported number are released in this repository. See
 [REPRODUCIBILITY.md](REPRODUCIBILITY.md).
 
-QFTCert does not prove QFT statements and does not prove Seiberg duality. It
-checks implemented consistency obligations under stated assumptions and
-conventions.
+## What Has Been Demonstrated
 
-## DualityCert-0 Scope
+The paper evaluates verifier-guided repair on 145 deliberately broken but
+repairable quiver-duality claims, generated from six toric quiver families and
+four perturbation classes. The confirmatory study was preregistered before the
+first confirmatory model call.
 
-The current target is SQCD-like Seiberg-duality-style claims:
+Key findings:
 
-- electric SU(Nc) SQCD with Nf flavors Q and Qtilde;
-- proposed magnetic SU(Nf - Nc) or user-specified SU(rank) theory;
-- magnetic fields q, qtilde, and optionally meson M;
-- global symmetries SU(Nf)_L, SU(Nf)_R, U(1)_B, and U(1)_R;
-- magnetic superpotential terms such as W = M q qtilde.
+- verifier-gated retry improves final repair success over one attempt by
+  **+8.3 percentage points on DeepSeek-Chat** and **+7.1 points on Qwen-Plus**;
+- under the same budget of eleven attempts, the ordering of a stop-first
+  feedback portfolio and independent verifier-filtered resampling reverses
+  across models (**-10.3 points on DeepSeek-Chat, +14.7 on Qwen-Plus**);
+- interpretable obligation-level feedback helps Qwen-Plus in this experiment,
+  while the same effect is not detected on DeepSeek-Chat;
+- a separately preregistered MiniMax-M2.5 extension again finds an iteration
+  gain and favors independent verifier-filtered resampling.
 
-Currently implemented checks:
+The result is not that one repair policy is universally best. It is that the
+same inexpensive symbolic certificate can support different model-specific
+search and feedback policies. Every winning policy in the study uses the same
+verifier.
 
-- electric and magnetic SU(N) gauge anomaly cancellation;
-- electric and magnetic SU(gauge)^2 U(1) mixed gauge-global anomaly cancellation;
-- superpotential invariance under supported symmetries;
-- superpotential R-charge equal to 2;
-- represented continuous global symmetry factor matching;
-- global 't Hooft anomaly table matching;
-- Tr R, Tr R^3, a, and c comparison from the encoded R-symmetry;
-- minimal operator-map matching for U(1)_B and U(1)_R charges;
-- standard SQCD operator-map matching for SU(Nf)_L and SU(Nf)_R flavor labels;
-- SQCD magnetic F-term consequence that constrains q qtilde in the chiral ring;
-- R >= 2/3 checks for encoded/default SQCD gauge-invariant chiral operators;
-- SQCD one-flavor mass-deformation rank-flow arithmetic.
-- SQCD mesonic flat-direction rank-flow arithmetic.
+## Project Map
 
-Metadata-level scaffold checks return `UNKNOWN` when the required data is not
-encoded, instead of failing the claim:
+| Layer | Role | Where to look |
+| --- | --- | --- |
+| QFTCert | Umbrella program for machine-checkable consistency substrates in theoretical physics | This repository and the roadmap in [design.md](design.md) |
+| DualityCert verifier | Typed claims, obligation registry, exact checkers, certificates, critic output | [`dualitycert/qft/`](dualitycert/qft/) and [`dualitycert/core/`](dualitycert/core/) |
+| Agent and experiment layer | Single-shot evaluation, repair loops, feedback projections, policy comparison, run manifests | [`dualitycert/agent/`](dualitycert/agent/) and [`dualitycert/experiments/`](dualitycert/experiments/) |
+| Released benchmark | Frozen fixtures, confirmatory runs, quarantine audit trail, and per-attempt records | [`runs/experiments/`](runs/experiments/) |
+| Paper and protocol | Preregistered endpoints, amendments, tables, figures, and source | [`paper/`](paper/) |
 
-- general chiral ring / F-term relation metadata;
-- moduli-space branch metadata;
-- conformal-manifold metadata;
-- generalized-symmetry / defect metadata;
-- protected quantity hooks for indices, partition functions, and Hilbert series.
+## Verification Surfaces Available Today
 
-Known obligations recorded as `NOT_IMPLEMENTED`:
+### Pure-quiver profile used in the paper
 
-- index matching;
-- deformation checks.
+The paper's repair environment represents ordered pairs of 4d N=1 quiver
+gauge theories and evaluates a fixed obligation registry. The implemented
+profile includes:
+
+- gauge anomaly and gauge-global mixed-anomaly cancellation;
+- global 't Hooft anomaly matching;
+- superpotential gauge invariance and R-charge consistency;
+- central-charge matching from the encoded R-symmetry;
+- a bounded, R-graded classical chiral-ring consistency check.
+
+Certificates also record profile-gated, unknown, and unimplemented
+obligations instead of silently treating them as passed. Interaction-time and
+final checks can use different strictness, so an agent cannot receive the
+answer to the exact held-out check it must ultimately pass.
+
+The released benchmark contains 145 runnable broken claims from six seed
+families (`dP_0`, `dP_1`, `dP_2`, `F_0`, SPP, and
+`C^3/(Z_2 x Z_2)`) across 14 family/rank/node cells. Perturbations delete a
+superpotential term, flip a coefficient sign, alter an R-charge, or change a
+gauge-node rank.
+
+### Flavored single-gauge profiles
+
+The general certificate CLI also supports two explicit builder profiles:
+
+- `seiberg_sqcd`;
+- `kutasov` (Kutasov-Schwimmer duality with an adjoint and meson tower).
+
+These profiles include exact rational checks for gauge and mixed anomalies,
+superpotential consistency, global anomalies, encoded central charges,
+supported operator maps, unitarity bounds, and selected SQCD deformation-flow
+arithmetic. See [design.md](design.md) for the precise scope and conventions.
 
 ## What a Certificate Means
 
-A certificate is an auditable report of the checks that actually ran. It
-records assumptions, conventions, obligations, per-obligation messages,
-warnings, failures, and placeholders for checks that are not implemented.
+A certificate is an auditable report of checks that actually ran under stated
+assumptions and conventions. It is not a proof of a duality, IR equivalence,
+RG-flow statement, or path-integral identity.
 
 Outward-facing statuses avoid proof-like language:
 
@@ -70,19 +105,12 @@ Outward-facing statuses avoid proof-like language:
 - `FAILED_IMPLEMENTED_OBLIGATIONS`
 - `PARTIAL_WITH_NOT_IMPLEMENTED_OBLIGATIONS`
 - `NO_IMPLEMENTED_OBLIGATIONS`
+- `OUT_OF_SCOPE`
 
-Per-obligation statuses may also include `UNKNOWN` for missing optional
-metadata and `NOT_APPLICABLE` for checks outside the current physics profile.
-
-The legacy internal enum still includes `CERTIFIED`, but user-facing output
-should be read as "implemented checks passed", not as a proof.
-
-## What a Certificate Does Not Mean
-
-A certificate does not prove a duality, IR equivalence, RG-flow statement, or
-path-integral identity. It also does not check unimplemented obligations
-silently. Missing index, general deformation, or more general operator-map
-checks remain explicit `NOT_IMPLEMENTED` entries.
+Individual obligations may also be `UNKNOWN`, `NOT_APPLICABLE`, or
+`NOT_IMPLEMENTED`. A passed certificate means that no implemented in-scope
+obligation failed; it does not mean that every physical consistency condition
+has been checked.
 
 ## Quickstart
 
@@ -92,81 +120,89 @@ python3 -m pytest
 python3 -m dualitycert.examples.seiberg_sqcd
 ```
 
-## Check a Machine-Readable Claim
-
-Correct SQCD-style claim:
+Check a machine-readable claim:
 
 ```bash
-python3 -m dualitycert.cli check claims/sqcd_Nc3_Nf5.json
-python3 -m dualitycert.cli check claims/sqcd_Nc3_Nf5.json --json
+dualitycert check claims/sqcd_Nc3_Nf5.json
+dualitycert check claims/wrong_magnetic_rank.json --json
 ```
 
-Intentionally wrong magnetic rank:
+Generate a model-free critic report or repair prompt from a failed
+certificate:
 
 ```bash
-python3 -m dualitycert.cli check claims/wrong_magnetic_rank.json --json
+dualitycert critique claims/wrong_magnetic_rank.json
+dualitycert repair-prompt claims/missing_meson.json
 ```
 
-The CLI exits nonzero for program errors, not merely because a physics claim
-fails implemented consistency checks.
-
-## Generate Critic Reports and Repair Prompts
-
-QFTCert can turn a failed certificate into a short critic report or a repair
-prompt for a human or LLM, without calling any model API:
-
-```bash
-python3 -m dualitycert.cli critique claims/wrong_magnetic_rank.json
-python3 -m dualitycert.cli repair-prompt claims/missing_meson.json
-```
-
-Both commands support `--out path/to/file.md`. This is the current
-verifier-in-the-loop interface:
+The core agent interface is:
 
 ```text
-claim.json -> certificate -> critic report / repair prompt -> repaired claim
+typed claim
+-> obligation registry
+-> exact implemented checkers
+-> structured certificate
+-> policy-controlled feedback
+-> repaired or rejected claim
+-> final judge at least as strict as the interaction-time verifier
 ```
 
-## Example Workflow for AI-Assisted QFT Reasoning
+The experiment CLI additionally exposes fixture generation, manifest
+verification, single-shot evaluation, repair-loop policies, and the E4 policy
+replay used in the paper:
 
-```text
-LLM proposes a QFT claim
--> QFTCert loads the typed/machine-readable claim
--> QFTCert generates obligations
--> implemented checkers run
--> certificate and critic report identify failures and NOT_IMPLEMENTED checks
--> the claim is repaired or rejected under the stated conventions
+```bash
+dualitycert --help
+dualitycert run-repair-loop --help
+dualitycert score-e4 --help
 ```
 
-This is the intended role: an auditable verifier/oracle/critic layer for
-AI-generated QFT claims.
+## Reproducing the Released Study
 
-## Current Limitations
+A fresh clone contains the frozen fixtures and confirmatory artifacts; no
+separate dataset download is required. The release checker verifies manifest
+hashes, benchmark arithmetic, campaign coverage, prompt and schema hashes,
+and the contamination-audit trail:
 
-- JSON claim input is SQCD-builder-level, not a universal QFT schema.
-- Operator-map checks cover Abelian charges and standard SQCD non-Abelian
-  flavor labels; general tensor-product decomposition is not implemented.
-- General index matching, full deformation checks, full chiral-ring
-  equivalence, full moduli-space equivalence, global forms, line operators,
-  and higher-form anomalies are not implemented. The only implemented
-  chiral-ring consequence is the SQCD magnetic q qtilde F-term constraint.
-- a and c are computed from the encoded R-symmetry; full a-maximization and
-  accidental-symmetry handling are not implemented.
-- The superpotential invariant checker is intentionally SQCD-like and narrow.
-- Baryon-number normalization is explicit; a global rescaling is not by itself
-  treated as a physical failure.
+```bash
+.venv/bin/python scripts/verify_release_artifacts.py
+.venv/bin/python scripts/paper_tables.py
+.venv/bin/python scripts/run_gee.py
+```
 
-See [design.md](design.md) for conventions, implementation details, and
-roadmap.
+The generated paper tables, figure, and frozen statistical reports are checked
+against the committed artifacts. See [REPRODUCIBILITY.md](REPRODUCIBILITY.md)
+for the full inventory and exact guarantees.
 
-## Reproducibility
+## Current Boundaries
 
-See [REPRODUCIBILITY.md](REPRODUCIBILITY.md) for the released artifact set,
-the integrity checks run before publication, and the commands that re-run
-them.
+- QFTCert checks necessary consistency obligations; it does not prove a
+  duality or derive full IR dynamics.
+- The natural-language-to-typed-claim step is not a general QFT parser.
+- The bounded chiral-ring check is a controlled classical proxy, not full
+  quantum chiral-ring or moduli-space equivalence.
+- Central charges are only physical when the encoded R-symmetry is the correct
+  superconformal one; support for a-maximization and accidental symmetries is
+  limited and profile-dependent.
+- General index matching, arbitrary Lie groups and tensor products, global
+  forms, line operators, defects, and higher-form symmetries are not covered
+  uniformly.
+- A repair strategy that works well for one model should not be assumed to be
+  optimal for another; the paper demonstrates this non-universality directly.
+
+## Program Direction
+
+QFTCert is designed so that new physics areas can supply their own typed claim
+schema, obligation registry, exact or bounded checkers, certificate fields,
+and final-judge policy. Natural extensions include richer quiver and operator
+checks, protected quantities, amplitudes and bootstrap constraints, string
+compactification consistency conditions, and adapters to AI-physicist agents.
+
+The aim is not to replace physical judgment with a binary oracle. It is to
+make the mechanically checkable part of that judgment explicit, reusable, and
+auditable enough to guide and evaluate AI-assisted research.
 
 ## License
 
-Apache License 2.0 (see [LICENSE](LICENSE) and [NOTICE](NOTICE)). The NeurIPS
-LaTeX style file under `paper/` is distributed by the conference under its own
-terms.
+Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). The NeurIPS
+LaTeX style file under `paper/` is distributed under its own terms.

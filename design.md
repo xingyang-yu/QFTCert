@@ -1,21 +1,23 @@
-# QFTCert / DualityCert-0 Design
+# QFTCert / DualityCert Design
 
-**Package:** `dualitycert`  **Project:** QFTCert  **Current system:** DualityCert-0
+**Package:** `dualitycert`  **Program:** QFTCert  **First released system:** DualityCert
 
-DualityCert-0 is a deliberately small verifier/certificate prototype for 4d
-N=1 supersymmetric gauge theory duality claims. It is the first prototype
-inside QFTCert, an auditable AI-assisted reasoning infrastructure project for
-theoretical physics.
+DualityCert is a verifier/certificate system for 4d N=1 supersymmetric gauge
+theory duality claims. It is the first released system inside QFTCert, an
+auditable AI-assisted reasoning infrastructure program for theoretical
+physics. The repository contains both the reusable certificate library and the
+verifier-gated repair and evaluation environment studied in the accompanying
+paper.
 
 The system does not prove dualities. It takes a typed or machine-readable
 physics claim, generates a fixed set of consistency obligations, runs
 implemented exact checkers, and emits a structured certificate describing what
 passed, what failed, and what remains unimplemented.
 
-## Project Goal
+## Program Goal
 
-The current milestone is a runnable Python package that can construct duality
-claims for several duality profiles and answer:
+The core software constructs typed duality claims for several profiles and
+answers:
 
 > Given a proposed pair of dual theories with explicit field content,
 > R-charges, superpotential, and symmetry assignments, which
@@ -27,20 +29,28 @@ The intended output is not a bare `true` or `false`, but a certificate with
 per-obligation status, convention assumptions, diagnostic tables, warnings,
 and explicit `NOT_IMPLEMENTED` entries.
 
-The intended AI workflow is:
+The implemented AI workflow is:
 
 ```text
 LLM proposes claim -> QFTCert checks obligations -> certificate/critic report
 -> repaired claim
 ```
 
-The current repository implements this loop without requiring any paid model
-API: QFTCert can generate critic reports and repair prompts from failed
-certificates, and those prompts can be given to a human or any external LLM.
+The certificate and critic layers require no model API. QFTCert can generate
+critic reports and repair prompts from failed certificates, and those prompts
+can be given to a human or any external LLM. The experiment package adds
+model adapters, feedback projections, policy-controlled repair loops, frozen
+run manifests, and scoring.
+
+The first paper-scale milestone is complete: a preregistered benchmark of 145
+broken pure-quiver claims, with confirmatory campaigns on DeepSeek-Chat and
+Qwen-Plus and a separately preregistered MiniMax-M2.5 extension. The released
+artifacts include the verifier, benchmark, protocol, every per-attempt record,
+and the frozen statistical analysis.
 
 ## Non-Goals
 
-DualityCert-0 will not:
+DualityCert will not:
 
 - prove Seiberg duality as a theorem;
 - formalize path integrals, RG flows, conformal dynamics, or full IR
@@ -49,10 +59,12 @@ DualityCert-0 will not:
 - support arbitrary gauge groups, matter content, generalized symmetries,
   defects, or line operators;
 - compute exact superconformal indices;
-- train models or benchmark LLM physics reasoning.
+- train language models.
 
-The first prototype is a verifier-rich environment, not a model-training
-project.
+The certificate library is not a model-training system. The repository does,
+however, include a benchmark and experiment harness for measuring how
+language-model agents use exact certificates. That evaluation layer is kept
+separate from the deterministic verifier.
 
 ## Why Certificates, Not Proofs
 
@@ -134,9 +146,16 @@ Classification is inferred from field content. An explicit
 `metadata["theory_kind"]` entry overrides the inference; a mismatch is
 flagged as FAILED by the `theory_kind_classification` check.
 
-Currently implemented duality profiles, by kind:
-- `flavored_single_gauge`: `seiberg_sqcd`, `kutasov`
-- `pure_quiver`: none yet (Phase 2 target: toric dP_0)
+Currently implemented surfaces, by kind:
+
+- `flavored_single_gauge`: the `seiberg_sqcd` and `kutasov` builder profiles;
+- `pure_quiver`: the paper verifier profile and repair environment for toric
+  quiver claims, including bounded chiral-ring, anomaly, superpotential,
+  encoded-R, and central-charge obligations.
+
+The two surfaces share core objects and certificate semantics. Their input
+schemas and enabled obligation profiles remain explicit rather than being
+presented as a universal QFT schema.
 
 ## Supported Duality Profiles
 
@@ -245,6 +264,22 @@ All claims (any theory kind):
 `kutasov` only:
 
 - Kutasov meson tower completeness (checks M0..M_{k-1} are all present).
+
+`pure_quiver` paper profile:
+
+- electric and magnetic gauge anomaly cancellation;
+- gauge-global mixed-anomaly cancellation for the encoded U(1)_R;
+- global 't Hooft anomaly matching;
+- superpotential gauge invariance and R-charge consistency;
+- central-charge matching from the encoded R-symmetry;
+- bounded, R-graded classical chiral-ring consistency;
+- optional/profile-gated superconformal R-charge, a-maximization, SCFT
+  soundness, and index hooks.
+
+The committed paper profile contains a registry of 23 obligations. On a
+committed positive fixture, 11 run and pass; the rest remain visible as
+`NOT_APPLICABLE`, `NOT_IMPLEMENTED`, or `UNKNOWN` rather than being silently
+discarded.
 
 Metadata-level scaffolds (return `UNKNOWN` when data is absent):
 
@@ -379,7 +414,8 @@ Young-tableau tensor decomposition or multiplicity counting.
 
 ## Machine-Readable Claims
 
-The machine-readable input format is JSON. A minimal claim contains:
+The machine-readable input format is JSON. Flavored single-gauge builder
+claims contain:
 
 - `name`;
 - `duality_profile`: `"seiberg_sqcd"` or `"kutasov"`;
@@ -392,6 +428,12 @@ The machine-readable input format is JSON. A minimal claim contains:
 The loader dispatches on `duality_profile` to the appropriate builder. The
 `theory_kind` is inferred from field content at claim-load time; it can also
 be stated explicitly in the JSON `metadata` object.
+
+The pure-quiver experiment surface uses a quiver JSON schema with ordered
+gauge nodes, ranks, arrows, R-charges, and superpotential terms. The serializer
+and parser live in `dualitycert/qft/pure_quiver_json.py`; the paper repair
+environment treats a candidate claim as an ordered electric/candidate theory
+pair and requires a complete revised candidate theory at each round.
 
 **Schema note**: the field was renamed from `claim_type` to `duality_profile`
 in Phase 1.6. Historical traces in `traces/` may still use the old name.
@@ -445,16 +487,16 @@ The test suite includes intentionally broken claims:
 
 ## Limitations
 
-**Verifier scope**: Only `flavored_single_gauge` (K=1 with SU(Nf) flavor)
-claims can be physically checked. `flavored_quiver` (K>1 with flavor) returns
-OUT_OF_SCOPE. `pure_quiver` (no flavor) has data model support but no
-implemented physics checks yet (Phase 2 target).
+**Verifier scope**: `flavored_single_gauge` claims are checked by the SQCD and
+Kutasov profiles. `pure_quiver` claims are checked by the paper profile, whose
+strongest non-anomaly obligation is a bounded classical chiral-ring proxy.
+`flavored_quiver` (K>1 with non-Abelian flavor) remains OUT_OF_SCOPE.
 
 **Data model vs. verifier capability gap**: `Theory.gauge_nodes` supports
 K >= 1 nodes and `Field.gauge_reps` supports per-node representations. The
-anomaly/superpotential checkers loop over all nodes and are K-agnostic. But
-no obligation verifies non-Abelian flavor matching, chiral ring equivalence,
-or operator matching for K > 1 theories.
+paper profile verifies a controlled subset of pure-quiver consistency data,
+but it does not establish full chiral-ring equivalence, non-Abelian flavor
+matching, general operator matching, or IR equivalence for K > 1 theories.
 
 **Other limitations**:
 
@@ -475,23 +517,20 @@ conventions, not physical no-go theorems.
 
 ## Roadmap
 
-**Phase 2a (next)**: pure_quiver chiral ring check.
+The pure-quiver builder, bounded chiral-ring checker, toric seed catalog,
+mutation-based fixture generator, experiment harness, and preregistered repair
+study are implemented and released. Forward directions are:
 
-- closed-walk enumeration of gauge-invariant single-trace operators up to
-  a given R-charge cutoff;
-- F-term Koszul step 1: subtract image of ∂W/∂Φ from the free algebra;
-- check that the operator count and dimension matches between dual phases.
-
-**Phase 2b**: dP_0 (C^3/Z_3 orbifold) builder + fixture + tests.
-
-- 3-node cyclic SU(N)^3 quiver with 9 bifundamentals X_{ij};
-- W = ε_{abc} X_{12}^a X_{23}^b X_{31}^c;
-- verify toric Phase I ↔ Phase II duality via the pure_quiver chiral ring check.
-
-**Other near-term**:
-
-- structured failure schema for certificates (principle / observed /
-  expected / affected_objects / severity) for better downstream agent use;
-- OUT_OF_SCOPE section in `render_text()` (done in Phase 1.6);
-- improve edge-case diagnostics for SU(2), Nf = Nc + 1, low magnetic rank;
-- experiment harness: seed/temperature/cost/token logging, run manifest.
+- broaden exact and bounded obligation families: richer operator maps,
+  protected quantities, deformation checks, global forms, line operators,
+  defects, and generalized symmetries;
+- extend the dual-construction and reduction machinery to more quiver
+  families without relying on profile-specific shortcuts;
+- strengthen R-symmetry handling, including accidental symmetries and more
+  general a-maximization workflows;
+- develop natural-language-to-typed-claim compilers while keeping the typed
+  object and the certificate as the auditable boundary;
+- expose stable adapters for AI-physicist systems and evaluate their feedback,
+  search, and verifier-filtering policies under frozen protocols;
+- factor reusable certificate semantics from domain-specific verifier plugins
+  so additional QFT and string-theory areas can be added independently.

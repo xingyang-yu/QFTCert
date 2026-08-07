@@ -1,4 +1,4 @@
-"""Small command-line entry point for checking machine-readable claims."""
+"""Command-line entry point for certificates and verifier-gated experiments."""
 
 from __future__ import annotations
 
@@ -15,13 +15,16 @@ from dualitycert.qft.dualities import evaluate_claim
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="dualitycert",
-        description="Check SQCD-like duality claims and emit consistency certificates.",
+        description=(
+            "Emit auditable QFT consistency certificates and run "
+            "verifier-gated agent experiments."
+        ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     check_parser = subparsers.add_parser(
         "check",
-        help="Load a JSON SQCD-like claim and run implemented consistency checks.",
+        help="Load a supported JSON duality claim and run implemented checks.",
     )
     check_parser.add_argument("claim_file", help="Path to a JSON claim file.")
     check_parser.add_argument(

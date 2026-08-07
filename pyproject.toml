@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dualitycert"
 version = "0.1.0"
-description = "Consistency certificates for SQCD-like duality claims"
+description = "Auditable consistency certificates and verifier-gated repair for QFT duality claims"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [

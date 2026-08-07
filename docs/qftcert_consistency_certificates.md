@@ -1,130 +1,144 @@
-# QFTCert: Consistency Certificates for AI-Assisted Quantum Field Theory Reasoning
+# QFTCert: Consistency Certificates for AI-Assisted Theoretical Physics
 
 ## 1. Motivation
 
-AI-assisted theoretical physics reasoning needs more than fluent answers. A
-model can propose plausible-looking QFT claims that fail basic consistency
-conditions. QFTCert explores a verifier/oracle/critic layer: typed claims are
-converted into explicit obligations, checked where possible, and returned as
-auditable certificates.
+AI-assisted theoretical physics needs more than fluent answers or a second
+model saying that an answer looks correct. QFTCert explores a verifier,
+oracle, and critic layer in which typed physics claims are converted into
+explicit obligations, checked where possible, and returned as auditable
+certificates.
 
-The certificate is not a proof. It is a record of implemented checks under
-explicit assumptions and conventions.
+A certificate is not a proof. It records the implemented checks that ran,
+their assumptions and conventions, and the obligations that remain unknown,
+out of scope, or unimplemented.
 
-## 2. Why SQCD / Seiberg Duality First
+## 2. From a Small Prototype to a Research Environment
 
-4d N=1 SQCD-like Seiberg duality is a controlled first target: the standard
-claim is familiar, the expected consistency checks are well understood, and
-failure cases are easy to construct without pretending to solve general QFT.
+QFTCert began with SQCD-like Seiberg duality because the claims are familiar,
+the expected consistency checks are well understood, and meaningful failure
+cases can be constructed without pretending to solve general QFT. The current
+repository now contains two complementary surfaces:
 
-The point is not to rediscover the standard magnetic theory. The point is to
-build a minimal environment where explicit electric and proposed magnetic
-claims can be checked, criticized, and repaired.
+- flavored single-gauge certificate profiles for Seiberg SQCD and
+  Kutasov-Schwimmer duality;
+- the pure-quiver DualityCert verifier and verifier-gated repair environment
+  used in the paper
+  [*DualityCert: Verifier-Gated Language-Model Repair of Broken Duality Claims
+  in Quantum Field Theory*](https://arxiv.org/abs/2607.23614).
 
-Current duality profiles: `seiberg_sqcd` and `kutasov` (Kutasov-Schwimmer:
-SU(Nc) + adjoint X + Nf flavors, W = Tr(X^{k+1})).
+The paper surface evaluates ordered pairs of 4d N=1 quiver gauge theories. It
+was used to construct a preregistered benchmark of 145 broken but repairable
+claims from six toric quiver families and to compare how several language
+models exploit the same exact certificate.
 
-## 3. Typed Claims, Obligations, Certificates
+## 3. Typed Claims, Obligations, and Certificates
 
-The current prototype takes a small SQCD-level JSON claim and builds a
-`DualityClaim`. It then generates obligations such as gauge anomaly
-cancellation, superpotential consistency, and global anomaly matching.
+The common abstraction is:
+
+```text
+typed claim
+-> applicable obligation registry
+-> exact or explicitly bounded checkers
+-> structured certificate
+-> policy-controlled critic feedback
+-> human or agent repair
+-> final verification
+```
 
 The certificate records:
 
-- what ran;
-- what passed;
-- what failed;
-- what remains `NOT_IMPLEMENTED`;
-- the assumptions and conventions used.
+- what ran and under which profile;
+- what passed or failed;
+- detailed observed and expected quantities where available;
+- what remained `UNKNOWN`, `NOT_APPLICABLE`, or `NOT_IMPLEMENTED`;
+- assumptions, conventions, warnings, and limitations.
 
-## 4. Implemented Checks
+This structure separates three questions that free-form model criticism often
+blurs: whether the claim was represented faithfully, whether a particular
+necessary condition was checked, and what the result of that check was.
 
-DualityCert-0 currently implements:
+## 4. Implemented Verification Surfaces
 
-**All claims:**
+### Pure-quiver paper profile
 
-- theory kind classification (pure_quiver / flavored_single_gauge /
-  flavored_quiver); flavored_quiver → OUT_OF_SCOPE, no physics checks run.
+The released paper profile checks:
 
-**flavored_single_gauge claims (SQCD and Kutasov):**
+- electric and magnetic gauge anomaly cancellation;
+- gauge-global mixed-anomaly cancellation;
+- global 't Hooft anomaly matching;
+- superpotential gauge invariance and R-charge consistency;
+- central-charge matching from the encoded R-symmetry;
+- a bounded, R-graded classical chiral-ring consistency proxy.
 
-- SU(N) gauge cubic anomaly cancellation (K-agnostic, loops over gauge nodes);
-- SU(gauge)^2 U(1) mixed gauge-global anomaly cancellation;
-- superpotential gauge invariance and R-charge = 2;
-- global 't Hooft anomaly table matching;
-- Tr R, Tr R^3, a, c from encoded R-symmetry;
-- operator-map U(1)_B and U(1)_R charge matching;
-- R >= 2/3 for encoded gauge-invariant chiral operators.
+The full committed registry contains 23 obligations. On a committed positive
+fixture, 11 run and pass; the remaining obligations stay visible with
+conservative statuses. The final judge can be stricter than the
+interaction-time verifier, preventing the agent from simply being shown the
+exact held-out numerical check that decides acceptance.
 
-**seiberg_sqcd only:**
+### Flavored single-gauge profiles
 
-- SU(Nf)_L, SU(Nf)_R flavor-label matching for operators;
-- SQCD magnetic F-term consequence constraining q qtilde;
-- one-flavor mass-deformation and mesonic flat-direction rank-flow arithmetic.
+The `seiberg_sqcd` and `kutasov` builders support exact rational checks for:
 
-**kutasov only:**
+- SU(N) gauge and SU(gauge)^2 U(1) mixed anomalies;
+- superpotential gauge invariance and R-charge two;
+- global anomaly tables and encoded central charges;
+- supported Abelian and non-Abelian operator-map data;
+- unitarity bounds for encoded chiral operators;
+- selected SQCD F-term and deformation-flow consequences;
+- Kutasov meson-tower completeness.
 
-- Kutasov meson tower completeness (M0..M_{k-1} present in magnetic theory).
+Metadata scaffolds preserve requested but unavailable checks for chiral rings,
+moduli spaces, conformal manifolds, generalized symmetries, and protected
+quantities instead of silently dropping them.
 
-**Metadata scaffolds** (return `UNKNOWN` when data absent): chiral rings,
-moduli spaces, conformal manifolds, generalized symmetries, protected quantities.
+## 5. Verifier-Gated Repair and Evaluation
 
-## 5. Failure Cases
+The repository includes a model-independent certificate and critic layer plus
+an experiment harness for:
 
-The repository includes intentionally broken JSON claims:
+- deterministic fixture generation and manifest hashing;
+- single-shot detection and diagnosis;
+- generic retry, named-obligation feedback, masked-feedback controls, and
+  independent verifier-filtered resampling;
+- bounded multi-round repair;
+- final judging at least as strict as the interaction-time verifier;
+- token, cost, invalid-output, and per-attempt logging;
+- frozen statistical analysis and artifact regeneration.
 
-- wrong magnetic rank;
-- missing meson;
-- wrong meson R-charge;
-- inconsistent magnetic U(1)_B charge in the superpotential.
+The released study finds a stable gain from verifier-gated iteration, but not
+a universal best policy for exploiting the verifier. Feedback and search
+policies therefore need to be calibrated to the agent while the exact
+certificate can remain fixed.
 
-These examples are meant to show a critic loop, not physical no-go theorems.
+## 6. Boundaries
 
-## 6. AI Critic / Repair Loop
+QFTCert checks necessary conditions under encoded assumptions. It does not
+prove a duality, derive a path integral, or establish full IR equivalence.
 
-The intended workflow is:
+Important current boundaries include:
 
-```text
-LLM proposes claim
--> QFTCert checks implemented obligations
--> certificate highlights failures and unimplemented checks
--> QFTCert generates a deterministic repair prompt
--> agent or human repairs the claim
--> repaired claim is checked again
-```
+- no universal natural-language QFT parser;
+- no full quantum chiral-ring or moduli-space equivalence;
+- limited and profile-dependent a-maximization and accidental-symmetry
+  handling;
+- no uniform support for arbitrary Lie algebras and tensor products, index
+  matching, global forms, defects, line operators, or higher-form symmetries;
+- `flavored_quiver` claims remain outside the supported verifier scope.
 
-This gives downstream AI systems a more auditable way to interact with QFT
-claims than free-form text alone.
+The paper's results are claims about the named models, policies, benchmark,
+and verifier profile. They do not establish that one feedback strategy is
+best for all language models or all physics domains.
 
-The current implementation does not require a model API. The repair prompt can
-be generated locally and then handed to a human, a chatbox, or a future
-automated agent.
+## 7. Program Direction
 
-## 7. Limitations
+QFTCert is intended to grow through domain-specific verifier plugins that
+share certificate semantics and agent interfaces. Near-term research includes
+broader duality obligations, more general quiver reduction and operator
+machinery, protected-quantity hooks, typed-claim compilers, and adapters to
+AI-physicist systems.
 
-The prototype does not prove dualities or IR equivalence.
-
-**Theory kind scope**: only `flavored_single_gauge` (K=1 with SU(Nf) flavor)
-claims are checked. `flavored_quiver` (K>1 with flavor) → OUT_OF_SCOPE.
-`pure_quiver` has data model support but no implemented physics checks yet.
-
-**Data model vs. verifier gap**: `Theory.gauge_nodes` supports K >= 1 nodes,
-and anomaly/superpotential checkers are K-agnostic. But no obligation yet
-verifies K>1 duality physics — the multi-node data model is a scaffold
-for Phase 2, not a claim of current capability.
-
-Not yet implemented: general tensor-product decomposition, index matching,
-full deformation checks, global forms, line operators, accidental symmetries,
-full a-maximization, full chiral-ring equivalence, general QFT schema.
-
-## 8. Roadmap
-
-**Phase 2a**: pure_quiver chiral ring check (closed-walk enumeration +
-F-term Koszul step 1). Enables verifying toric duality for quiver theories.
-
-**Phase 2b**: dP_0 (C^3/Z_3 orbifold) builder + fixture + tests. First
-concrete pure_quiver duality check.
-
-**Other**: structured failure schema for certificates; experiment harness
-with reproducible seed/temperature/token logging.
+The long-term aim is a collection of machine-checkable substrates for areas of
+formal QFT and string theory: not replacements for physical judgment, but
+auditable components that make AI-assisted reasoning easier to test, repair,
+and trust.
