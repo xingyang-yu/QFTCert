@@ -1,165 +1,577 @@
-\documentclass[11pt]{article}
-\usepackage[margin=1.1in]{geometry}
-\usepackage{amsmath,amssymb}
-\usepackage{booktabs}
-\usepackage{graphicx}
-\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
-\usepackage[numbers,sort&compress]{natbib}
-\usepackage{xcolor}
+\documentclass[11pt]{scrartcl}
 
-\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\usepackage{xy-format}
+\usepackage{xy-theorem}
+\usepackage{xy-math}
+\usepackage{scrlayer-scrpage}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{tikz}
+
+\addbibresource{refs.bib}
+
+\clearpairofpagestyles
+\cfoot{\pagemark}
+\pagestyle{scrheadings}
+
+\newcommand{\toolname}{\textsc{DualityCert}}
 \newcommand{\dscode}{\textsc{deepseek-chat}}
 \newcommand{\qwcode}{\textsc{qwen-plus}}
+\newcommand{\ssarm}{\textsc{single-shot}}
+\newcommand{\grarm}{\textsc{generic-retry}}
+\newcommand{\vfarm}{\textsc{verifier-feedback}}
+\newcommand{\maskedarm}{\textsc{masked-feedback}}
+\newcommand{\bonarm}{\textsc{best-of-11}}
+\newcommand{\pp}{\,\mathrm{pp}}
 
-\title{A Lean-Style Verifier for Seiberg Dualities Turns Weak Language
-Models into Auditable Repair Agents\\
-{\large\todo{working title, iterate with author}}}
-\author{Xingyang Yu}
-\date{\today}
+\title{\toolname: Machine-Checkable Consistency Certificates\\
+for Verifier-Guided Repair of Seiberg Duality Claims}
+\author[1]{Xingyang Yu}
+\affil[1]{Department of Physics, Virginia Tech, Blacksburg, Virginia 24061, USA}
+\date{}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-We present \textsc{QFTCert}, a symbolic verifier that certifies
-consistency of proposed Seiberg-duality claims in four-dimensional
-$\mathcal{N}=1$ gauge theories (anomaly matching, superpotential
-$R$-charges, central charges, bounded chiral-ring consistency), and use
-it as an interaction environment for language-model agents that must
-\emph{repair} deliberately broken duality claims. On a fixed benchmark of
-145 depth-one perturbed claims, under a pre-registered analysis protocol
-frozen before data collection, we find: (i) verifier-gated iteration
-lifts repair success over single-shot attempts on both models tested
-($+8.3$\,pp on \dscode{}, $+7.1$\,pp on \qwcode{}, Holm-adjusted
-$p<0.002$); (ii) the \emph{optimal verifier-exploitation strategy is
-model-dependent, with confirmatory significance in opposite directions}:
-for \dscode{}, feedback content adds nothing over content-free retry and
-independent verifier-filtered resampling dominates a strategy portfolio
-($-10.3$\,pp), while for \qwcode{}, category-level feedback is worth
-$+8.7$\,pp, interpretable obligation identities alone are worth
-$+6.4$\,pp over structurally identical masked feedback, and the
-portfolio dominates resampling ($+14.7$\,pp); (iii) the invariant across
-both regimes is the verifier's cheap, machine-checkable certificate,
-which powers whichever search strategy wins. The entire confirmatory
-phase cost roughly \$11 of public API credit; all code, fixtures, frozen
-protocol, and per-round audit logs are released.
-\todo{finalize abstract wording after prose pass}
+We introduce \toolname, an executable checker that turns proposed
+four-dimensional $\mathcal N=1$ Seiberg-duality data into auditable
+\emph{consistency certificates}.  A certificate records the result of exact
+checks for anomaly matching, superpotential $R$-charge constraints, central
+charges computed from the encoded $R$-charges, and a bounded chiral-ring
+comparison.  It is deliberately weaker than a proof of infrared duality.  We
+use this checker as the acceptance predicate in a pre-specified repair
+benchmark of 145 one-edit perturbations, nested in 14 theory--node bases.  On
+two confirmatory language models, allowing as many as five generic retries
+instead of one attempt increased certified repair by $8.3\pp$ for \dscode{} and
+$7.1\pp$ for \qwcode{} (paper-wide Holm-adjusted $p=0.0015$ and $0.0016$).
+Under an equal 11-call cap, the frozen strategy portfolio underperformed
+independent verifier-filtered resampling by $10.3\pp$ on \dscode{} but
+outperformed it by $14.7\pp$ on \qwcode{}, reversing the ordering of the two
+tested verifier-exploitation policies across the two confirmatory models.
+Content-bearing verifier feedback gave narrower, model-contingent gains.  The
+result is therefore not a universal ranking of prompting strategies: it is
+evidence that an exact, inexpensive certificate can support different search
+policies while preserving a common, auditable success criterion.
 \end{abstract}
 
 \section{Introduction}
-\todo{motivation: proof assistants ground LLM reasoning in mathematics;
-physics lacks the analogous machine-checkable substrate. QFTCert as a
-domain proof-of-concept: consistency CERTIFICATES for duality claims
-(Lean-style, not Lean-equivalent — no proof terms; the verifier
-auto-judges). Honest scope: certificates of consistency, not proofs of
-duality. Contributions list mirroring abstract claims (i)-(iii) +
-benchmark + open release.}
+\label{sec:intro}
 
-\section{Consistency certificates for Seiberg duality}
-\todo{summarize the verifier: pure-quiver claims, obligations
-(anomaly matching, W R-charge = 2, ABJ anomaly freedom, central-charge
-matching, R-graded bounded chiral-ring consistency at length L),
-judge modes, out-of-scope semantics. Point to appendix for full
-obligation list. Emphasize L=3 feedback / L=5 final anti-gaming pair.}
+Formal environments have made an important class of mathematical reasoning
+machine-interactive: a proposed proof step produces an exact state transition
+and an exact acceptance or rejection signal.  Systems such as LeanDojo expose
+this interface to learning agents, and AlphaProof demonstrates how a formal
+checker can anchor large-scale search at difficult mathematical problems
+\cite{Yang:2023leandojo,Hubert:2026alphaproof}.  Most theoretical-physics
+claims, however, are not already encoded as theorem-prover goals.  The useful
+intermediate question is therefore not whether a language model can prove a
+physical equivalence, but whether part of the claim can be compiled into a
+typed object with explicit, machine-checkable obligations.
 
-\section{Benchmark: perturbed duals at fixed depth}
-\todo{seed families (dP0, dP1, dP2, F0, SPP, C3/Z2xZ2 + nodes),
-mutation engine for ground-truth duals, four perturbation classes
-(drop\_w\_term 38, flip\_w\_sign 13, r\_charge\_perturb 52,
-rank\_perturb 42; n=145 repairable), deterministic regeneration
-(seed 20260715), anti-memorization rationale, copy-cheat guard
-(verbatim Theory-A copy trivially certifies; guard fired in live runs).}
+Seiberg duality provides a concrete test case.  It relates distinct ultraviolet
+descriptions that are conjectured to flow to the same infrared physics
+\cite{Seiberg:1994pq,Intriligator:1995au}.  Proposed dual pairs obey demanding
+necessary conditions---including 't Hooft anomaly matching, compatible
+superpotentials, and matching central charges---yet passing such tests is not a
+proof of duality.  Toric quiver theories offer structured examples in which
+Seiberg-dual phases and superpotentials can be represented symbolically
+\cite{Feng:2001bn}.  This makes them suitable for studying a deliberately
+narrow interface: can an exact checker detect a corrupted claim, expose a
+useful failure state, and certify a repaired claim without pretending to settle
+the underlying infrared equivalence?
 
-\section{Experimental design and frozen protocol}
-\todo{arms: single-shot, generic retry (K=5), verifier feedback
-medium (K=5), masked feedback (E5 control, neutral positional
-placeholders), best-of-11 (E4 control, independent draws, stop at first
-final certificate); full-theory edit mode; complete component collection
-+ deterministic stop-first portfolio replay (protocol section 4).
-Endpoints E1--E5; paper-wide Holm over \{E1,E2,E4\}x\{2 models\};
-logit-link GEE, fixture-clustered sandwich, standardized marginal risk
-difference. Protocol frozen at commit 813fdb0 BEFORE any confirmatory
-response; execution manifest with prompt/config/fixture hashes.
-R=3 replications per cell. Disclosure: the class-level ``two-regime''
-hypothesis from the pilot was post hoc and is NOT a confirmatory claim.}
+We answer this question with \toolname.  The system accepts a pair of encoded
+quiver gauge theories, evaluates a fixed set of obligations, and emits a
+certificate containing the result of each check together with assumptions,
+conventions, and limitations.  We then deliberately perturb known
+machine-generated dual pairs and ask language models to repair the corrupted
+magnetic theory.  The final checker is held fixed, models cannot modify its
+settings, and every accepted output must pass a stricter final check than the
+feedback-time check.
 
-\section{Pilot phase (exploratory)}
-\todo{auditable qwen pilot (ss 13/145, gr 19, vf 21, det 32; paired
-tables) in one subsection; UNVERIFIABLE legacy deepseek aggregates
-(records lost) in a separate subsection, labeled as such, excluded from
-inference. Frozen pilot top-line sentence goes here verbatim. The pilot
-motivated: E5 masked control, E4 call-cap control, invalid-decomposition
-reporting.}
+The paper has three empirical rungs, ordered from the least to the most
+strategy-specific.
+
+\begin{enumerate}[leftmargin=2.1em,itemsep=0.25em]
+  \item \textbf{Certificate substrate.}  We define an executable consistency
+  interface for a scoped class of Seiberg-duality claims.  This is an auditable
+  necessary-condition checker, not a proof system for duality.
+  \item \textbf{Iteration plus exact filtering.}  On both confirmatory models,
+  as many as five failure-only generic retries improve certified repair over a single
+  attempt.  This endpoint bundles a larger call budget with exact rejection;
+  it does not isolate a causal effect of feedback.
+  \item \textbf{Search-policy reversal under an equal call cap.}  A frozen
+  sequential portfolio and independent best-of-11 resampling have opposite
+  orderings on the two tested models.  Hence neither policy should be reported
+  as universally optimal.
+\end{enumerate}
+
+Two narrower controls ask whether the content of the verifier response matters.
+They support that conclusion for \qwcode{} but not for \dscode{}.  Across all
+comparisons, the invariant is the certificate: whichever search policy is used,
+success has the same exact and inspectable definition.
+
+\paragraph{Relation to verifier-guided reasoning.}
+Candidate generation followed by a learned verifier can improve answer
+selection in mathematical word problems \cite{Cobbe:2021verifiers}; formal
+autoformalization can instead filter candidates using a proof assistant's
+internal consistency checks \cite{Zhou:2024verify}.  These are materially
+different forms of verification.  \toolname{} is a deterministic,
+domain-specific symbolic checker, neither a learned reward model nor a general
+proof assistant.  Work on intrinsic self-correction also cautions against
+assuming that a model can reliably repair its own reasoning without an external
+signal \cite{Huang:2024selfcorrect}.  Our experiments isolate several ways of
+using such a signal, rather than treating ``verifier feedback'' as a single
+intervention.
+
+\section{Consistency certificates for duality claims}
+\label{sec:certificates}
+
+\subsection{Claim schema and certificate semantics}
+
+An input claim contains two fully specified gauge-theory descriptions, called
+Theory A and Theory B.  Each description records gauge nodes and ranks, chiral
+fields and representations, global and $R$-charges, and a polynomial
+superpotential.  The representation is intentionally explicit: the checker
+does not infer missing matter, repair syntax, or reinterpret conventions.  A
+model participating in the repair benchmark must return a complete replacement
+for Theory B; Theory A is immutable.
+
+For each obligation $o$, the checker returns a named status and diagnostic
+payload.  The certificate is the tuple
+\begin{equation}
+  C=(\mathcal O,\,s,\,A,\,K,\,L),
+\end{equation}
+where $\mathcal O$ is the ordered obligation set, $s(o)$ is the result of each
+obligation, $A$ records assumptions, $K$ records conventions, and $L$ records
+known limitations.  The outward-facing result is either an in-scope consistency
+certificate, a failed obligation set, or an out-of-scope/invalid result.  In
+particular,
+\begin{equation}
+  C=\textsc{certified}\quad\not\Rightarrow\quad
+  \text{Theory A and Theory B are proven infrared duals}.
+\end{equation}
+It means only that the supplied claim passed every enabled, finite obligation
+under the recorded assumptions.
+
+\subsection{Enabled obligations}
+\label{sec:obligations}
+
+The frozen repair profile enables four obligation families.
+
+\begin{description}[leftmargin=2.7cm,style=nextline,itemsep=0.35em]
+  \item[Anomalies.] Gauge-cubic consistency and selected mixed gauge--global
+  anomalies are checked within each theory; matched global 't Hooft anomaly
+  coefficients are then compared across the proposed pair.
+  \item[Superpotential.] Every encoded monomial must be gauge-admissible under
+  the implemented representation rules and have total $R$-charge two.  The
+  check uses the charges supplied in the claim rather than performing
+  $a$-maximization.
+  \item[Central charges.] The anomaly traces of the encoded fermionic
+  $R$-charges are converted to
+  \begin{equation}
+    a=\frac{3}{32}\!\left(3\operatorname{Tr}R^3-\operatorname{Tr}R\right),
+    \qquad
+    c=\frac{1}{32}\!\left(9\operatorname{Tr}R^3-5\operatorname{Tr}R\right),
+  \end{equation}
+  and compared between the two descriptions \cite{Anselmi:1997am}.  These are
+  conditional values for the supplied $R$-assignment, not an independent
+  determination of the superconformal $R$-symmetry.
+  \item[Bounded chiral ring.] Cyclic single-trace words are enumerated up to a
+  fixed cutoff, quotiented by the implemented F-term relations and cyclic
+  rotations, and compared block by block.  The construction is finite and
+  classical: it does not include quantum corrections, all trace identities, or
+  operators beyond the cutoff.
+\end{description}
+
+The bounded chiral-ring calculation builds cyclic paths from the quiver,
+computes cyclic derivatives of the superpotential, closes those relations under
+admissible left and right contexts, and compares quotient dimensions in each
+tested degree.  The frozen profile uses $R$-degree when singlets make path
+length an unsuitable grading and path length otherwise.  A match is therefore
+a necessary finite-cutoff check, not a claim that the full chiral rings are
+isomorphic.
+
+\subsection{Two checker depths and an immutable acceptance rule}
+
+Interactive policies receive a bounded chiral-ring check through degree
+$L_{\mathrm{fb}}=3$.  Final acceptance is recomputed from scratch using
+$L_{\mathrm{final}}=5$.  The stricter second pass prevents a candidate from
+being accepted merely because it overfits the visible feedback horizon.  A
+candidate that fails to parse, copies Theory A verbatim, changes verifier
+settings, or leaves the checker scope receives no certificate.  The model never
+edits code or executes the verifier; it only proposes structured theory data.
+
+This interface separates three roles that are often conflated:
+
+\begin{center}
+\begin{tabular}{p{0.22\textwidth}p{0.29\textwidth}p{0.38\textwidth}}
+\toprule
+Component & Role in the experiment & What it does not establish \\
+\midrule
+Generator & Proposes a repaired Theory B & Correctness or physical equivalence \\
+Feedback view & Selects which diagnostic text, if any, is returned & A different success criterion \\
+Final verifier & Applies one immutable acceptance predicate & Sufficiency of the checked conditions \\
+Certificate log & Preserves obligations, states, and decisions & A formal proof term \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Frozen repair benchmark and experimental design}
+\label{sec:design}
+
+\subsection{Fixtures}
+
+The benchmark contains 145 repairable depth-one fixtures generated with seed
+20260715.  They are nested in 14 theory--node bases drawn from six toric-quiver
+families: $dP_0$, $dP_1$, $dP_2$, $F_0$, SPP, and
+$\mathbb C^3/(\mathbb Z_2\!\times\!\mathbb Z_2)$.  Starting from a valid
+machine-generated dual pair, the fixture generator applies exactly one
+perturbation to Theory B.  The locked set contains 38 dropped
+superpotential terms, 13 superpotential-sign flips, 52 $R$-charge
+perturbations, and 42 rank perturbations.  Every fixture is regenerated and
+screened before use: the unperturbed pair must pass the final checker, the
+perturbed pair must fail, and the target repair must be recoverable by the
+allowed output schema.
+
+The number 145 counts perturbations, not 145 statistically independent physical
+theories.  The fixed benchmark is a controlled software test bed with repeated
+variants of shared bases.  It supports comparisons on these named fixtures; it
+does not by itself estimate performance over a population of quiver theories.
+
+\subsection{Policies}
+\label{sec:policies}
+
+Each model receives the same serialized fixture and full-theory output contract.
+The five policies differ only in call allocation and the diagnostic content
+returned after a failed candidate.
+
+\begin{description}[leftmargin=3.2cm,style=nextline,itemsep=0.35em]
+  \item[\ssarm.] One candidate is sampled and final-checked.
+  \item[\grarm.] As many as five candidates are sampled.  After a failure the
+  model receives a generic message that the proposed theory did not pass and
+  should be revised, but no obligation identity.
+  \item[\vfarm.] The same five-call limit is used, but a failed round returns
+  the names and coarse categories of failed obligations.
+  \item[\maskedarm.] The same interaction structure as \vfarm{} is retained,
+  while obligation names are replaced by neutral positional placeholders.
+  This controls for the presence and shape of a diagnostic list, but not for
+  every possible attention effect of the placeholder tokens.
+  \item[\bonarm.] Eleven independent candidates are drawn from the original
+  prompt and passed through the final checker; the first certified candidate is
+  selected.  No failure information is fed into later draws.
+\end{description}
+
+The E4 portfolio is a deterministic replay of independently collected
+\ssarm{}, \grarm{}, and \vfarm{} trajectories in the frozen order
+$\ssarm\rightarrow\grarm\rightarrow\vfarm$, stopping at the first final
+certificate or after 11 calls.  It is compared with \bonarm{} under the same
+maximum number of calls.  Because response lengths and early stopping differ,
+this is a call-cap match, not a token-, latency-, or dollar-cost match.
+
+\subsection{Endpoints and estimand}
+
+The binary outcome $Y_{imr}$ is one if fixture $i$, model $m$, and replication
+$r$ end with a final certificate.  Three confirmatory endpoints form the main
+family:
+\begin{align*}
+  \mathrm{E1}&:\ \vfarm-\grarm &&\text{(category-level feedback content)},\\
+  \mathrm{E2}&:\ \grarm-\ssarm &&\text{(iteration plus exact filtering)},\\
+  \mathrm{E4}&:\ \text{portfolio}-\bonarm
+    &&\text{(two verifier-exploitation policies at 11 calls)}.
+\end{align*}
+E5 compares \vfarm{} with \maskedarm{} and has a separate two-hypothesis
+family.  E3 compares their first-round outcomes descriptively, before either arm
+can receive feedback.
+
+For each model and endpoint we fit a logit-link generalized estimating equation
+with arm and replication fixed effects, fixture clusters, exchangeable working
+correlation, and a robust sandwich covariance estimator
+\cite{Liang:1986gee}.  We report standardized marginal risk differences in
+percentage points with robust 95\% confidence intervals.  The six tests in
+$\{\mathrm{E1},\mathrm{E2},\mathrm{E4}\}\times\{\dscode,\qwcode\}$ receive
+one paper-wide Holm adjustment \cite{Holm:1979multiple}; E5 is adjusted within
+its own two-model family.  Each arm has three complete replications over all 145
+fixtures.
+
+The protocol, prompts, fixture hashes, model aliases, stopping rules, and
+analysis code were pre-specified and git-frozen before confirmatory response
+collection (protocol commit \texttt{813fdb0}; execution-manifest commit
+\texttt{c155cff}).  We use ``git-frozen'' rather than ``pre-registered'': the
+record is public and immutable at the cited commits, but it was not deposited in
+an external registration service.  The provider model names are rolling API
+aliases queried in July 2026, not immutable weight hashes.
 
 \section{Confirmatory results}
+\label{sec:results}
 
-Table~\ref{tab:primary} reports the frozen endpoints; Table~\ref{tab:perrep}
-the underlying per-replication success counts.
+\subsection{Generic retry improves over one attempt on both models}
+
+% claim:C3@supported
+The broadest replicated result is E2.  Relative to \ssarm{}, \grarm{} increased
+the standardized certified-repair rate by $8.3\pp$ for \dscode{} (95\% CI
+$[3.8,12.8]$, Holm-adjusted $p=0.0015$) and by $7.1\pp$ for \qwcode{} (95\%
+CI $[3.2,11.1]$, Holm-adjusted $p=0.0016$).  This comparison establishes the
+value of the tested \emph{iteration-and-filtering bundle}: \grarm{} receives as
+many as five model calls whereas \ssarm{} receives one.  It does not identify a
+feedback-only mechanism or hold compute fixed.
+
+\subsection{Equal-call policies reverse order across models}
+
+% claim:C4@supported
+E4 changes the comparison while holding the maximum number of model calls at
+11.  On \dscode{}, the sequential portfolio was worse than independent
+verifier-filtered resampling by $10.3\pp$ (95\% CI $[-16.2,-4.5]$,
+Holm-adjusted $p=0.0016$).  On \qwcode{}, the same frozen portfolio was better
+by $14.7\pp$ (95\% CI $[8.4,21.0]$, Holm-adjusted $p<10^{-4}$).  Figure
+\ref{fig:e4} displays the reversal; Table~\ref{tab:primary} reports every frozen
+endpoint.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=0.95cm,y=1.0cm]
+  \draw[->] (-4.15,0) -- (4.45,0);
+  \foreach \x/\lab in {-4/-20,-2/-10,0/0,2/10,4/20}{
+    \draw (\x,0.08)--(\x,-0.08) node[below=2pt]{\lab};
+  }
+  \draw[gray,dashed] (0,0.2)--(0,2.55);
+  \node[anchor=east] at (-4.2,2.0){\dscode};
+  \node[anchor=east] at (-4.2,1.0){\qwcode};
+  \draw[line width=1.2pt] (-3.24,2.0)--(-0.90,2.0);
+  \fill (-2.06,2.0) circle (2.4pt);
+  \node[anchor=west] at (-0.82,2.0){$-10.3$};
+  \draw[line width=1.2pt] (1.68,1.0)--(4.20,1.0);
+  \fill (2.94,1.0) circle (2.4pt);
+  \node[anchor=east] at (1.60,1.0){$+14.7$};
+  \node[font=\small] at (-2.0,2.55){best-of-11 favored};
+  \node[font=\small] at (2.0,2.55){portfolio favored};
+\end{tikzpicture}
+\caption{E4 standardized risk differences and robust 95\% confidence
+intervals.  The maximum call budget is 11 for both policies; the comparison is
+not matched on generated tokens or cost.}
+\label{fig:e4}
+\end{figure}
+
+The result is an interaction between the named policy implementations and the
+two named model endpoints.  It does not license a taxonomy in which one model
+is intrinsically a ``sampler'' and the other a ``feedback follower,'' nor does
+it prove that either allocation is optimal.  The portfolio changes prompt
+content, sequential dependence, and call allocation together.  E4 therefore
+supports an existence claim---a policy ordering can reverse across models---not
+a general model classification.
+
+\subsection{Diagnostic content has a narrower effect}
+
+% claim:C5@supported
+E1 and E5 probe the content of the failure message.  For \dscode{},
+category-level verifier feedback did not improve on generic retry (E1:
+$-1.8\pp$, 95\% CI $[-6.6,3.0]$, adjusted $p=0.4528$), and the contrast with
+structurally matched masked feedback was exactly $0.0\pp$ (E5: 95\% CI
+$[-4.6,4.6]$, adjusted $p=1$).  For \qwcode{}, \vfarm{} improved on
+\grarm{} by $8.7\pp$ (95\% CI $[3.8,13.7]$, adjusted $p=0.0016$) and on
+\maskedarm{} by $6.4\pp$ (95\% CI $[2.2,10.7]$, adjusted $p=0.0065$).
+First-round E3 differences were small and are descriptive only.  Thus the
+obligation labels were useful in one tested model--interface pair, but the
+shared E2 improvement cannot be attributed to diagnostic content alone.
 
 \begin{table}[t]
 \centering
-\input{tables/primary}
-\caption{Frozen GEE endpoints (standardized marginal risk differences in
-percentage points, fixture-clustered robust 95\% CIs). The primary family
-\{E1, E2, E4\} $\times$ \{\dscode{}, \qwcode{}\} carries one paper-wide
-Holm adjustment; E5 has its own two-hypothesis family;
-$\dagger$: E3 is reported descriptively (unadjusted).}
+\resizebox{\textwidth}{!}{\input{tables/primary}}
+\caption{Frozen GEE endpoints: standardized marginal risk differences in
+percentage points with fixture-clustered robust 95\% confidence intervals.
+E1, E2, and E4 across the two models share one paper-wide Holm family; E5 has a
+separate two-model family.  $\dagger$ marks descriptive, unadjusted E3 tests.}
 \label{tab:primary}
 \end{table}
 
-\begin{table}[t]
+Taken together, the three rungs distinguish a stable substrate from unstable
+policy rankings.  The exact certificate made retry, content-bearing repair, and
+independent resampling directly comparable.  Which of those uses performed best
+depended on the model endpoint and call allocation; what counted as a successful
+repair did not.
+
+\section{Discussion and limitations}
+\label{sec:discussion}
+
+\paragraph{What has been shown.}
+On a fixed, git-frozen benchmark, an executable necessary-condition checker can
+serve as a common acceptance predicate for several language-model search
+policies.  More calls plus exact filtering beat one call on both tested models,
+and two equal-call policies changed order across those models.  The main result
+is therefore about the experimental value of a machine-checkable substrate and
+the danger of universal policy claims, not about automated discovery of new
+dualities.
+
+\paragraph{Certificates are not proofs.}
+The implemented obligations are necessary and scoped.  In particular, the
+chiral-ring comparison is bounded and classical, the central charges are
+conditional on encoded $R$-charges, and the checker does not establish
+renormalization-group flow, accidental symmetries, a superconformal index
+identity, or a full operator map.  False positives relative to physical duality
+can therefore pass.  Conversely, a true duality outside the representation or
+convention set can be rejected as out of scope.
+
+\paragraph{Benchmark scope.}
+The 145 fixtures are one-edit perturbations of 14 shared bases in six families.
+They measure repair on those perturbations, not independent discovery and not
+population-level accuracy over four-dimensional quantum field theories.  The
+generated targets and exact corruption classes may also favor localized edits.
+Harder multi-edit fixtures are useful exploratory stress tests but are excluded
+from the confirmatory claims here.
+
+\paragraph{Model and interface scope.}
+Only two provider-hosted, rolling model aliases enter the reported confirmatory
+comparison.  The results can change with weights, serving stacks, prompts, or
+serialization.  E1 changes diagnostic content but does not remove all semantic
+differences between messages; E5 matches list structure more closely, yet
+neutral placeholders can still affect attention.  Neither contrast identifies
+a universal causal quantity called ``feedback quality.''
+
+\paragraph{Resource accounting.}
+E4 equalizes the maximum number of model calls, not tokens, latency, energy, or
+money.  Early stopping makes realized resources policy-dependent.  A deployment
+claim would require reporting both certification rate and the resource measure
+that actually matters in that setting.
+
+\paragraph{Artifact status.}
+The repository contains the implementation, deterministic fixture generator,
+frozen protocol, execution manifest, analysis code, and generated summary
+tables used in this draft.  A submission artifact should additionally include
+the complete per-round audit logs, a clean-machine reproduction check, and
+immutable archival identifiers.  Until that bundle is deposited, we do not
+claim that every raw response is publicly archived.
+
+\section{Conclusion}
+
+\toolname{} demonstrates a modest but reusable pattern for computational
+theory work: express a scoped physical claim as typed data, expose explicit
+necessary obligations, keep a stricter final checker immutable, and record the
+result as a certificate whose limitations travel with it.  On the frozen repair
+benchmark, this substrate supported both generic retry and more structured
+search, while the preferred equal-call policy reversed between the two tested
+models.  The scientifically durable object is therefore the exact acceptance
+interface and its audit trail, not a universal recipe for how a language model
+should exploit it.
+
+The broader \textsc{QFTCert} program is to extend this approach beyond the
+present toric-quiver test bed: additional theory schemas, richer operator maps,
+independent symbolic backends, and eventually bridges to formal proof systems.
+Each extension should preserve the same discipline---state what is checked,
+state what remains an assumption, and never promote a finite consistency
+certificate into a proof of quantum-field-theory equivalence.
+
+\appendix
+
+\section{Obligation details and checker boundary}
+\label{app:checker}
+
+Table~\ref{tab:obligation-boundary} summarizes the enabled obligation families
+and the most important boundary of each check.  The certificate serializes these
+boundaries so that downstream users do not need to infer them from a success
+bit.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{p{0.23\textwidth}p{0.30\textwidth}p{0.36\textwidth}}
+\toprule
+Check & Computed object & Principal boundary \\
+\midrule
+Anomaly matching & Symbolic traces from encoded representations and charges
+  & Implemented groups, conventions, and mapped symmetries only \\
+Superpotential & Gauge structure and monomial $R$-charge
+  & Supplied polynomial; no dynamical generation of terms \\
+Central charges & $a,c$ from $\operatorname{Tr}R$ and $\operatorname{Tr}R^3$
+  & Supplied $R$; no $a$-maximization or accidental symmetries \\
+Bounded chiral ring & Quotient dimensions of cyclic paths by F-terms
+  & Finite degree, single-trace, classical relations \\
+\bottomrule
+\end{tabular}
+\caption{The enabled checker profile and its interpretation.}
+\label{tab:obligation-boundary}
+\end{table}
+
+At feedback time, failed low-level obligations are mapped to stable public
+categories before they are shown to a model.  Final evaluation does not trust
+the interactive state: the candidate is parsed afresh, checked at the stricter
+cutoff, and collapsed to the binary in-scope outcome used by the statistical
+analysis.  Invalid and out-of-scope outputs remain distinct in the raw audit
+record even though neither counts as certified repair.
+
+\section{Fixture construction and policy replay}
+\label{app:fixtures}
+
+The fixture pipeline is deterministic given its seed and locked configuration.
+For each selected theory--node base it generates the target dual description,
+applies a candidate corruption, and retains the result only after the three
+gates described in Section~\ref{sec:design}.  The committed fixture file,
+configuration, prompts, and execution manifest are content-hashed.  This guards
+against accidental benchmark drift; it does not prevent overfitting by future
+work once the benchmark is public.
+
+The E4 portfolio is computed by deterministic replay rather than by making a
+new adaptive API run.  Replaying complete component trajectories makes the
+stopping rule auditable and ensures that the comparison does not benefit from a
+new model sample.  The replay order, call cap, invalid-output treatment, and
+first-certificate stopping rule are fixed in the protocol.
+
+\section{Statistical specification}
+\label{app:statistics}
+
+For a given model and endpoint, let $A\in\{0,1\}$ select the two policies and
+let $r\in\{1,2,3\}$ index the replication.  The fitted mean model is
+\begin{equation}
+  \operatorname{logit}\{\Pr(Y_{ir}=1)\}
+  =\beta_0+\beta_A A+\beta_2\mathbf 1(r=2)+\beta_3\mathbf 1(r=3).
+\end{equation}
+Fixtures define clusters and an exchangeable working correlation is used across
+the repeated policy--replication observations for each fixture.  Inference uses
+the robust sandwich covariance.  The reported risk difference averages fitted
+probabilities over the locked fixture--replication grid under $A=1$ and $A=0$;
+confidence intervals use the delta method.  Holm adjustment is applied to raw
+two-sided Wald $p$-values in the families stated in Section~\ref{sec:design}.
+Fixture clustering accounts for repeated observations of the same corruption,
+but not for possible dependence between distinct corruptions sharing a
+theory--node base.  The intervals are therefore conditional benchmark
+comparisons and should not be read as sampling uncertainty for a population of
+gauge theories.
+
+\section{Per-replication results and resource counts}
+\label{app:tables}
+
+\begin{table}[ht]
 \centering
 \input{tables/per_rep}
-\caption{Per-replication verifier-certified repair counts (out of 145)
-for every policy, model, and replication.}
+\caption{Final-check certified repairs in each complete replication.}
 \label{tab:perrep}
 \end{table}
 
-\todo{prose for the three claims: (1) E2 replicated on both models;
-(2) opposite-signed E1/E4/E5 => sampler-type (deepseek) vs
-feedback-follower (qwen); note deepseek E5 RD exactly 0.0 (64 vs 64);
-(3) certificate-as-invariant framing. Report validity-discordance
-decomposition and per-class descriptive tables (appendix) with NO
-significance language. Budget: Table~\ref{tab:cost}.}
-
-\begin{table}[t]
+\begin{table}[ht]
 \centering
 \input{tables/cost}
-\caption{Confirmatory-campaign compute accounting (all calls including
-failures; protocol section 11).}
+\caption{Confirmatory calls and token accounting for the two reported models,
+including failed calls.  These totals cover the collected policy trajectories;
+they are not an equal-cost comparison of E4 policies.}
 \label{tab:cost}
 \end{table}
 
-\section{Exploratory extensions}
-\todo{depth-2 collapse (difficulty dial; all strategies to the floor);
-frustration cheating (copy-rate explodes with difficulty, guard
-integrity); interface floor across model ladder (gemini-lite/8B below
-floor; frontier-lite pilot: gemini-3.5-flash 0/17 single-shot; Sonnet
-4.6 blind-detection degeneracy); per-class heterogeneity descriptive
-forest plot; MiniMax scout/extension IF the scout is clean
-\todo{pending scout}.}
+\section{Reproduction anchors}
+\label{app:reproduction}
 
-\section{Related work}
-\todo{AI4Math verifier-in-the-loop (AlphaProof, LeanDojo lineage);
-LLM self-correction literature (intrinsic self-correction fails;
-external verifiers help); rejection sampling / best-of-N with reward
-models vs our exact symbolic filter; physics-domain LLM benchmarks.}
+The frozen protocol is identified by commit \texttt{813fdb0} and the execution
+manifest by commit \texttt{c155cff}.  The manifest records the locked fixture
+path and hash, repair configuration, prompt hashes, provider aliases, random
+seed policy, and expected output locations.  Summary tables in this manuscript
+are generated from machine-readable analysis output rather than hand-entered
+counts.  A release candidate should be accepted only after fixture
+regeneration, result validation, table regeneration, and a clean LaTeX build
+all succeed from a fresh checkout.
 
-\section{Limitations and outlook}
-\todo{two models => existence claim only, no strategy typology;
-single benchmark domain (4d N=1 pure-quiver Seiberg); certificates not
-proofs; depth-2 unsolved by all tested strategies; frontier suite not
-run (cost symmetry argument + pilot exhibits); masked-feedback
-placeholder-attention caveat (protocol wording verbatim).}
+% MINIMAX_PENDING: Insert only after every frozen arm required by the extension
+% is complete, validated, and analyzed.  Do not alter the two-model abstract or
+% promote an incomplete scout run into confirmatory evidence.
 
-\appendix
-\section{Frozen analysis protocol}
-\todo{include paper/analysis\_protocol.md verbatim or as artifact
-pointer + freeze/manifest commit hashes 813fdb0 / c155cff.}
-\section{Reproduction}
-\todo{commands, seeds, config hashes, expected costs; artifact layout.}
-
-\bibliographystyle{unsrtnat}
-\bibliography{refs}
+\printbibliography
 
 \end{document}

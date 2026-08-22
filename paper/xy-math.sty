@@ -1,11 +1,15 @@
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesPackage{xy-math}[2025/12/12 Math macros]
 
-\RequirePackage{mathtools}
+\makeatletter
+\@ifundefined{Bbbk}{}{\let\Bbbk\relax}
+\makeatother
+
+\RequirePackage{amsmath,amssymb,amsfonts,mathtools}
 \RequirePackage{braket}
 \RequirePackage{bm}
 
-% Safe “accent” shortcuts: do NOT overwrite \hat, \tilde, \bar
+% Safe accent shortcuts: do not overwrite \hat, \tilde, \bar
 \newcommand{\what}[1]{\widehat{#1}}
 \newcommand{\wtilde}[1]{\widetilde{#1}}
 \newcommand{\wbar}[1]{\overline{#1}}

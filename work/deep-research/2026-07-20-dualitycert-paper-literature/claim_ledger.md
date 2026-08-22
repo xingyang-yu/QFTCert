@@ -1,0 +1,13 @@
+# Claim Ledger
+
+| ID | Claim | Support | Sources | Confidence | Scope limits | Refutation check |
+| --- | --- | --- | --- | --- | --- | --- |
+| C1 | DualityCert returns machine-checkable consistency certificates, not proofs of duality. | Certificate implementation and explicit limitations | S4, S5 | high | Implemented obligations and stated cutoffs only | Search code and prose for proof-like outward claims |
+| C2 | The confirmatory estimand is performance on a fixed 145-fixture benchmark for named provider/model configurations. | Frozen scope clause | S1, S2 | high | No new-fixture or future-model generalization | Check every abstract/result quantifier |
+| C3 | Generic retry outperformed single shot on both confirmatory models under unequal 5-vs-1 call caps. | Frozen GEE analysis | S1, S3 | high | Iteration+filtering bundle; not a pure feedback effect | Verify arm caps and exact intervals |
+| C4 | The ordering of the frozen portfolio and best-of-11 control reversed across the two confirmatory models under an equal call cap. | Frozen GEE analysis | S1, S3, S6 | high | Call-matched, not token/compute-matched; two named models | Check policy definitions and forbid optimality claims |
+| C5 | The value of interpretable obligation feedback is narrower and model-specific in the evaluated sample. | E1/E5 contrasts | S1, S3, S6 | high | E5 is secondary and masked prompts may change attention | Keep E5 out of headline family |
+| C6 | Formal proof environments can provide programmatic state transitions and exact acceptance feedback to learning agents. | LeanDojo and AlphaProof descriptions | S11, S12 | high | Formal mathematics only; DualityCert is not a proof assistant | Search prose for Lean-equivalence language |
+| C7 | Verifier-guided candidate selection has improved performance on particular mathematical reasoning benchmarks. | GSM8K verifier and Isabelle-filtering studies | S13, S15 | high | Task-specific; learned and formal verifiers differ | Do not claim universal benefit from verification |
+| C8 | Intrinsic, feedback-free self-correction has shown mixed or degrading behavior in studied reasoning tasks. | ICLR study and reviewer-qualified scope | S14 | medium | Specific prompts, datasets, and models; not an impossibility result | State only that iteration without trustworthy feedback is unreliable in those settings |
+| C9 | Toric quiver phases provide a recognized setting in which Seiberg duality relates distinct gauge-theory descriptions. | Original and toric-duality papers | S7, S10 | high | The benchmark still checks bounded necessary conditions, not IR equivalence | Keep implementation claims separate from physics literature claims |

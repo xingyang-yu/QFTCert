@@ -1,13 +1,13 @@
 \begin{tabular}{llrrr}
 \toprule
-model & endpoint & RD (pp) & 95\% CI & $p_{\mathrm{Holm}}$ \\
+model & endpoint & RD (pp) & 95\% CI & $p$ value \\
 \midrule
 \textsc{deepseek-chat} & E1: feedback content (vf $-$ gr) & -1.8 & [-6.6, +3.0] & 0.4528 \\
 \textsc{deepseek-chat} & E2: iteration+filter (gr $-$ ss) & +8.3 & [+3.8, +12.8] & 0.0015 \\
 \textsc{deepseek-chat} & E4: portfolio $-$ best-of-11 & -10.3 & [-16.2, -4.5] & 0.0016 \\
 \textsc{qwen-plus} & E1: feedback content (vf $-$ gr) & +8.7 & [+3.8, +13.7] & 0.0016 \\
 \textsc{qwen-plus} & E2: iteration+filter (gr $-$ ss) & +7.1 & [+3.2, +11.1] & 0.0016 \\
-\textsc{qwen-plus} & E4: portfolio $-$ best-of-11 & +14.7 & [+8.4, +21.0] & 0.0000 \\
+\textsc{qwen-plus} & E4: portfolio $-$ best-of-11 & +14.7 & [+8.4, +21.0] & $<0.0001$ \\
 \midrule
 \textsc{deepseek-chat} & E5: obligation identity (vf $-$ masked) & +0.0 & [-4.6, +4.6] & 1.0000 \\
 \textsc{qwen-plus} & E5: obligation identity (vf $-$ masked) & +6.4 & [+2.2, +10.7] & 0.0065 \\

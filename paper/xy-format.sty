@@ -4,7 +4,7 @@
 \RequirePackage[T1]{fontenc}
 \RequirePackage{newtxtext,newtxmath}
 \RequirePackage[tracking=true]{microtype}
-\RequirePackage[a4paper,margin=32mm]{geometry}
+\RequirePackage[letterpaper,margin=32mm]{geometry}
 
 % clickable citations in dark red, section refs in blue, equation refs in green
 \RequirePackage{xcolor}
@@ -22,9 +22,20 @@
 \renewcommand{\Authsep}{, }
 \renewcommand{\Authand}{, }
 \renewcommand{\Authands}{, }
-\setkomafont{section}{\normalfont\bfseries\Large}
-\setkomafont{subsection}{\normalfont\bfseries}
-\setkomafont{subsubsection}{\normalfont\bfseries}
+% KOMA-Script and sectsty are incompatible.  Preserve the template's visual
+% hierarchy while selecting the native section-font interface under scrartcl.
+\makeatletter
+\@ifclassloaded{scrartcl}{%
+  \setkomafont{section}{\normalfont\bfseries\Large}%
+  \setkomafont{subsection}{\normalfont\bfseries}%
+  \setkomafont{subsubsection}{\normalfont\bfseries}%
+}{%
+  \RequirePackage{sectsty}%
+  \allsectionsfont{\normalfont\bfseries}%
+  \sectionfont{\normalfont\bfseries\Large}%
+  \subsectionfont{\normalfont\bfseries}%
+}
+\makeatother
 \RequirePackage{graphicx}
 \RequirePackage{booktabs}
 \RequirePackage{caption}
@@ -36,7 +47,7 @@
 % paragraph style
 \setlength{\parindent}{1.6em}
 \setlength{\parskip}{0.35\baselineskip plus 0.05\baselineskip minus 0.02\baselineskip}
-\linespread{1.06}
+\linespread{1.13}
 
 
 \makeatletter

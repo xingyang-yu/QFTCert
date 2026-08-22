@@ -20,6 +20,8 @@ build/
 *.fdb_latexmk
 *.bbl
 *.blg
+*.bcf
+*.run.xml
 
 # LLM trace outputs (local dev artifacts, not committed)
 traces/*
