@@ -1,0 +1,140 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{xy-format}[2025/12/12 minimal+bookish stable]
+
+\RequirePackage[T1]{fontenc}
+\RequirePackage{newtxtext,newtxmath}
+\RequirePackage[tracking=true]{microtype}
+\RequirePackage[a4paper,margin=32mm]{geometry}
+
+% clickable citations in dark red, section refs in blue, equation refs in green
+\RequirePackage{xcolor}
+\RequirePackage{xparse}
+\definecolor{xycitered}{RGB}{128,0,0}
+\definecolor{xysecrefblue}{RGB}{28,86,140}
+\definecolor{xyeqrefgreen}{RGB}{0,105,82}
+\RequirePackage[colorlinks=true,linkcolor=xysecrefblue,citecolor=xycitered,urlcolor=black]{hyperref}
+
+\AtBeginDocument{%
+  \RenewDocumentCommand{\eqref}{m}{\hyperref[#1]{\textcolor{xyeqrefgreen}{(\ref*{#1})}}}%
+}
+\RequirePackage{authblk}
+\setlength{\affilsep}{0.2em}
+\renewcommand{\Authsep}{, }
+\renewcommand{\Authand}{, }
+\renewcommand{\Authands}{, }
+\RequirePackage{sectsty}
+\allsectionsfont{\normalfont\bfseries}
+\RequirePackage{graphicx}
+\RequirePackage{booktabs}
+\RequirePackage{caption}
+\RequirePackage{abstract}
+\renewcommand{\abstractnamefont}{\normalfont\bfseries}
+\renewcommand{\abstracttextfont}{\normalfont}
+\captionsetup{font=small,labelfont=bf}
+
+\sectionfont{\normalfont\bfseries\Large}
+\subsectionfont{\normalfont\bfseries}
+
+
+% paragraph style
+\setlength{\parindent}{1.6em}
+\setlength{\parskip}{0.35\baselineskip plus 0.05\baselineskip minus 0.02\baselineskip}
+\linespread{1.06}
+
+
+\makeatletter
+\@addtoreset{equation}{section}
+\renewcommand{\theequation}{\thesection.\arabic{equation}}
+\renewcommand{\theHequation}{\thesection.\arabic{equation}}
+\makeatother
+
+% --- Title (DO NOT use \thetitle/\theauthor; use \@title/\@author)
+\makeatletter
+\renewcommand{\maketitle}{%
+  \vspace*{5em}
+  \begin{center}
+    {\Large\bfseries \@title\par}
+    \vspace{2em}
+
+    % --- Let authblk print author + affiliation
+    {\normalsize
+      \renewcommand\Authfont{\normalfont}
+      \renewcommand\Affilfont{\normalfont\small}
+      \AB@authlist\par
+      \vspace{2em}
+      \AB@affillist\par
+    }
+
+    \ifx\@date\@empty\else
+      \vspace{0.3em}{\normalsize \@date\par}
+    \fi
+  \end{center}
+  \vspace*{3em}
+}
+\makeatother
+
+% --- Abstract subtle bookish style
+\makeatletter
+\renewcommand{\abstractname}{Abstract}
+
+% Artistic but restrained abstract label
+\newcommand{\xyabstractlabel}{%
+  {\normalfont\scshape\bfseries\textls[80]{\abstractname}\kern0.04em.}%
+}
+
+\renewenvironment{abstract}{%
+  \par\begingroup
+  \abstracttextfont
+  \SetTracking{encoding=T1}{15}%
+  \noindent\xyabstractlabel\quad\ignorespaces
+}{%
+  \par
+  \endgroup
+  \vspace{1.2em}
+}
+\makeatother
+
+% =========================
+% Bibliography: bookish look
+% =========================
+\RequirePackage[
+  backend=biber,
+  style=alphabetic,
+  sorting=nyt,
+  maxnames=99,
+  maxalphanames=999,
+  minalphanames=999,
+  doi=true,
+  eprint=true,
+  url=false
+]{biblatex}
+
+% 参考文献标题
+\defbibheading{bibliography}{\section*{References}}
+
+% 期刊名斜体（更“paper”）
+\DeclareFieldFormat{journaltitle}{\mkbibemph{#1}}
+
+% arXiv 格式：arXiv:xxxx.xxxxx [hep-th]
+\DeclareFieldFormat{eprint:arxiv}{arXiv:\space#1}
+\renewbibmacro*{eprint}{%
+  \printfield[eprint:\strfield{eprinttype}]{eprint}%
+  \iffieldundef{primaryclass}{}{%
+    \addspace[\printfield{primaryclass}]%
+  }%
+}
+
+% --- 核心：bookish 段落感（悬挂缩进 + 条目间距）
+\setlength\bibhang{2.2em}          % 悬挂缩进量（可调 2.0em~2.6em）
+\setlength\bibitemsep{0.55\baselineskip} % 条目之间的“呼吸”
+\setlength\bibparsep{0pt}          % 段落间额外距离（保持干净）
+
+% label 左侧对齐、与正文分隔合理
+\setlength\biblabelsep{0.6em}
+
+% 字体：略小一号更像书末参考文献
+\renewcommand*{\bibfont}{\small}
+
+%（可选）让 doi/arXiv 不变蓝（你现在 hidelinks 已经无色）
+% (IMPORTANT) Do NOT set KOMA fonts for toc entries here.
+% Different KOMA versions/classes expose different element names.

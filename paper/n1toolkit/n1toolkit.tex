@@ -1,0 +1,178 @@
+\documentclass[11.5pt]{scrartcl}
+
+% --- style layer (same template as the author's other notes)
+\usepackage{xy-format}
+\usepackage{xy-theorem}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\addbibresource{n1toolkit.bib}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\newcommand{\N}{\mathcal{N}}
+\newcommand{\tr}{\operatorname{Tr}}
+\newcommand{\Nc}{N_c}
+\newcommand{\Nf}{N_f}
+% TODO: pick a final name. Working name below.
+\newcommand{\toolname}{\textsc{N1obs}}
+
+\title{\toolname: a toolkit for 4d $\N=1$ superconformal observables}
+
+\author[1]{Xingyang Yu}
+\affil[1]{Department of Physics, Virginia Tech, Blacksburg, VA 24061, USA}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present \toolname, an open-source toolkit that computes the standard
+protected observables of a four-dimensional $\N=1$ superconformal field theory
+directly from its Lagrangian data: the gauge group, the matter content, and
+the superpotential. For $SU(N)$ quiver gauge theories, with optional $SU(N)$
+global flavor symmetry, the toolkit fixes the superconformal $R$-symmetry by
+$a$-maximization (returning \emph{exact} algebraic $R$-charges), and from it
+the 't~Hooft anomaly coefficients, the central charges $a$ and $c$, the
+Hofman--Maldacena and unitarity diagnostics, and the $\N=1$ superconformal
+index. Each quantity is validated against textbook results, including SQCD's
+$R = 1-\Nc/\Nf$ with matched flavor anomalies, the exact irrational central
+charges of del~Pezzo quivers, and the $s$-confinement index identity of
+$SU(2)$ with three flavors. The aim is a small, auditable calculator for these
+observables: every output is a closed-form or finite-order quantity with a
+stated convention and scope.
+\end{abstract}
+
+\section{Introduction}
+
+Many of the quantities one wants from a four-dimensional $\N=1$ superconformal
+field theory (SCFT) are fixed by symmetry and anomalies, and are therefore
+computable, in principle, by hand from the matter content and superpotential.
+In practice the bookkeeping is tedious and error-prone: $a$-maximization
+\cite{hep-th/0304128} over the abelian flavor symmetries, the trace formulas
+for the central charges $a,c$ \cite{hep-th/9708042}, the various 't~Hooft
+anomalies, and the single-letter / matrix-integral evaluation of the
+superconformal index \cite{hep-th/0510060,0801.4947,1608.02965}.
+
+\toolname{} is a small Python toolkit that automates this for $SU(N)$ quiver
+gauge theories. The input is the Lagrangian data only; the output is the set
+of protected observables, each as an exact closed form (or, for the index, a
+finite-order series) with an explicit convention. The design goal is
+\emph{auditability}: a transparent calculator one can check term by term, with
+a clearly stated scope, rather than a black box.
+
+\section{Observables}
+
+The input is a quiver: a set of $SU(N_v)$ gauge nodes, optional $SU(\Nf)$
+\emph{global} flavor nodes, bifundamental / adjoint / singlet chiral matter
+(arrows), and a single-trace superpotential $W$. \toolname{} computes the
+following.
+
+\paragraph{Superconformal $R$-symmetry.}
+The trial $R$ runs over the abelian flavor symmetries, i.e.\ the solutions of
+$R(W)=2$ that are free of the mixed gauge$^2$--$R$ (ABJ) anomaly
+$\sum_i T(r_i)(R_i-1)+T(\mathrm{adj})=0$ at every \emph{gauge} node. The
+superconformal $R$ maximizes the trial central charge
+\begin{equation}
+  a(R)=\tfrac{3}{32}\bigl(3\,\tr R^3-\tr R\bigr)
+\end{equation}
+\cite{hep-th/0304128}. The returned $R$ satisfies $R(W)=2$ and the
+gauge-anomaly conditions exactly by construction; the maximizer is solved
+exactly for small flavor dimension and, for larger dimension, recognized as an
+exact algebraic number from a high-precision numerical solution with an exact
+residual check. Theories with irrational superconformal $R$ are thus returned
+in closed form (rational, or an element of a real number field).
+
+\paragraph{Central charges and 't~Hooft anomalies.}
+From the superconformal $R$,
+\begin{equation}
+  a=\tfrac{3}{32}\bigl(3\,\tr R^3-\tr R\bigr),\qquad
+  c=\tfrac{1}{32}\bigl(9\,\tr R^3-5\,\tr R\bigr),
+\end{equation}
+together with the matched 't~Hooft anomalies of the global symmetries: $\tr R$
+and $\tr R^3$; the non-abelian flavor anomalies $SU(\Nf)^3$ and
+$SU(\Nf)^2\,U(1)_R$ (the flavor central charge being
+$k_F=-6\,[SU(\Nf)^2 U(1)_R]$ in the convention of \cite{hep-th/9708042}); and
+the abelian flavor anomalies $U(1)^3$, $U(1)^2 U(1)_R$, $U(1)$--grav$^2$, and
+$SU(\Nf)^2 U(1)$, where the abelian factors span the kernel of
+$\{R(W)=0,\ \text{gauge-anomaly-free}\}$.
+
+\paragraph{Necessary SCFT conditions.}
+Unitary 4d $\N=1$ SCFTs obey $a,c>0$ and the Hofman--Maldacena bound
+$\tfrac12\le a/c\le\tfrac32$ \cite{0803.1467}; the toolkit flags violations. It
+also reports the one-loop beta coefficients
+$b_0=3T(\mathrm{adj})-\sum_i T(r_i)$ (a diagnostic only: $b_0<0$ at a node is
+allowed, e.g.\ for a free-magnetic-phase node) and scans single-trace gauge
+invariants against the chiral-primary unitarity bound $R\ge 2/3$. These are
+\emph{necessary} conditions: passing them does not prove the existence of an
+interacting fixed point.
+
+\paragraph{Superconformal index.}
+The $\mathbb{S}^3\times\mathbb{S}^1$ index
+\cite{hep-th/0510060,0801.4947,1608.02965} is assembled from the single-letter
+chiral and vector indices, exponentiated plethystically, and projected onto
+gauge singlets by the $SU(N)$ matrix integral. The toolkit returns the
+unrefined ($p=q$) index, the index refined by abelian flavor fugacities, or
+the full two-variable index as a finite-order series in $p,q$.
+
+A single entry point returns the observables:
+\begin{verbatim}
+    obs = scft_observables(theory, flavor_ranks=[Nf, Nf])
+    # R-charges, a, c, Tr R, Tr R^3, Hofman-Maldacena,
+    # b0 / asymptotic freedom, flavor and abelian anomalies
+    I = index_series(theory, order, flavor_ranks=[Nf, Nf])
+\end{verbatim}
+
+\section{Validation}
+
+\paragraph{SQCD.}
+For $SU(\Nc)$ with $\Nf$ fundamental flavors, $a$-maximization returns
+$R_Q=1-\Nc/\Nf$; the cubic flavor anomaly is $SU(\Nf)^3=\pm\Nc$ (matched across
+Seiberg duality \cite{hep-th/9411149}), $SU(\Nf)^2 U(1)_R=-\Nc^2/(2\Nf)$ (so
+$k_F=3\Nc^2/\Nf$), the baryonic anomalies $\tr B=B^3=0$ and, in the quark
+normalization $B(Q)=+1,\ B(\widetilde Q)=-1$, $B^2 U(1)_R=-2\Nc^2$, and
+$b_0=3\Nc-\Nf$. The Hofman--Maldacena gate flags theories below the conformal
+window, for example $SU(3)$ with $\Nf=4$ ($a/c=87/247<1/2$), where the naive
+computation is not a unitary SCFT; $SU(2)$ with $\Nf=3$ instead saturates
+$a/c=1/2$, consistent with its free chiral spectrum below.
+
+\paragraph{Toric quivers and exact irrational central charges.}
+For the $dP_0=\mathbb{C}^3/\mathbb{Z}_3$ quiver at the $SU(3)^3$ ranks,
+$a=99/16$ and $c=51/8$ (the equal-rank family is $a=3(4N^2-3)/16$,
+$c=3(2N^2-1)/8$). For $dP_1=Y^{2,1}$ at the $SU(2)^4$ ranks the toolkit
+returns the exact irrational values $a=-\tfrac{739}{4}+52\sqrt{13}$ and
+$c=-\tfrac{369}{2}+52\sqrt{13}$ ($a\approx 2.7387$), in agreement with the
+$a$-maximization / Sasaki--Einstein volume-minimization correspondence
+\cite{hep-th/0503183,hep-th/0506232}.
+
+\paragraph{The index and a duality identity.}
+The free-chiral index reproduces the elliptic Gamma function. For $SU(2)$ with
+three flavors the gauge integral equals the index of fifteen free chirals at
+$R=2/3$ (the $C(6,2)$ gauge invariants of the enhanced $SU(6)$ flavor
+symmetry), the $s$-confinement identity of \cite{1608.02965,0910.5944}; the
+conifold $SU(2)\times SU(2)$ index correctly counts four mesons and six
+baryons at the lowest order.
+
+\section{Scope and limitations}
+
+The toolkit covers $SU(N)$ gauge groups with $SU(N)$ global flavor symmetry and
+bifundamental / adjoint / singlet matter with single-trace superpotentials;
+$SO/Sp$ gauge groups are a natural extension and are not yet implemented. The
+index is a finite-order series (so duality checks are to a chosen order), and
+the gauge integral is a direct constant-term extraction whose cost grows with
+the rank and the order. $a$-maximization assumes no accidental symmetries and
+no operators decoupling below the unitarity bound; the necessary SCFT
+conditions are flagged but not proven sufficient.
+
+\section{Code availability}
+
+\toolname{} is open source at \url{https://github.com/xingyang-yu/n1obs}
+% TODO: repository URL + license.
+with a test suite reproducing the validations above.
+
+\printbibliography[heading=bibliography]
+
+\end{document}

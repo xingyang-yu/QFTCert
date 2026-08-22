@@ -1,0 +1,21 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{xy-math}[2025/12/12 Math macros]
+
+\RequirePackage{amsmath,amssymb,amsfonts,mathtools}
+\RequirePackage{braket}
+\RequirePackage{bm}
+
+% Safe “accent” shortcuts: do NOT overwrite \hat, \tilde, \bar
+\newcommand{\what}[1]{\widehat{#1}}
+\newcommand{\wtilde}[1]{\widetilde{#1}}
+\newcommand{\wbar}[1]{\overline{#1}}
+
+% Common sets
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\Z}{\mathbb{Z}}
+
+% Operators
+\DeclareMathOperator{\Tr}{Tr}
+\DeclareMathOperator{\Im}{Im}
+\DeclareMathOperator{\Re}{Re}
